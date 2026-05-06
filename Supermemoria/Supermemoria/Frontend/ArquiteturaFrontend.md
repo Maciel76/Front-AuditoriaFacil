@@ -33,6 +33,8 @@ O bootstrap acontece em frontend/src/main.js. O arquivo registra FontAwesome, cr
 - /login e rota publica para login administrativo e cadastro de loja.
 - /portal e rota publica para o colaborador.
 - / usa AppLayout como casca autenticada e redireciona para /dashboard.
+- /lojas e um catalogo autenticado de lojas visivel para qualquer usuario do app principal.
+- /lojas/:id abre o perfil analitico publico de uma loja especifica para usuarios autenticados.
 - O router bloqueia qualquer rota com meta.auth quando nao ha token do app principal.
 - O router tambem bloqueia acesso a rotas com meta.roles quando o role do usuario nao bate.
 
@@ -121,6 +123,18 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Ao abrir em periodo 1d, aplica o mesmo tipo padrao por dia util usado em relatorios (seg/qui etiqueta, ter presenca, qua ruptura) e faz fallback automatico para todos os tipos quando nao houver dados no tipo sugerido.
 - Ranking de lojas so faz sentido para SUPER_ADMIN.
 
+### Lojas.vue
+
+- Catalogo autenticado de lojas ativas.
+- Consulta GET /lojas/catalogo.
+- Permite buscar por nome, codigo, cidade ou slug e abrir o perfil analitico de qualquer loja.
+
+### LojaPerfil.vue
+
+- Consulta GET /metricas/lojas/:id/perfil.
+- Reutiliza a linguagem de Dashboard e Relatorios para mostrar KPIs, serie de conformidade, distribuicao por tipo, situacoes, classes e corredores criticos, metas por tipo e ultimas auditorias.
+- Exibe o detalhe de auditoria apenas quando o usuario realmente possui acesso ao tenant da loja ou quando e SUPER_ADMIN.
+
 ### Colaboradores.vue
 
 - Busca colaboradores por nome ou matricula.
@@ -149,6 +163,9 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 
 - Consulta dados da loja atual em /lojas/me.
 - Permite editar dados cadastrais e metas da loja via PUT /lojas/:id.
+- Permite enviar avatar da loja via POST /lojas/:id/avatar, sincronizando a foto no estado autenticado do app.
+- O upload do avatar da loja usa recorte previo com Cropper para ajustar enquadramento e posicao antes do envio final.
+- Como o projeto esta em Cropper.js 2.1.1, a exportacao da imagem final e feita pela selecao ativa via $toCanvas, com guia visual circular no modal para facilitar o enquadramento da foto da loja.
 - Lista usuarios em /usuarios.
 - Permite criar usuarios e desativa-los.
 
@@ -156,6 +173,8 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 
 - View exclusiva de super admin.
 - Lista lojas via GET /lojas.
+- Cada card tambem abre o perfil analitico publico da loja correspondente.
+- Os cards usam a foto da loja quando houver avatarUrl, caindo para iniciais quando nao houver imagem.
 - Permite criar via POST /lojas e desativar via DELETE /lojas/:id.
 
 ### ColaboradorPortal.vue
@@ -168,10 +187,10 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Carrega perfil em /colaboradores/portal/me.
 - Carrega metricas em /metricas/portal/me.
 - Faz upload de avatar em /colaboradores/:id/avatar.
+- Exibe avatar da loja na etapa de selecao da unidade e nos resumos de setup/login quando a loja possuir foto configurada.
 - Troca senha em /colaboradores/portal/password.
 - Usa Cropper.js para recorte antes do upload.
 - O grafico historico do portal alterna automaticamente entre colunas e linha conforme a quantidade de pontos no periodo.
-
 
 ## Componentes reutilizados
 
@@ -179,6 +198,9 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - AppChart.vue: wrapper central de Chart.js com defaults por tipo, merge profundo de opcoes, adaptacao ao tema e normalizacao visual de datasets.
 - KpiCard.vue: card curto para metricas numericas.
 - Loader.vue: estado de carregamento.
+- StoreAvatar.vue: renderer reutilizavel do avatar da loja com fallback para iniciais quando nao ha foto.
+- StoreAvatar.vue tambem normaliza URLs relativas de uploads para o host correto da API antes de renderizar a imagem.
+- StoreAvatar.vue usa elemento img real com object-fit cover e fallback para iniciais quando a URL falha, garantindo exibicao consistente do avatar da loja em LojaPerfil, Lojas, Rankings, AdminLojas, AppLayout e portal.
 
 ## Chaves de localStorage confirmadas
 

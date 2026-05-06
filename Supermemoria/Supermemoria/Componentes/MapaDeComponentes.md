@@ -20,6 +20,11 @@
 - Spinner simples para estados de carregamento.
 - E o fallback padrao das views enquanto a API responde.
 
+### StoreAvatar.vue
+
+- Componente visual reutilizavel para representar lojas.
+- Renderiza foto publica da loja quando houver avatarUrl e usa iniciais como fallback.
+
 ### PeriodoSelector.vue
 
 - Controla v-model de periodo.
@@ -65,6 +70,16 @@
 - Implementa podium para as tres primeiras posicoes e lista para as demais.
 - Recebe filtro de tipo e periodo, com transicoes visuais entre estados.
 
+### Lojas.vue
+
+- Catalogo autenticado de lojas ativas.
+- Funciona como diretorio de entrada para os perfis analiticos publicos das lojas.
+
+### LojaPerfil.vue
+
+- Drill-down analitico de uma loja especifica.
+- Reaproveita AppChart, KpiCard e PeriodoSelector para unir leitura executiva do dashboard com recortes operacionais de relatorios.
+
 ### Colaboradores.vue
 
 - Catalogo de colaboradores do tenant.
@@ -84,11 +99,13 @@
 
 - Une dados cadastrais da loja com administracao de usuarios.
 - Funciona como painel administrativo de tenant.
+- Agora concentra tambem o envio da foto publica da loja.
 
 ### AdminLojas.vue
 
 - Catalogo global de lojas.
 - Visivel apenas para super admin.
+- Cada card tambem serve como atalho para o perfil publico autenticado da loja.
 
 ### ColaboradorPortal.vue
 
@@ -109,3 +126,4 @@
 - ColaboradorPortal depende de rotas exclusivas do portal e nao deve reutilizar store auth.
 - Configuracoes depende de /lojas/me e /usuarios.
 - Rankings e Dashboard dependem da integridade de MetricaDiaria.
+- LojaPerfil depende de /metricas/lojas/:id/perfil e combina MetricaDiaria, Auditoria e AuditItem em uma unica tela.

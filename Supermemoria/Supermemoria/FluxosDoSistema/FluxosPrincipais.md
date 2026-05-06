@@ -56,8 +56,9 @@
 
 1. View carrega /api/lojas/me e /api/usuarios.
 2. Usuario edita dados da loja e salva com PUT /api/lojas/:id.
-3. Usuario cria novo usuario com POST /api/usuarios.
-4. Usuario desativa perfis com DELETE /api/usuarios/:id.
+3. Quando desejar, envia a foto publica da loja com POST /api/lojas/:id/avatar.
+4. Usuario cria novo usuario com POST /api/usuarios.
+5. Usuario desativa perfis com DELETE /api/usuarios/:id.
 
 ## Fluxo 8 - Portal do colaborador
 
@@ -105,3 +106,13 @@
 2. Frontend chama POST /api/colaboradores/portal/password.
 3. Backend valida a senha atual e grava novo hash.
 4. Frontend exibe feedback de sucesso ou erro.
+
+## Fluxo 11 - Catalogo e perfil publico de loja
+
+1. Usuario autenticado abre /lojas.
+2. Frontend consulta GET /api/lojas/catalogo para listar lojas ativas com campos publicos.
+3. Usuario escolhe uma loja e navega para /lojas/:id.
+4. Frontend envia GET /api/metricas/lojas/:id/perfil com periodo, tipo e datas custom quando necessario.
+5. Backend agrega MetricaDiaria, AuditItem, Auditoria e Colaborador apenas para a loja solicitada.
+6. Frontend renderiza KPIs, serie de conformidade, distribuicao por tipo, situacoes, destaques por classe e corredor e ultimas auditorias.
+7. Quando o usuario nao tem acesso ao tenant da loja, o perfil continua visivel, mas o link para o detalhe da auditoria permanece restrito.
