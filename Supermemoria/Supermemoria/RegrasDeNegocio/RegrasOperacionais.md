@@ -10,16 +10,17 @@
 
 ### Etiqueta
 
-| Situacao | Conforme | Pontos | Conta para taxa | Conta no total auditavel |
-| --- | --- | --- | --- | --- |
-| Atualizado | true | 1 | Sim | Sim |
-| Desatualizado | false | -1 | Sim | Sim |
-| Lido sem estoque | true | 0.2 | Sim | Sim |
-| Lido nao pertence | false | -0.2 | Sim | Sim |
-| Nao lidos com estoque | false | 0 | Nao | Sim |
-| Sem Estoque | null | 0 | Nao | Nao |
+| Situacao              | Conforme | Pontos | Conta para taxa | Conta no total auditavel |
+| --------------------- | -------- | ------ | --------------- | ------------------------ |
+| Atualizado            | true     | 1      | Sim             | Sim                      |
+| Desatualizado         | false    | -1     | Sim             | Sim                      |
+| Lido sem estoque      | true     | 0.2    | Sim             | Sim                      |
+| Lido nao pertence     | false    | -0.2   | Sim             | Sim                      |
+| Nao lidos com estoque | false    | 0      | Nao             | Sim                      |
+| Sem Estoque           | null     | 0      | Nao             | Nao                      |
 
 **Calculo da taxaConformidade ETIQUETA:**
+
 - `totalLidos` = itens com `conta:true` = Atualizado + Desatualizado + Lido sem estoque + Lido nao pertence (itens fisicamente lidos)
 - `totalItensAuditaveis` = itens com `conforme != null` = totalLidos + Nao lidos com estoque (exclui Sem Estoque)
 - `taxaConformidade` = `totalLidos / totalItensAuditaveis * 100` = **% de cobertura: qual fracao dos itens auditaveis foi efetivamente lida**
@@ -27,29 +28,31 @@
 
 ### Presenca
 
-| Situacao | Conforme | Pontos | Conta para taxa |
-| --- | --- | --- | --- |
-| Com Presenca e com Estoque | true | 1 | Sim |
-| Sem Presenca e Com Estoque | false | -1 | Sim |
-| Com Presenca e sem Estoque | true | 0.3 | Sim |
-| Sem Presenca e Sem Estoque | null | 0 | Nao |
-| Lido nao pertence | false | -0.2 | Sim |
+| Situacao                   | Conforme | Pontos | Conta para taxa |
+| -------------------------- | -------- | ------ | --------------- |
+| Com Presenca e com Estoque | true     | 1      | Sim             |
+| Sem Presenca e Com Estoque | false    | -1     | Sim             |
+| Com Presenca e sem Estoque | true     | 0.3    | Sim             |
+| Sem Presenca e Sem Estoque | null     | 0      | Nao             |
+| Lido nao pertence          | false    | -0.2   | Sim             |
 
 **Calculo da taxaConformidade PRESENCA:**
+
 - `taxaConformidade` = `totalConformes / totalLidos * 100` = % de itens lidos que estao conformes
 - Em KPIs operacionais de produtos n/auditados, PRESENCA deve contar a situacao `Sem Presenca e Com Estoque`; `Sem Presenca e Sem Estoque` nao entra.
 
 ### Ruptura
 
-| Situacao | Conforme | Pontos | Conta para taxa |
-| --- | --- | --- | --- |
-| Sem Presenca e Com Estoque | false | -2 | Sim |
-| Com Presenca e com Estoque | true | 1 | Sim |
-| Com Presenca e sem Estoque | true | 0.3 | Sim |
-| Sem Presenca e Sem Estoque | null | 0 | Nao |
-| Lido nao pertence | false | -0.2 | Sim |
+| Situacao                   | Conforme | Pontos | Conta para taxa |
+| -------------------------- | -------- | ------ | --------------- |
+| Sem Presenca e Com Estoque | false    | -2     | Sim             |
+| Com Presenca e com Estoque | true     | 1      | Sim             |
+| Com Presenca e sem Estoque | true     | 0.3    | Sim             |
+| Sem Presenca e Sem Estoque | null     | 0      | Nao             |
+| Lido nao pertence          | false    | -0.2   | Sim             |
 
 **Calculo da taxaConformidade RUPTURA:**
+
 - `taxaConformidade` = `totalConformes / totalLidos * 100` = % de itens lidos que estao conformes
 - Em KPIs operacionais de produtos n/auditados, RUPTURA deve contar a situacao `Sem Presenca e Com Estoque`; `Sem Presenca e Sem Estoque` nao entra.
 
@@ -84,21 +87,42 @@
 - Essa logica evita duplicidade para reenvios do mesmo dia.
 - No banco, o indice `{ loja, tipo, data }` e unico (garantia em nivel de banco alem da logica de aplicacao).
 - Para o mesmo dia, o ultimo envio sempre vence — inclusive para datas passadas.
+- Se a auditoria dessa chave estiver `CANCELADA`, o reenvio substitui os itens para manter o historico documental, mas as metricas seguem zeradas e nao entram nos acumulados.
+
+## Regra de cancelamento de auditoria
+
+- Apenas `SUPER_ADMIN` pode cancelar auditoria de loja.
+- Cancelar nao apaga a Auditoria; o status passa para `CANCELADA` e o historico continua visivel.
+- Os `AuditItem` da auditoria ficam com `cancelada: true` e sao ignorados por relatorios e agregacoes analiticas.
+- Os registros `MetricaDiaria` da mesma loja, tipo e data sao zerados e marcados como `cancelada: true`.
+- A loja e os colaboradores da loja sao recomputados a partir de `MetricaDiaria` nao cancelada.
+- O ranking de lojas ainda recebe a informacao de cancelamento para mostrar alerta, mas sem somar pontos, itens ou conformidade do dia cancelado.
 
 ## Regra de pontuacao e nivel
 
 - Pontuacao do colaborador e da loja e acumulativa.
 - Nivel = max(1, floor(pontuacao / 500) + 1).
 - Nao ha teto de nivel implementado.
+- No fluxo real do upload, o nivel do colaborador e recalculado antes e depois da avaliacao de conquistas, porque o `xpBonus` de um tier pode elevar o nivel no mesmo processamento.
 
-## Conquistas automaticas
+## Regras atuais de gamificacao
 
-- PRIMEIRA_AUDITORIA quando totalAuditorias >= 1.
-- CEM_LIDOS quando totalItensLidos >= 100.
-- MIL_LIDOS quando totalItensLidos >= 1000.
-- DEZ_MIL_LIDOS quando totalItensLidos >= 10000.
-- CONFORMIDADE_95 quando totalItensLidos >= 200 e taxa acumulada >= 95%.
-- NIVEL_5 quando nivel >= 5.
+- As conquistas nao sao mais hardcoded no runtime principal; elas vivem na colecao `Conquista` e sao geridas por SUPER_ADMIN via `/api/conquistas`.
+- O motor de avaliacao percorre apenas conquistas `ativas` e compara a `metricaBase` atual do colaborador com cada `meta` de tier.
+- Um tier e considerado desbloqueado quando `valor >= meta`.
+- O bonus de XP (`xpBonus`) e concedido apenas para tiers recem-desbloqueados, nunca para tiers que ja estavam em `tiersDesbloqueados`.
+- O estado persistido do colaborador guarda `codigo`, `tierAtual`, `tiersDesbloqueados[]`, `progresso`, `desbloqueadaEm` e `ultimaAtualizacao`.
+- O bootstrap do servidor cria um conjunto padrao de 6 conquistas somente quando a colecao ainda esta vazia.
+
+### Observacoes importantes da implementacao atual
+
+- O campo `recorrente` existe no cadastro e na UI administrativa, mas hoje nao altera o algoritmo de avaliacao; ele funciona como semantica de configuracao e exibicao.
+- O campo `cor` e salvo na definicao da conquista, mas o portal usa as cores fixas de tier (`TIER_INFO`) para renderizacao principal.
+- O motor atual nao interpreta regras extras descritas apenas no texto da conquista; a avaliacao real usa somente a metrica base e as metas dos tiers.
+- Nao existe recalculo historico automatico em massa quando uma conquista e criada ou alterada.
+- `POST /api/conquistas/:id/recalcular` atualmente invalida cache, mas nao reavalia todos os colaboradores.
+
+> Documentacao detalhada: [[Gamificacao/Bem-vindo]]
 
 ## Regras de multi-tenant
 
@@ -118,7 +142,7 @@
 ## Regra de avatar
 
 - O portal permite recortar a imagem antes do upload.
-- O backend aceita apenas arquivos image/* ate 5 MB.
+- O backend aceita apenas arquivos image/\* ate 5 MB.
 - Ao salvar novo avatar, o arquivo antigo do colaborador e removido do disco quando existe.
 
 ## Regra de periodos analiticos
@@ -131,6 +155,7 @@
 - Ranking de colaboradores agrega MetricaDiaria por colaborador.
 - Ranking de lojas agrega MetricaDiaria consolidada com colaborador null.
 - Ordenacao principal por pontuacao desc.
+- Ranking de lojas tambem expõe `auditoriasCanceladas` para sinalizar auditorias neutralizadas no periodo.
 
 ## Regra de configuracoes administrativas
 

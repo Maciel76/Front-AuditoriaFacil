@@ -11,10 +11,19 @@
  * de itens lidos por dia e um carrossel de conquistas em destaque.
  */
 import Cropper from "cropperjs";
-import { ref, computed, nextTick, onBeforeUnmount, onMounted, defineComponent, h } from "vue";
+import {
+  ref,
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  defineComponent,
+  h,
+} from "vue";
 import { useRoute } from "vue-router";
 import api from "@/services/api";
 import AppChart from "@/components/AppChart.vue";
+import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
 import StoreAvatar from "@/components/StoreAvatar.vue";
 
 const route = useRoute();
@@ -48,6 +57,7 @@ const enviandoAvatar = ref(false);
 const cropperImage = ref("");
 const cropperAberto = ref(false);
 const cropperImageRef = ref(null);
+const cropperStageRef = ref(null);
 const cropperNomeArquivo = ref("");
 const alterandoSenha = ref(false);
 const senhaAtualConta = ref("");
@@ -58,6 +68,36 @@ const sucessoConfig = ref("");
 
 let cropper;
 let temaAnterior = "";
+
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+
+const CROP_TEMPLATE = `
+  <cropper-canvas background>
+    <cropper-image scalable translatable></cropper-image>
+    <cropper-shade hidden></cropper-shade>
+    <cropper-handle action="select" plain></cropper-handle>
+    <cropper-selection
+      initial-coverage="0.74"
+      initial-aspect-ratio="1"
+      aspect-ratio="1"
+      movable
+      resizable
+      precise
+      outlined
+    >
+      <cropper-grid role="grid" covered></cropper-grid>
+      <cropper-crosshair centered></cropper-crosshair>
+      <cropper-handle
+        action="move"
+        theme-color="rgba(255, 255, 255, 0.28)"
+      ></cropper-handle>
+      <cropper-handle action="ne-resize"></cropper-handle>
+      <cropper-handle action="nw-resize"></cropper-handle>
+      <cropper-handle action="se-resize"></cropper-handle>
+      <cropper-handle action="sw-resize"></cropper-handle>
+    </cropper-selection>
+  </cropper-canvas>
+`;
 
 const TIER_INFO = {
   comum: { label: "Comum", cor: "#94a3b8" },
@@ -99,64 +139,97 @@ const ConquistaCard = defineComponent({
         c.desbloqueada ? "" : "locked",
         props.compact ? "compact" : "",
         "tier-" + (c.tierAtual || "locked"),
-      ].filter(Boolean).join(" ");
+      ]
+        .filter(Boolean)
+        .join(" ");
 
-      return h("div", {
-        class: cls,
-        style: { "--tier-cor": tierCor },
-      }, [
-        h("div", { class: "conq-card-bg" }),
-        h("div", { class: "conq-card-icon" }, [
-          c.desbloqueada
-            ? c.icone
-            : h("i", { class: "fa-solid fa-lock" }),
-        ]),
-        h("div", { class: "conq-card-body" }, [
-          c.tierAtual
-            ? h("div", { class: "conq-card-tier" }, [
-                h("span", { class: "conq-tier-dot", style: { background: tierCor } }),
-                c.tierAtualLabel,
-              ])
-            : h("div", { class: "conq-card-tier locked-label" }, [
-                h("i", { class: "fa-solid fa-lock" }),
-                " Bloqueada",
-              ]),
-          h("strong", { class: "conq-card-nome" }, c.nome),
-          props.compact ? null : h("p", { class: "muted conq-card-desc" }, c.descricao || ""),
-          c.proximoTier
-            ? h("div", { class: "conq-progress" }, [
-                h("div", { class: "conq-progress-head" }, [
-                  h("span", { class: "muted" }, [
-                    "Próx.: ",
-                    h("strong", c.proximoTier.label),
-                  ]),
-                  h("span", { class: "conq-progress-meta" },
-                    `${Number(c.progresso).toLocaleString("pt-BR")} / ${Number(c.proximoTier.meta).toLocaleString("pt-BR")}`),
-                ]),
-                h("div", { class: "progress conq-bar" }, [
-                  h("span", { style: { width: c.progressoPct + "%", background: c.proximoTier.cor } }),
-                ]),
-              ])
-            : h("div", { class: "conq-progress-max" }, [
-                h("i", { class: "fa-solid fa-medal" }),
-                " Tier máximo alcançado!",
-              ]),
-          props.compact || !c.tiers?.length
-            ? null
-            : h("div", { class: "conq-tiers" },
-                c.tiers.map((t) =>
+      return h(
+        "div",
+        {
+          class: cls,
+          style: { "--tier-cor": tierCor },
+        },
+        [
+          h("div", { class: "conq-card-bg" }),
+          h("div", { class: "conq-card-icon" }, [
+            c.desbloqueada ? c.icone : h("i", { class: "fa-solid fa-lock" }),
+          ]),
+          h("div", { class: "conq-card-body" }, [
+            c.tierAtual
+              ? h("div", { class: "conq-card-tier" }, [
                   h("span", {
-                    key: t.nivel,
-                    class: ["conq-tier-pill", t.desbloqueado ? "unlocked" : ""],
-                    style: t.desbloqueado ? { borderColor: t.cor, color: t.cor } : {},
-                    title: `${t.titulo || ""} · meta ${t.meta}`,
-                  }, [
-                    h("i", { class: t.desbloqueado ? "fa-solid fa-check" : "fa-solid fa-lock" }),
-                    " " + t.label,
-                  ])),
-              ),
-        ]),
-      ]);
+                    class: "conq-tier-dot",
+                    style: { background: tierCor },
+                  }),
+                  c.tierAtualLabel,
+                ])
+              : h("div", { class: "conq-card-tier locked-label" }, [
+                  h("i", { class: "fa-solid fa-lock" }),
+                  " Bloqueada",
+                ]),
+            h("strong", { class: "conq-card-nome" }, c.nome),
+            props.compact
+              ? null
+              : h("p", { class: "muted conq-card-desc" }, c.descricao || ""),
+            c.proximoTier
+              ? h("div", { class: "conq-progress" }, [
+                  h("div", { class: "conq-progress-head" }, [
+                    h("span", { class: "muted" }, [
+                      "Próx.: ",
+                      h("strong", c.proximoTier.label),
+                    ]),
+                    h(
+                      "span",
+                      { class: "conq-progress-meta" },
+                      `${Number(c.progresso).toLocaleString("pt-BR")} / ${Number(c.proximoTier.meta).toLocaleString("pt-BR")}`,
+                    ),
+                  ]),
+                  h("div", { class: "progress conq-bar" }, [
+                    h("span", {
+                      style: {
+                        width: c.progressoPct + "%",
+                        background: c.proximoTier.cor,
+                      },
+                    }),
+                  ]),
+                ])
+              : h("div", { class: "conq-progress-max" }, [
+                  h("i", { class: "fa-solid fa-medal" }),
+                  " Tier máximo alcançado!",
+                ]),
+            props.compact || !c.tiers?.length
+              ? null
+              : h(
+                  "div",
+                  { class: "conq-tiers" },
+                  c.tiers.map((t) =>
+                    h(
+                      "span",
+                      {
+                        key: t.nivel,
+                        class: [
+                          "conq-tier-pill",
+                          t.desbloqueado ? "unlocked" : "",
+                        ],
+                        style: t.desbloqueado
+                          ? { borderColor: t.cor, color: t.cor }
+                          : {},
+                        title: `${t.titulo || ""} · meta ${t.meta}`,
+                      },
+                      [
+                        h("i", {
+                          class: t.desbloqueado
+                            ? "fa-solid fa-check"
+                            : "fa-solid fa-lock",
+                        }),
+                        " " + t.label,
+                      ],
+                    ),
+                  ),
+                ),
+          ]),
+        ],
+      );
     };
   },
 });
@@ -376,17 +449,25 @@ async function iniciarCropper() {
   await nextTick();
   if (!cropperImageRef.value) return;
   if (cropper) cropper.destroy();
+
   cropper = new Cropper(cropperImageRef.value, {
-    aspectRatio: 1,
-    viewMode: 1,
-    dragMode: "move",
-    autoCropArea: 0.92,
-    background: false,
-    guides: false,
-    center: true,
-    highlight: false,
-    responsive: true,
+    container: cropperStageRef.value || undefined,
+    template: CROP_TEMPLATE,
   });
+
+  await nextTick();
+
+  const selection = cropper.getCropperSelection();
+  if (selection) {
+    selection.aspectRatio = 1;
+    selection.initialAspectRatio = 1;
+    selection.initialCoverage = 0.74;
+    selection.movable = true;
+    selection.resizable = true;
+    selection.precise = true;
+    selection.$reset();
+    selection.$center();
+  }
 }
 
 function fecharCropper() {
@@ -396,13 +477,26 @@ function fecharCropper() {
 }
 
 function resetarCropper() {
-  cropper?.reset();
+  const selection = cropper?.getCropperSelection();
+  selection?.$reset();
+  selection?.$center();
 }
 
 async function enviarAvatar(e) {
   const file = e.target.files?.[0];
   e.target.value = "";
   if (!file || !perfil.value) return;
+
+  if (!file.type.startsWith("image/")) {
+    erroConfig.value = "Selecione apenas um arquivo de imagem.";
+    return;
+  }
+
+  if (file.size > MAX_AVATAR_BYTES) {
+    erroConfig.value = "A foto deve ter no máximo 5 MB.";
+    return;
+  }
+
   limparMensagensConfig();
   cropperNomeArquivo.value = file.name;
   cropperImage.value = URL.createObjectURL(file);
@@ -415,24 +509,39 @@ async function confirmarCropAvatar() {
   limparMensagensConfig();
   enviandoAvatar.value = true;
   try {
-    const canvas = cropper.getCroppedCanvas({
-      width: 640,
-      height: 640,
-      fillColor: "#ffffff",
-      imageSmoothingEnabled: true,
-      imageSmoothingQuality: "high",
+    const selection = cropper.getCropperSelection();
+    if (!selection) throw new Error("Área de corte indisponível");
+
+    const canvas = await selection.$toCanvas({
+      width: 720,
+      height: 720,
+      beforeDraw(context, targetCanvas) {
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = "high";
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+      },
     });
-    const blob = await new Promise((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.92),
-    );
-    if (!blob) throw new Error("Não foi possível recortar a imagem");
+
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (arquivo) => {
+          if (arquivo) {
+            resolve(arquivo);
+            return;
+          }
+          reject(new Error("Não foi possível gerar a imagem final"));
+        },
+        "image/jpeg",
+        0.92,
+      );
+    });
+
+    if (!blob) throw new Error("Não foi possível processar a imagem");
+
     const fd = new FormData();
-    fd.append(
-      "avatar",
-      new File([blob], `avatar-${perfil.value._id}.jpg`, {
-        type: "image/jpeg",
-      }),
-    );
+    fd.append("avatar", blob, `colaborador-${perfil.value._id}.jpg`);
+
     const res = await apiPortal().post(
       `/colaboradores/${perfil.value._id}/avatar`,
       fd,
@@ -480,11 +589,6 @@ async function alterarSenhaConta() {
     alterandoSenha.value = false;
   }
 }
-
-const iniciais = computed(() => {
-  const n = perfil.value?.nome || "?";
-  return n.split(" ").slice(0, 2).map((s) => s[0]).join("");
-});
 
 const resumoLojaSelecionada = computed(() => {
   if (!lojaSelecionada.value) return "";
@@ -542,7 +646,9 @@ const conquistasDestaque = computed(() =>
     .slice()
     .sort((a, b) => {
       if (a.desbloqueada !== b.desbloqueada) return a.desbloqueada ? -1 : 1;
-      return (b.totalTiersDesbloqueados || 0) - (a.totalTiersDesbloqueados || 0);
+      return (
+        (b.totalTiersDesbloqueados || 0) - (a.totalTiersDesbloqueados || 0)
+      );
     })
     .slice(0, 4),
 );
@@ -560,7 +666,9 @@ const serieChart = computed(() => {
     labels: dias.map((d) => d.slice(5)),
     datasets: tipos.map((t) => {
       const map = new Map();
-      m.serie.filter((x) => x._id.tipo === t).forEach((x) => map.set(x._id.dia, x.totalLidos));
+      m.serie
+        .filter((x) => x._id.tipo === t)
+        .forEach((x) => map.set(x._id.dia, x.totalLidos));
       if (serieComoColunas.value) {
         return {
           label: t,
@@ -686,8 +794,8 @@ onBeforeUnmount(() => {
       <h2 class="auth-title">Escolha a loja</h2>
       <p class="auth-sub">
         {{ primeiroNome }}, encontramos {{ lojasDisponiveis.length }}
-        {{ lojasDisponiveis.length === 1 ? "loja" : "lojas" }} para a
-        matrícula {{ matricula }}.
+        {{ lojasDisponiveis.length === 1 ? "loja" : "lojas" }} para a matrícula
+        {{ matricula }}.
       </p>
       <div class="store-options">
         <button
@@ -737,10 +845,7 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Setup / Login -->
-    <div
-      v-else-if="etapa === 'setup' || etapa === 'login'"
-      class="portal-card"
-    >
+    <div v-else-if="etapa === 'setup' || etapa === 'login'" class="portal-card">
       <div v-if="lojaSelecionada" class="selected-store">
         <div class="selected-store-chip">
           <StoreAvatar
@@ -769,9 +874,7 @@ onBeforeUnmount(() => {
       <div class="grid gap-3">
         <div class="field">
           <label>{{
-            etapa === "setup"
-              ? "Nova senha (mínimo 6 caracteres)"
-              : "Senha"
+            etapa === "setup" ? "Nova senha (mínimo 6 caracteres)" : "Senha"
           }}</label>
           <input
             type="password"
@@ -805,9 +908,7 @@ onBeforeUnmount(() => {
             "
             :spin="carregando"
           />
-          {{
-            etapa === "setup" ? "Definir senha e entrar" : "Entrar"
-          }}
+          {{ etapa === "setup" ? "Definir senha e entrar" : "Entrar" }}
         </button>
         <button class="btn ghost full-w" @click="voltarParaSelecao">
           Trocar loja
@@ -820,18 +921,18 @@ onBeforeUnmount(() => {
       <header class="app-topbar">
         <div class="topbar-left">
           <div class="topbar-avatar" @click="abrirAvatar">
-            <img
-              v-if="perfil.avatarUrl"
-              :src="perfil.avatarUrl"
-              alt="foto"
+            <ColaboradorAvatar
+              :nome="perfil.nome"
+              :avatar-url="perfil.avatarUrl"
+              :size="44"
+              :font-size="16"
             />
-            <span v-else>{{ iniciais }}</span>
             <div class="avatar-edit"><fa icon="camera" /></div>
           </div>
           <input
             ref="avatarInput"
             type="file"
-            accept="image/*"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
             hidden
             @change="enviarAvatar"
           />
@@ -860,9 +961,7 @@ onBeforeUnmount(() => {
                 <span v-if="perfil.cargo"> · {{ perfil.cargo }}</span>
               </div>
               <div class="xp-row">
-                <span class="xp-pts"
-                  >{{ formatNum(perfil.pontuacao) }} XP</span
-                >
+                <span class="xp-pts">{{ formatNum(perfil.pontuacao) }} XP</span>
                 <span class="muted xp-target"
                   >Próx.: {{ formatNum(pontuacaoProxNivel) }}</span
                 >
@@ -910,8 +1009,7 @@ onBeforeUnmount(() => {
             <small class="muted">conformidade</small>
             <div class="kpi-foot">
               <span
-                ><fa icon="boxes-stacked" />
-                {{ formatNum(t.totalLidos) }}</span
+                ><fa icon="boxes-stacked" /> {{ formatNum(t.totalLidos) }}</span
               >
               <span><fa icon="bolt" /> {{ Math.round(t.pontuacao) }}</span>
             </div>
@@ -920,13 +1018,8 @@ onBeforeUnmount(() => {
 
         <section class="card destaque-conquistas">
           <div class="row justify-between items-center mb-2">
-            <h3 class="section-title">
-              <fa icon="trophy" /> Conquistas
-            </h3>
-            <button
-              class="btn ghost small"
-              @click="abaAtiva = 'conquistas'"
-            >
+            <h3 class="section-title"><fa icon="trophy" /> Conquistas</h3>
+            <button class="btn ghost small" @click="abaAtiva = 'conquistas'">
               Ver todas <fa icon="chevron-right" />
             </button>
           </div>
@@ -966,10 +1059,7 @@ onBeforeUnmount(() => {
       </main>
 
       <!-- ABA CONQUISTAS -->
-      <main
-        v-else-if="abaAtiva === 'conquistas'"
-        class="app-content"
-      >
+      <main v-else-if="abaAtiva === 'conquistas'" class="app-content">
         <section class="card conquistas-summary">
           <div class="conq-summary-num">
             <fa icon="trophy" class="conq-summary-ico" />
@@ -982,8 +1072,8 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <p class="muted conq-summary-help">
-            Cada conquista evolui em até 5 tiers — Comum, Raro, Épico,
-            Lendário e Mítico. Continue auditando para ganhar XP bônus!
+            Cada conquista evolui em até 5 tiers — Comum, Raro, Épico, Lendário
+            e Mítico. Continue auditando para ganhar XP bônus!
           </p>
         </section>
 
@@ -1037,30 +1127,20 @@ onBeforeUnmount(() => {
       </main>
 
       <!-- ABA CORREDORES -->
-      <main
-        v-else-if="abaAtiva === 'corredores'"
-        class="app-content"
-      >
+      <main v-else-if="abaAtiva === 'corredores'" class="app-content">
         <section class="card">
           <h3 class="section-title">
             <fa icon="boxes-stacked" /> Seus corredores
           </h3>
-          <p
-            class="muted"
-            style="font-size: 13px; margin: 4px 0 12px"
-          >
-            Onde você atuou nas auditorias. As cores indicam o tipo de
-            auditoria realizado.
+          <p class="muted" style="font-size: 13px; margin: 4px 0 12px">
+            Onde você atuou nas auditorias. As cores indicam o tipo de auditoria
+            realizado.
           </p>
           <div v-if="!corredoresTop.length" class="empty mini">
             Nenhum corredor registrado ainda.
           </div>
           <div v-else class="corredores-list">
-            <div
-              v-for="c in corredoresTop"
-              :key="c.local"
-              class="corredor-row"
-            >
+            <div v-for="c in corredoresTop" :key="c.local" class="corredor-row">
               <div class="corredor-info">
                 <strong>{{ c.local }}</strong>
                 <div class="corredor-tipos">
@@ -1076,9 +1156,7 @@ onBeforeUnmount(() => {
               </div>
               <div class="corredor-stats">
                 <strong>{{ formatNum(c.totalLidos) }}</strong>
-                <small class="muted"
-                  >{{ c.taxaConformidade }}% conf.</small
-                >
+                <small class="muted">{{ c.taxaConformidade }}% conf.</small>
               </div>
             </div>
           </div>
@@ -1086,22 +1164,17 @@ onBeforeUnmount(() => {
       </main>
 
       <!-- ABA CONFIGURAÇÕES -->
-      <main
-        v-else-if="abaAtiva === 'configuracoes'"
-        class="app-content"
-      >
+      <main v-else-if="abaAtiva === 'configuracoes'" class="app-content">
         <section class="card">
-          <h3 class="section-title">
-            <fa icon="user-circle" /> Sua conta
-          </h3>
+          <h3 class="section-title"><fa icon="user-circle" /> Sua conta</h3>
           <div class="config-account">
             <div class="config-avatar" @click="abrirAvatar">
-              <img
-                v-if="perfil.avatarUrl"
-                :src="perfil.avatarUrl"
-                alt="foto"
+              <ColaboradorAvatar
+                :nome="perfil.nome"
+                :avatar-url="perfil.avatarUrl"
+                :size="72"
+                :font-size="22"
               />
-              <span v-else>{{ iniciais }}</span>
               <div class="avatar-edit"><fa icon="camera" /></div>
             </div>
             <div>
@@ -1118,9 +1191,7 @@ onBeforeUnmount(() => {
         </section>
 
         <section class="card">
-          <h3 class="section-title">
-            <fa icon="sun" /> Tema do portal
-          </h3>
+          <h3 class="section-title"><fa icon="sun" /> Tema do portal</h3>
           <div class="theme-toggle-group">
             <button
               class="theme-toggle"
@@ -1237,45 +1308,50 @@ onBeforeUnmount(() => {
         @click.self="fecharCropper"
       >
         <div class="crop-dialog">
-          <div class="row justify-between items-center mb-2">
+          <div class="row config-crop-head mb-2">
             <div>
               <h3 class="mt-0 mb-0">Ajustar foto do perfil</h3>
               <p class="muted crop-copy">
-                Arraste a imagem e defina o enquadramento.
+                Use o círculo como guia principal do enquadramento para manter o
+                avatar padronizado.
               </p>
             </div>
             <button class="btn ghost" @click="fecharCropper">
-              <fa icon="xmark" />
+              <fa icon="xmark" /> Fechar
             </button>
           </div>
-          <div class="crop-stage">
+
+          <div ref="cropperStageRef" class="crop-stage">
             <img
               ref="cropperImageRef"
               :src="cropperImage"
-              :alt="cropperNomeArquivo || 'Prévia'"
+              :alt="cropperNomeArquivo || 'Prévia do avatar do colaborador'"
               class="crop-image"
             />
           </div>
-          <div class="row justify-between items-center crop-footer">
+
+          <p class="muted crop-tip">
+            Arraste a foto até centralizar o rosto dentro do círculo antes de
+            salvar.
+          </p>
+
+          <div class="row crop-footer">
             <button class="btn ghost" @click="resetarCropper">
-              Reiniciar
+              Reiniciar corte
             </button>
-            <div class="row gap-2">
-              <button class="btn ghost" @click="fecharCropper">
-                Cancelar
-              </button>
-              <button
-                class="btn primary"
-                :disabled="enviandoAvatar"
-                @click="confirmarCropAvatar"
-              >
-                <fa
-                  :icon="enviandoAvatar ? 'spinner' : 'check'"
-                  :spin="enviandoAvatar"
-                />
-                Salvar foto
-              </button>
-            </div>
+            <span class="spacer" />
+            <button class="btn ghost" @click="fecharCropper">Cancelar</button>
+            <button
+              class="btn primary"
+              :disabled="enviandoAvatar"
+              @click="confirmarCropAvatar"
+            >
+              <fa
+                :icon="enviandoAvatar ? 'spinner' : 'check'"
+                :spin="enviandoAvatar"
+              />
+              {{ enviandoAvatar ? "Salvando foto..." : "Salvar foto" }}
+            </button>
           </div>
         </div>
       </div>
@@ -1287,8 +1363,16 @@ onBeforeUnmount(() => {
 .portal-shell {
   min-height: 100vh;
   background:
-    radial-gradient(900px 600px at 5% -5%, rgba(124, 92, 255, 0.18), transparent 60%),
-    radial-gradient(800px 600px at 100% 15%, rgba(34, 211, 238, 0.12), transparent 60%),
+    radial-gradient(
+      900px 600px at 5% -5%,
+      rgba(124, 92, 255, 0.18),
+      transparent 60%
+    ),
+    radial-gradient(
+      800px 600px at 100% 15%,
+      rgba(34, 211, 238, 0.12),
+      transparent 60%
+    ),
     var(--bg-0);
   font-family: var(--font-sans);
   padding-bottom: env(safe-area-inset-bottom);
@@ -1306,7 +1390,11 @@ onBeforeUnmount(() => {
   top: 0;
   z-index: 10;
 }
-.portal-brand { display: flex; align-items: center; gap: 12px; }
+.portal-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .brand-mark {
   width: 36px;
   height: 36px;
@@ -1325,7 +1413,10 @@ onBeforeUnmount(() => {
   font-size: 28px;
   margin: 0 auto;
 }
-.brand-name { font-weight: 700; color: var(--text); }
+.brand-name {
+  font-weight: 700;
+  color: var(--text);
+}
 .brand-name small {
   display: block;
   font-size: 11px;
@@ -1342,19 +1433,42 @@ onBeforeUnmount(() => {
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(10px);
 }
-.portal-card-wide { max-width: 560px; }
-.auth-title { text-align: center; margin: 0 0 6px; font-size: 22px; }
-.auth-title-small { margin: 0 0 4px; font-size: 20px; }
+.portal-card-wide {
+  max-width: 560px;
+}
+.auth-title {
+  text-align: center;
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+.auth-title-small {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
 .auth-sub {
   text-align: center;
   font-size: 14px;
   color: var(--text-dim);
   margin: 0 0 20px;
 }
-.full-w { width: 100%; justify-content: center; }
-.selected-store { display: grid; gap: 8px; margin-bottom: 18px; }
-.selected-store-chip { display: inline-flex; align-items: center; gap: 8px; }
-.store-options { display: grid; gap: 10px; }
+.full-w {
+  width: 100%;
+  justify-content: center;
+}
+.selected-store {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.selected-store-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.store-options {
+  display: grid;
+  gap: 10px;
+}
 .store-option {
   width: 100%;
   display: flex;
@@ -1367,12 +1481,29 @@ onBeforeUnmount(() => {
   background: var(--surface);
   color: var(--text);
 }
-.store-option:hover { border-color: var(--border-strong); }
-.store-option.preferred { border-color: rgba(124, 92, 255, 0.32); }
-.store-option-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.store-option-icon { flex-shrink: 0; }
-.store-option-copy { display: grid; gap: 2px; text-align: left; }
-.store-option-copy strong { font-size: 14px; }
+.store-option:hover {
+  border-color: var(--border-strong);
+}
+.store-option.preferred {
+  border-color: rgba(124, 92, 255, 0.32);
+}
+.store-option-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.store-option-icon {
+  flex-shrink: 0;
+}
+.store-option-copy {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+.store-option-copy strong {
+  font-size: 14px;
+}
 
 .portal-app {
   max-width: 560px;
@@ -1393,36 +1524,45 @@ onBeforeUnmount(() => {
   background: linear-gradient(180deg, var(--bg-0) 70%, transparent);
   backdrop-filter: blur(8px);
 }
-.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .topbar-avatar {
   position: relative;
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: var(--grad-primary);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-weight: 700;
   overflow: hidden;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(124, 92, 255, 0.3);
 }
-.topbar-avatar img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.topbar-greet {
+  display: grid;
+  line-height: 1.2;
 }
-.topbar-greet { display: grid; line-height: 1.2; }
-.topbar-greet strong { font-size: 15px; }
-.icon-btn { padding: 10px 12px; }
+.topbar-greet strong {
+  font-size: 15px;
+}
+.icon-btn {
+  padding: 10px 12px;
+}
 
-.app-content { display: grid; gap: 14px; padding: 4px 16px 20px; }
+.app-content {
+  display: grid;
+  gap: 14px;
+  padding: 4px 16px 20px;
+}
 
-.nivel-card { padding: 18px; }
-.nivel-card-head { display: flex; gap: 14px; align-items: center; }
+.nivel-card {
+  padding: 18px;
+}
+.nivel-card-head {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
 .nivel-emblema {
   flex-shrink: 0;
   width: 80px;
@@ -1435,25 +1575,45 @@ onBeforeUnmount(() => {
   text-align: center;
   box-shadow: 0 12px 28px rgba(124, 92, 255, 0.38);
 }
-.nivel-num { font-size: 30px; font-weight: 800; line-height: 1; }
+.nivel-num {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+}
 .nivel-emblema small {
   font-size: 10px;
   opacity: 0.85;
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
-.nivel-info { flex: 1; min-width: 0; }
-.nivel-info .nome { margin: 0; font-size: 17px; }
-.nome-sub { font-size: 12px; margin: 2px 0 8px; }
+.nivel-info {
+  flex: 1;
+  min-width: 0;
+}
+.nivel-info .nome {
+  margin: 0;
+  font-size: 17px;
+}
+.nome-sub {
+  font-size: 12px;
+  margin: 2px 0 8px;
+}
 .xp-row {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
   margin-bottom: 4px;
 }
-.xp-pts { font-weight: 700; color: var(--text); }
-.xp-target { font-size: 11px; }
-.xp-bar { height: 8px; }
+.xp-pts {
+  font-weight: 700;
+  color: var(--text);
+}
+.xp-target {
+  font-size: 11px;
+}
+.xp-bar {
+  height: 8px;
+}
 .nivel-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1462,17 +1622,32 @@ onBeforeUnmount(() => {
   padding-top: 14px;
   border-top: 1px solid var(--border);
 }
-.nivel-stats > div { display: grid; }
-.nivel-stats strong { font-size: 17px; }
-.nivel-stats small { font-size: 11px; }
+.nivel-stats > div {
+  display: grid;
+}
+.nivel-stats strong {
+  font-size: 17px;
+}
+.nivel-stats small {
+  font-size: 11px;
+}
 
 .kpis-tipos {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
 }
-.kpi-tipo { padding: 14px; border-top: 3px solid; display: grid; gap: 4px; }
-.kpi-valor { font-size: 22px; font-weight: 800; line-height: 1; }
+.kpi-tipo {
+  padding: 14px;
+  border-top: 3px solid;
+  display: grid;
+  gap: 4px;
+}
+.kpi-valor {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
 .kpi-foot {
   display: flex;
   justify-content: space-between;
@@ -1480,11 +1655,24 @@ onBeforeUnmount(() => {
   color: var(--text-dim);
   margin-top: 6px;
 }
-.kpi-foot span { display: inline-flex; gap: 4px; align-items: center; }
+.kpi-foot span {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
 
-.destaque-conquistas { padding: 16px; }
-.btn.small { padding: 4px 10px; font-size: 12px; }
-.destaque-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.destaque-conquistas {
+  padding: 16px;
+}
+.btn.small {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.destaque-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
 
 .empty.mini {
   padding: 20px;
@@ -1492,7 +1680,11 @@ onBeforeUnmount(() => {
   color: var(--text-dim);
   font-size: 13px;
 }
-.empty.card { padding: 24px; text-align: center; color: var(--text-dim); }
+.empty.card {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-dim);
+}
 
 .conquistas-summary {
   display: flex;
@@ -1500,13 +1692,32 @@ onBeforeUnmount(() => {
   gap: 8px;
   padding: 16px;
 }
-.conq-summary-num { display: flex; align-items: center; gap: 14px; }
-.conq-summary-ico { font-size: 28px; color: #f59e0b; }
-.conq-summary-num strong { font-size: 20px; line-height: 1; }
-.conq-summary-num small { display: block; font-size: 11px; }
-.conq-summary-help { font-size: 12px; margin: 0; }
+.conq-summary-num {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.conq-summary-ico {
+  font-size: 28px;
+  color: #f59e0b;
+}
+.conq-summary-num strong {
+  font-size: 20px;
+  line-height: 1;
+}
+.conq-summary-num small {
+  display: block;
+  font-size: 11px;
+}
+.conq-summary-help {
+  font-size: 12px;
+  margin: 0;
+}
 
-.conq-filters { display: grid; gap: 8px; }
+.conq-filters {
+  display: grid;
+  gap: 8px;
+}
 .chip-row {
   display: flex;
   gap: 6px;
@@ -1514,7 +1725,9 @@ onBeforeUnmount(() => {
   padding-bottom: 4px;
   scrollbar-width: none;
 }
-.chip-row::-webkit-scrollbar { display: none; }
+.chip-row::-webkit-scrollbar {
+  display: none;
+}
 .chip {
   flex-shrink: 0;
   padding: 7px 14px;
@@ -1531,12 +1744,23 @@ onBeforeUnmount(() => {
 }
 .chip.active {
   border-color: rgba(124, 92, 255, 0.5);
-  background: linear-gradient(135deg, rgba(124, 92, 255, 0.18), rgba(34, 211, 238, 0.1));
+  background: linear-gradient(
+    135deg,
+    rgba(124, 92, 255, 0.18),
+    rgba(34, 211, 238, 0.1)
+  );
 }
 
-.conq-grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+.conq-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+}
 
-.corredores-list { display: grid; gap: 8px; }
+.corredores-list {
+  display: grid;
+  gap: 8px;
+}
 .corredor-row {
   display: flex;
   justify-content: space-between;
@@ -1546,28 +1770,38 @@ onBeforeUnmount(() => {
   border-radius: 14px;
   background: var(--surface);
 }
-.corredor-info { display: grid; gap: 6px; min-width: 0; }
-.corredor-tipos { display: flex; flex-wrap: wrap; gap: 4px; }
-.corredor-stats { text-align: right; }
-.corredor-stats strong { display: block; font-size: 16px; }
+.corredor-info {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.corredor-tipos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.corredor-stats {
+  text-align: right;
+}
+.corredor-stats strong {
+  display: block;
+  font-size: 16px;
+}
 
-.config-account { display: flex; gap: 14px; align-items: center; }
+.config-account {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
 .config-avatar {
   position: relative;
   width: 72px;
   height: 72px;
   border-radius: 22px;
   overflow: hidden;
-  background: var(--grad-primary);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-size: 22px;
-  font-weight: 700;
   cursor: pointer;
   flex-shrink: 0;
 }
-.config-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .avatar-edit {
   position: absolute;
   bottom: 0;
@@ -1582,7 +1816,10 @@ onBeforeUnmount(() => {
   color: #fff;
   border: 2px solid var(--bg-0);
 }
-.theme-toggle-group { display: flex; gap: 10px; }
+.theme-toggle-group {
+  display: flex;
+  gap: 10px;
+}
 .theme-toggle {
   flex: 1;
   display: inline-flex;
@@ -1598,9 +1835,15 @@ onBeforeUnmount(() => {
 }
 .theme-toggle.active {
   border-color: rgba(124, 92, 255, 0.35);
-  background: linear-gradient(180deg, rgba(124, 92, 255, 0.18), rgba(34, 211, 238, 0.08));
+  background: linear-gradient(
+    180deg,
+    rgba(124, 92, 255, 0.18),
+    rgba(34, 211, 238, 0.08)
+  );
 }
-.btn.danger { color: #ef4444; }
+.btn.danger {
+  color: #ef4444;
+}
 
 .bottom-nav {
   position: fixed;
@@ -1628,10 +1871,16 @@ onBeforeUnmount(() => {
   border-radius: 14px;
   cursor: pointer;
 }
-.nav-btn :deep(svg) { font-size: 18px; }
+.nav-btn :deep(svg) {
+  font-size: 18px;
+}
 .nav-btn.active {
   color: var(--text);
-  background: linear-gradient(180deg, rgba(124, 92, 255, 0.22), rgba(34, 211, 238, 0.1));
+  background: linear-gradient(
+    180deg,
+    rgba(124, 92, 255, 0.22),
+    rgba(34, 211, 238, 0.1)
+  );
   box-shadow: inset 0 0 0 1px rgba(124, 92, 255, 0.25);
 }
 
@@ -1653,36 +1902,125 @@ onBeforeUnmount(() => {
   padding: 22px;
   box-shadow: var(--shadow-lg);
 }
-.crop-copy { margin: 6px 0 0; font-size: 13px; }
+.crop-copy {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
 .crop-stage {
   margin-top: 12px;
-  min-height: 360px;
+  min-height: 420px;
   max-height: 62vh;
   overflow: hidden;
-  border-radius: 18px;
+  border-radius: 26px;
   border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.28);
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 42%),
+    linear-gradient(180deg, rgba(13, 19, 31, 0.96), rgba(7, 10, 18, 0.94));
 }
-.crop-image { display: block; max-width: 100%; }
-.crop-footer { margin-top: 18px; }
-.crop-modal-enter-active,
-.crop-modal-leave-active { transition: opacity 0.22s ease; }
-.crop-modal-enter-from,
-.crop-modal-leave-to { opacity: 0; }
+.crop-image {
+  display: block;
+  max-width: 100%;
+}
+.crop-tip {
+  margin: 12px 0 0;
+  font-size: 13px;
+}
 
-:global([data-theme="light"]) .crop-dialog { background: rgba(255, 255, 255, 0.98); }
-:global([data-theme="light"]) .theme-toggle.active {
-  background: linear-gradient(180deg, rgba(109, 92, 255, 0.14), rgba(17, 197, 255, 0.08));
+:global(.crop-stage cropper-canvas) {
+  display: block;
+  width: 100%;
+  min-height: 420px;
 }
-:global([data-theme="light"]) .bottom-nav { background: rgba(255, 255, 255, 0.92); }
+
+:global(.crop-stage cropper-image) {
+  cursor: grab;
+}
+
+:global(.crop-stage cropper-image:active) {
+  cursor: grabbing;
+}
+
+:global(.crop-stage cropper-selection) {
+  border-radius: 999px;
+  overflow: hidden;
+  outline: 3px solid rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 0 0 9999px rgba(4, 8, 15, 0.52),
+    0 18px 32px rgba(0, 0, 0, 0.34);
+}
+
+:global(.crop-stage cropper-selection cropper-grid),
+:global(.crop-stage cropper-selection cropper-crosshair) {
+  opacity: 0.9;
+}
+
+:global(.crop-stage cropper-selection cropper-handle[action="move"]) {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.crop-footer {
+  margin-top: 18px;
+  align-items: center;
+}
+.crop-modal-enter-active,
+.crop-modal-leave-active {
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+.crop-modal-enter-from,
+.crop-modal-leave-to {
+  opacity: 0;
+}
+
+:global(.topbar-avatar .colaborador-avatar),
+:global(.config-avatar .colaborador-avatar) {
+  box-shadow: none;
+}
+
+:global([data-theme="light"]) .crop-dialog {
+  background: rgba(255, 255, 255, 0.98);
+}
+:global([data-theme="light"]) .theme-toggle.active {
+  background: linear-gradient(
+    180deg,
+    rgba(109, 92, 255, 0.14),
+    rgba(17, 197, 255, 0.08)
+  );
+}
+:global([data-theme="light"]) .bottom-nav {
+  background: rgba(255, 255, 255, 0.92);
+}
 
 @media (min-width: 720px) {
-  .conq-grid { grid-template-columns: repeat(2, 1fr); }
-  .destaque-grid { grid-template-columns: repeat(4, 1fr); }
+  .conq-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .destaque-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 @media (min-width: 980px) {
-  .portal-app { max-width: 880px; }
-  .conq-grid { grid-template-columns: repeat(3, 1fr); }
+  .portal-app {
+    max-width: 880px;
+  }
+  .conq-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .crop-dialog {
+    padding: 18px;
+  }
+
+  .crop-stage {
+    min-height: 320px;
+  }
+
+  :global(.crop-stage cropper-canvas) {
+    min-height: 320px;
+  }
 }
 </style>
 
@@ -1700,15 +2038,27 @@ onBeforeUnmount(() => {
   gap: 14px;
   align-items: start;
   --tier-cor: #94a3b8;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
-.conq-card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18); }
-.conq-card.locked { opacity: 0.78; filter: grayscale(0.55); }
+.conq-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+.conq-card.locked {
+  opacity: 0.78;
+  filter: grayscale(0.55);
+}
 .conq-card-bg {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(circle at 0% 0%, var(--tier-cor) -100%, transparent 70%);
+  background: radial-gradient(
+    circle at 0% 0%,
+    var(--tier-cor) -100%,
+    transparent 70%
+  );
   opacity: 0.18;
 }
 .conq-card-icon {
@@ -1721,7 +2071,11 @@ onBeforeUnmount(() => {
   place-items: center;
   font-size: 32px;
   color: #fff;
-  background: linear-gradient(135deg, var(--tier-cor), color-mix(in srgb, var(--tier-cor) 55%, #000));
+  background: linear-gradient(
+    135deg,
+    var(--tier-cor),
+    color-mix(in srgb, var(--tier-cor) 55%, #000)
+  );
   box-shadow: 0 8px 22px color-mix(in srgb, var(--tier-cor) 45%, transparent);
 }
 .conq-card.locked .conq-card-icon {
@@ -1729,7 +2083,11 @@ onBeforeUnmount(() => {
   box-shadow: none;
   font-size: 24px;
 }
-.conq-card-body { position: relative; z-index: 1; min-width: 0; }
+.conq-card-body {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
 .conq-card-tier {
   display: inline-flex;
   align-items: center;
@@ -1741,18 +2099,40 @@ onBeforeUnmount(() => {
   color: var(--tier-cor);
   margin-bottom: 4px;
 }
-.conq-tier-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.conq-card-tier.locked-label { color: var(--text-dim); }
-.conq-card-nome { display: block; font-size: 15px; }
-.conq-card-desc { font-size: 12px; margin: 4px 0 8px; color: var(--text-dim); }
-.conq-progress { display: grid; gap: 4px; }
+.conq-tier-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.conq-card-tier.locked-label {
+  color: var(--text-dim);
+}
+.conq-card-nome {
+  display: block;
+  font-size: 15px;
+}
+.conq-card-desc {
+  font-size: 12px;
+  margin: 4px 0 8px;
+  color: var(--text-dim);
+}
+.conq-progress {
+  display: grid;
+  gap: 4px;
+}
 .conq-progress-head {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
 }
-.conq-progress-meta { font-variant-numeric: tabular-nums; }
-.conq-bar { height: 8px; background: rgba(148, 163, 184, 0.18); }
+.conq-progress-meta {
+  font-variant-numeric: tabular-nums;
+}
+.conq-bar {
+  height: 8px;
+  background: rgba(148, 163, 184, 0.18);
+}
 .conq-progress-max {
   font-size: 12px;
   color: #f59e0b;
@@ -1761,7 +2141,12 @@ onBeforeUnmount(() => {
   gap: 6px;
   margin-top: 4px;
 }
-.conq-tiers { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.conq-tiers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
 .conq-tier-pill {
   padding: 3px 8px;
   border-radius: 999px;
@@ -1773,7 +2158,9 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 4px;
 }
-.conq-tier-pill.unlocked { border-style: solid; }
+.conq-tier-pill.unlocked {
+  border-style: solid;
+}
 .conq-card.compact {
   padding: 12px;
   grid-template-columns: 48px 1fr;
@@ -1785,5 +2172,7 @@ onBeforeUnmount(() => {
   font-size: 24px;
   border-radius: 14px;
 }
-.conq-card.compact .conq-card-nome { font-size: 13px; }
+.conq-card.compact .conq-card-nome {
+  font-size: 13px;
+}
 </style>

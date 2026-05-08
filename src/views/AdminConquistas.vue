@@ -228,8 +228,8 @@ onMounted(carregar);
           <fa icon="trophy" /> Conquistas e Gamificação
         </h2>
         <p class="muted page-sub">
-          Defina os marcos que motivam os colaboradores. Cada conquista pode
-          ter múltiplos tiers — Raro, Épico, Lendário, Mítico — desbloqueados
+          Defina os marcos que motivam os colaboradores. Cada conquista pode ter
+          múltiplos tiers — Raro, Épico, Lendário, Mítico — desbloqueados
           conforme o colaborador progride na métrica.
         </p>
       </div>
@@ -277,7 +277,9 @@ onMounted(carregar);
             </p>
             <div class="muted" style="font-size: 12px; margin-top: 6px">
               Métrica:
-              <strong>{{ METRICA_LABELS[c.metricaBase] || c.metricaBase }}</strong>
+              <strong>{{
+                METRICA_LABELS[c.metricaBase] || c.metricaBase
+              }}</strong>
             </div>
           </div>
           <div class="row gap-1 conquista-row-actions">
@@ -311,9 +313,10 @@ onMounted(carregar);
               TIER_LABELS[t.nivel]?.label || t.nivel
             }}</span>
             <span class="tier-meta"
-              >{{
-                Number(t.meta).toLocaleString("pt-BR")
-              }}{{ c.metricaBase === "taxaConformidadeAcumulada" ? "%" : "" }}</span
+              >{{ Number(t.meta).toLocaleString("pt-BR")
+              }}{{
+                c.metricaBase === "taxaConformidadeAcumulada" ? "%" : ""
+              }}</span
             >
             <span v-if="t.xpBonus" class="tier-xp">+{{ t.xpBonus }} XP</span>
           </div>
@@ -326,7 +329,11 @@ onMounted(carregar);
     </div>
 
     <Transition name="modal">
-      <div v-if="editorAberto" class="modal-backdrop" @click.self="fecharEditor">
+      <div
+        v-if="editorAberto"
+        class="modal-backdrop"
+        @click.self="fecharEditor"
+      >
         <div class="modal card glow">
           <div class="row justify-between items-center mb-3">
             <h3 style="margin: 0">
@@ -400,9 +407,7 @@ onMounted(carregar);
 
           <div class="tiers-edit">
             <div class="row justify-between items-center mb-2">
-              <h4 style="margin: 0">
-                <fa icon="medal" /> Tiers de progresso
-              </h4>
+              <h4 style="margin: 0"><fa icon="medal" /> Tiers de progresso</h4>
               <button class="btn ghost" @click="adicionarTier">
                 <fa icon="plus" /> Adicionar tier
               </button>
@@ -420,7 +425,13 @@ onMounted(carregar);
             >
               <select v-model="t.nivel" class="tier-select">
                 <option
-                  v-for="opt in ['comum', 'raro', 'epico', 'lendario', 'mitico']"
+                  v-for="opt in [
+                    'comum',
+                    'raro',
+                    'epico',
+                    'lendario',
+                    'mitico',
+                  ]"
                   :key="opt"
                   :value="opt"
                 >
@@ -608,6 +619,49 @@ onMounted(carregar);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 8px 10px;
+  color: var(--text);
+}
+
+[data-theme="light"] .modal-backdrop {
+  background: rgba(28, 36, 61, 0.36);
+}
+
+[data-theme="light"] .modal.card.glow {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(245, 248, 255, 0.96)
+    ),
+    linear-gradient(145deg, rgba(109, 92, 255, 0.12), rgba(17, 197, 255, 0.08));
+  border-color: rgba(89, 108, 165, 0.24);
+  box-shadow: 0 30px 70px rgba(53, 70, 120, 0.22);
+}
+
+[data-theme="light"] .modal .field label,
+[data-theme="light"] .modal .muted {
+  color: #5b678d;
+}
+
+[data-theme="light"] .tiers-edit {
+  border-top-color: rgba(89, 108, 165, 0.18);
+}
+
+[data-theme="light"] .tier-edit-row {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(89, 108, 165, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="light"] .tier-select,
+[data-theme="light"] .tier-input,
+[data-theme="light"] .tier-edit-row .btn.ghost {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(89, 108, 165, 0.22);
+}
+
+[data-theme="light"] .tier-select option {
+  background: #ffffff;
   color: var(--text);
 }
 

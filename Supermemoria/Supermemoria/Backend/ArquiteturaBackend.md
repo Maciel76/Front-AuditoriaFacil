@@ -20,7 +20,7 @@
 - middlewares/: autenticacao, escopo multi-tenant e upload.
 - models/: schemas centrais do dominio.
 - routes/: handlers HTTP organizados por recurso.
-- services/: logica pesada de classificacao, parser e processamento de auditoria.
+- services/: logica pesada de classificacao, parser, gamificacao e processamento de auditoria.
 - utils/: helpers de erro e JWT.
 
 ## Ciclo de inicializacao
@@ -28,9 +28,10 @@
 1. Carrega env.
 2. Conecta ao MongoDB.
 3. Garante bootstrap de SUPER_ADMIN se ainda nao existir nenhum.
-4. Sobe Express com helmet, cors, json parser, urlencoded, morgan e rate limiter.
-5. Registra /api/health, /uploads e os grupos de rota.
-6. Aplica middleware de 404 e errorMiddleware.
+4. Semeia conquistas padrao se a colecao Conquista ainda estiver vazia.
+5. Sobe Express com helmet, cors, json parser, urlencoded, morgan e rate limiter.
+6. Registra /api/health, /uploads e os grupos de rota.
+7. Aplica middleware de 404 e errorMiddleware.
 
 ## Middleware global confirmado
 
@@ -88,17 +89,37 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 - Detecta tipo por sheet, nome do arquivo ou situacoes encontradas.
 - Decide a data oficial pela ocorrencia mais frequente de auditadoEm.
 
+### services/conquistasService.js
+
+- Mantem cache curto das conquistas ativas para evitar leitura repetida em massa durante uploads.
+- Avalia tiers por metricaBase e meta, atualizando `colab.conquistas` in place.
+- Soma `xpBonus` apenas para tiers recem-desbloqueados.
+- Resolve conquistas enriquecidas para exibicao no portal do colaborador.
+
+### services/conquistasSeed.js
+
+- Cria as conquistas padrao do sistema quando a colecao ainda esta vazia.
+- O seed e executado no bootstrap do servidor e deixa a manutencao futura para o painel administrativo de conquistas.
+
 ### services/auditoriaProcessor.js
 
 - E a peca central do sistema.
 - Garante colaboradores por loja e matricula.
 - Reaproveita auditoria existente para reupload do mesmo dia e tipo.
+- Quando a auditoria existente esta `CANCELADA`, aceita o reupload como substituicao documental, mas mantem itens e metricas neutralizados.
 - Gera AuditItems em massa.
 - Calcula totais da auditoria e top colaboradores do upload.
 - Gera ou atualiza MetricaDiaria consolidada por loja e por colaborador.
 - Atualiza pontuacao, nivel e conquistas de colaboradores.
+- Recalcula o nivel antes e depois de avaliar conquistas, para absorver bonus de XP no mesmo ciclo de upload.
 - Atualiza pontuacao e nivel da loja.
 - Agora tambem emite etapas e percentual de progresso para o fluxo assíncrono de upload.
+
+### services/auditoriaCancelamento.js
+
+- Centraliza o cancelamento de auditorias de loja.
+- Marca Auditoria como `CANCELADA`, marca AuditItems como cancelados, zera MetricaDiaria do dia/tipo/loja e recalcula acumulados da loja e dos colaboradores a partir de metricas nao canceladas.
+- Mantem uma MetricaDiaria consolidada zerada e cancelada para permitir alerta no ranking de lojas.
 
 ## Rotas backend por responsabilidade
 
@@ -113,13 +134,20 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 
 - Exibe regras da auditoria.
 - Recebe upload, cria job em memoria, dispara processamento em background e expoe consulta de status por jobId.
-- Lista auditorias, retorna detalhe, pagina itens e remove auditoria.
+- Lista auditorias, retorna detalhe, pagina itens, cancela auditoria de loja para SUPER_ADMIN e remove auditoria.
 
 ### colaboradores.routes.js
 
 - Cadastro e edicao administrativa de colaboradores, com exclusao/desativacao bloqueada no backend.
 - Autenticacao mista para avatar.
 - Self-service do portal em /portal/me e /portal/password.
+
+### conquistas.routes.js
+
+- Exponibiliza metadados de tiers, categorias e metricas suportadas.
+- Lista definicoes de conquistas e oferece CRUD restrito a SUPER_ADMIN.
+- Exponibiliza uma rota dedicada para resolver conquistas do proprio colaborador do portal.
+- Invalida o cache das conquistas apos mutacoes administrativas.
 
 ### lojas.routes.js
 
@@ -149,7 +177,7 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 - Rate limiting global na API.
 - Payloads principais validados com Zod.
 - Upload de planilhas restringe extensoes e mimetypes.
-- Upload de avatar aceita apenas image/* e limita a 5 MB.
+- Upload de avatar aceita apenas image/\* e limita a 5 MB.
 
 ## Arquivos fora do runtime principal
 

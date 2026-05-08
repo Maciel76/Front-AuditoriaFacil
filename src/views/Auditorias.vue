@@ -1,45 +1,48 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import api from '@/services/api';
-import { useUiStore } from '@/stores/ui';
-import { useAuthStore } from '@/stores/auth';
-import { useRouter } from 'vue-router';
-import Loader from '@/components/Loader.vue';
-import { RouterLink } from 'vue-router';
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import api from "@/services/api";
+import { useUiStore } from "@/stores/ui";
+import { useAuthStore } from "@/stores/auth";
+import { useRouter } from "vue-router";
+import Loader from "@/components/Loader.vue";
+import { RouterLink } from "vue-router";
 
-const ui     = useUiStore();
-const auth   = useAuthStore();
+const ui = useUiStore();
+const auth = useAuthStore();
 const router = useRouter();
 const fileInput = ref(null);
-const LOJA_DESTINO_STORAGE_KEY = 'na_auditorias_superadmin_loja';
+const LOJA_DESTINO_STORAGE_KEY = "na_auditorias_superadmin_loja";
 
 // Detecta tipo sugerido pelo dia da semana: 1=Seg,4=Qui→ETIQUETA, 2=Ter→PRESENCA, 3=Qua→RUPTURA
 function tipoSugeridoHoje() {
   const d = new Date().getDay(); // 0=Dom
-  if (d === 1 || d === 4) return 'ETIQUETA';
-  if (d === 2) return 'PRESENCA';
-  if (d === 3) return 'RUPTURA';
-  return '';
+  if (d === 1 || d === 4) return "ETIQUETA";
+  if (d === 2) return "PRESENCA";
+  if (d === 3) return "RUPTURA";
+  return "";
 }
 
 function formatBytes(bytes = 0) {
-  if (!bytes) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const exponent = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
   const value = bytes / 1024 ** exponent;
-  return `${value.toLocaleString('pt-BR', { maximumFractionDigits: value >= 10 ? 0 : 1 })} ${units[exponent]}`;
+  return `${value.toLocaleString("pt-BR", { maximumFractionDigits: value >= 10 ? 0 : 1 })} ${units[exponent]}`;
 }
 
-const enviando     = ref(false);
-const dragOver     = ref(false);
-const arquivo      = ref(null);   // arquivo atualmente em processamento
-const fila         = ref([]);     // [{id, file, status, erro, resultado}]
-const tipoForcado  = ref(tipoSugeridoHoje());
+const enviando = ref(false);
+const dragOver = ref(false);
+const arquivo = ref(null); // arquivo atualmente em processamento
+const fila = ref([]); // [{id, file, status, erro, resultado}]
+const tipoForcado = ref(tipoSugeridoHoje());
 const ultimoResultado = ref(null);
 const progressoUpload = ref(0);
-const etapaUpload = ref('idle');
-const detalheProcessamento = ref('');
-const erroUpload = ref('');
+const etapaUpload = ref("idle");
+const detalheProcessamento = ref("");
+const erroUpload = ref("");
 
 let filaProcessando = false;
 let idCounter = 0;
@@ -47,50 +50,76 @@ let idCounter = 0;
 let componenteAtivo = true;
 let simulacaoProcessamento = null;
 
-const auditorias  = ref([]);
-const carregando  = ref(true);
-const filtroTipo  = ref('');
+const auditorias = ref([]);
+const carregando = ref(true);
+const filtroTipo = ref("");
 const lojasDisponiveis = ref([]);
-const lojaDestinoId = ref('');
+const lojaDestinoId = ref("");
 const carregandoLojas = ref(false);
-const erroLojas = ref('');
+const erroLojas = ref("");
 const ultimaLojaProcessada = ref(null);
 
-const lojaDestino = computed(() => lojasDisponiveis.value.find((loja) => loja._id === lojaDestinoId.value) || null);
-const uploadBloqueadoSemLoja = computed(() => auth.isSuperAdmin && !lojaDestinoId.value);
-const podeSelecionarArquivo = computed(() => !uploadBloqueadoSemLoja.value && !carregandoLojas.value);
+const lojaDestino = computed(
+  () =>
+    lojasDisponiveis.value.find((loja) => loja._id === lojaDestinoId.value) ||
+    null,
+);
+const uploadBloqueadoSemLoja = computed(
+  () => auth.isSuperAdmin && !lojaDestinoId.value,
+);
+const podeSelecionarArquivo = computed(
+  () => !uploadBloqueadoSemLoja.value && !carregandoLojas.value,
+);
 
 function paramsEscopoLoja(extra = {}) {
-  if (auth.isSuperAdmin && lojaDestinoId.value) return { ...extra, lojaId: lojaDestinoId.value };
+  if (auth.isSuperAdmin && lojaDestinoId.value)
+    return { ...extra, lojaId: lojaDestinoId.value };
   return { ...extra };
 }
 
 function rotaAuditoria(auditoriaId) {
   if (auth.isSuperAdmin && lojaDestinoId.value) {
-    return { path: `/auditorias/${auditoriaId}`, query: { lojaId: lojaDestinoId.value } };
+    return {
+      path: `/auditorias/${auditoriaId}`,
+      query: { lojaId: lojaDestinoId.value },
+    };
   }
   return { path: `/auditorias/${auditoriaId}` };
+}
+
+function statusAuditoria(auditoria) {
+  if (auditoria?.status === "CANCELADA")
+    return { text: "Cancelada", klass: "bad" };
+  if (auditoria?.status === "ERRO") return { text: "Erro", klass: "bad" };
+  if (auditoria?.status === "PROCESSANDO")
+    return { text: "Processando", klass: "warn" };
+  return { text: "Concluída", klass: "ok" };
 }
 
 async function carregarLojasDestino() {
   if (!auth.isSuperAdmin) return;
 
   carregandoLojas.value = true;
-  erroLojas.value = '';
+  erroLojas.value = "";
   try {
-    const { data } = await api.get('/lojas');
-    lojasDisponiveis.value = (data.items || []).filter((loja) => loja.ativa !== false);
+    const { data } = await api.get("/lojas");
+    lojasDisponiveis.value = (data.items || []).filter(
+      (loja) => loja.ativa !== false,
+    );
 
     const lojaSalva = localStorage.getItem(LOJA_DESTINO_STORAGE_KEY);
-    const lojaInicial = lojasDisponiveis.value.find((loja) => loja._id === lojaSalva) || null;
-    lojaDestinoId.value = lojaInicial?._id || '';
+    const lojaInicial =
+      lojasDisponiveis.value.find((loja) => loja._id === lojaSalva) || null;
+    lojaDestinoId.value = lojaInicial?._id || "";
 
-    if (lojaDestinoId.value) localStorage.setItem(LOJA_DESTINO_STORAGE_KEY, lojaDestinoId.value);
+    if (lojaDestinoId.value)
+      localStorage.setItem(LOJA_DESTINO_STORAGE_KEY, lojaDestinoId.value);
     else localStorage.removeItem(LOJA_DESTINO_STORAGE_KEY);
   } catch (error) {
-    erroLojas.value = error?.response?.data?.error || 'Não foi possível carregar as lojas.';
+    erroLojas.value =
+      error?.response?.data?.error || "Não foi possível carregar as lojas.";
     lojasDisponiveis.value = [];
-    lojaDestinoId.value = '';
+    lojaDestinoId.value = "";
   } finally {
     carregandoLojas.value = false;
   }
@@ -107,15 +136,20 @@ async function listar() {
   try {
     const params = {};
     if (filtroTipo.value) params.tipo = filtroTipo.value;
-    const { data } = await api.get('/auditorias', { params: paramsEscopoLoja(params) });
+    const { data } = await api.get("/auditorias", {
+      params: paramsEscopoLoja(params),
+    });
     auditorias.value = data.items;
-  } finally { carregando.value = false; }
+  } finally {
+    carregando.value = false;
+  }
 }
 
 async function trocarLojaDestino() {
   if (!auth.isSuperAdmin) return;
 
-  if (lojaDestinoId.value) localStorage.setItem(LOJA_DESTINO_STORAGE_KEY, lojaDestinoId.value);
+  if (lojaDestinoId.value)
+    localStorage.setItem(LOJA_DESTINO_STORAGE_KEY, lojaDestinoId.value);
   else localStorage.removeItem(LOJA_DESTINO_STORAGE_KEY);
 
   ultimoResultado.value = null;
@@ -132,28 +166,34 @@ onMounted(async () => {
 
 function limparArquivoSelecionado() {
   arquivo.value = null;
-  if (fileInput.value) fileInput.value.value = '';
+  if (fileInput.value) fileInput.value.value = "";
 }
 
 function resetarEstadoUpload() {
   progressoUpload.value = 0;
-  etapaUpload.value = arquivo.value ? 'ready' : 'idle';
-  detalheProcessamento.value = '';
-  erroUpload.value = '';
+  etapaUpload.value = arquivo.value ? "ready" : "idle";
+  detalheProcessamento.value = "";
+  erroUpload.value = "";
 }
 
 function adicionarFilaArquivos(files) {
   if (!files || !files.length) return;
   for (const file of Array.from(files)) {
-    fila.value.push({ id: ++idCounter, file, status: 'waiting', erro: '', resultado: null });
+    fila.value.push({
+      id: ++idCounter,
+      file,
+      status: "waiting",
+      erro: "",
+      resultado: null,
+    });
   }
-  if (fileInput.value) fileInput.value.value = '';
+  if (fileInput.value) fileInput.value.value = "";
   iniciarFila();
 }
 
 function removerDaFila(id) {
   const idx = fila.value.findIndex((item) => item.id === id);
-  if (idx !== -1 && fila.value[idx].status !== 'processing') {
+  if (idx !== -1 && fila.value[idx].status !== "processing") {
     fila.value.splice(idx, 1);
   }
 }
@@ -162,68 +202,86 @@ async function iniciarFila() {
   if (filaProcessando) return;
   filaProcessando = true;
   while (componenteAtivo) {
-    const proximo = fila.value.find((item) => item.status === 'waiting');
+    const proximo = fila.value.find((item) => item.status === "waiting");
     if (!proximo) break;
     await processarItem(proximo);
   }
   filaProcessando = false;
   // Se fila vazia e tudo processado, volta para idle
-  const algumAtivo = fila.value.some((item) => item.status === 'waiting' || item.status === 'processing');
+  const algumAtivo = fila.value.some(
+    (item) => item.status === "waiting" || item.status === "processing",
+  );
   if (!algumAtivo) {
-    etapaUpload.value = fila.value.length ? (fila.value.every((i) => i.status === 'done') ? 'success' : 'idle') : 'idle';
+    etapaUpload.value = fila.value.length
+      ? fila.value.every((i) => i.status === "done")
+        ? "success"
+        : "idle"
+      : "idle";
     arquivo.value = null;
   }
 }
 
 async function processarItem(item) {
   if (!componenteAtivo) return;
-  item.status = 'processing';
+  item.status = "processing";
   arquivo.value = item.file;
 
   // reinicia animacao do zero
   progressoUpload.value = 0;
-  etapaUpload.value = 'upload';
-  detalheProcessamento.value = 'Enviando arquivo';
-  erroUpload.value = '';
+  etapaUpload.value = "upload";
+  detalheProcessamento.value = "Enviando arquivo";
+  erroUpload.value = "";
   ultimoResultado.value = null;
   enviando.value = true;
 
   ultimaLojaProcessada.value = lojaDestino.value
-    ? { nome: lojaDestino.value.nome, cidade: lojaDestino.value.cidade, estado: lojaDestino.value.estado }
+    ? {
+        nome: lojaDestino.value.nome,
+        cidade: lojaDestino.value.cidade,
+        estado: lojaDestino.value.estado,
+      }
     : auth.loja
-      ? { nome: auth.loja.nome, cidade: auth.loja.cidade, estado: auth.loja.estado }
+      ? {
+          nome: auth.loja.nome,
+          cidade: auth.loja.cidade,
+          estado: auth.loja.estado,
+        }
       : null;
 
   const fd = new FormData();
-  fd.append('arquivo', item.file);
-  if (tipoForcado.value) fd.append('tipo', tipoForcado.value);
+  fd.append("arquivo", item.file);
+  if (tipoForcado.value) fd.append("tipo", tipoForcado.value);
 
   try {
-    const { data } = await api.post('/auditorias/upload', fd, {
+    const { data } = await api.post("/auditorias/upload", fd, {
       params: paramsEscopoLoja(),
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { "Content-Type": "multipart/form-data" },
       onUploadProgress(event) {
         if (!event.total) {
           progressoUpload.value = Math.max(progressoUpload.value, 18);
           return;
         }
         const percentual = event.loaded / event.total;
-        progressoUpload.value = Math.max(progressoUpload.value, Math.min(34, percentual * 34));
-        detalheProcessamento.value = percentual >= 0.98
-          ? 'Arquivo recebido. Iniciando processamento…'
-          : 'Enviando arquivo';
+        progressoUpload.value = Math.max(
+          progressoUpload.value,
+          Math.min(34, percentual * 34),
+        );
+        detalheProcessamento.value =
+          percentual >= 0.98
+            ? "Arquivo recebido. Iniciando processamento…"
+            : "Enviando arquivo";
       },
     });
     enviando.value = false;
     await acompanharProcessamentoItem(item, data.jobId);
   } catch (e) {
     pararSimulacaoProcessamento();
-    etapaUpload.value = 'error';
+    etapaUpload.value = "error";
     progressoUpload.value = 0;
-    const msg = e?.response?.data?.error || e?.message || 'Falha no upload';
+    const msg = e?.response?.data?.error || e?.message || "Falha no upload";
     erroUpload.value = msg;
     detalheProcessamento.value = msg;
-    item.status = 'error';
+    item.status = "error";
     item.erro = msg;
     ui.erro(`${item.file.name}: ${msg}`);
   } finally {
@@ -232,27 +290,38 @@ async function processarItem(item) {
 }
 
 async function acompanharProcessamentoItem(item, jobId) {
-  etapaUpload.value = 'processing';
+  etapaUpload.value = "processing";
   iniciarSimulacaoProcessamento();
   while (componenteAtivo) {
     const { data } = await api.get(`/auditorias/upload/${jobId}/status`);
-    detalheProcessamento.value = data.stage || 'Processando auditoria';
-    const progressoMapeado = 34 + (Number(data.progress || 0) * 0.66);
+    detalheProcessamento.value = data.stage || "Processando auditoria";
+    const progressoMapeado = 34 + Number(data.progress || 0) * 0.66;
     progressoUpload.value = Math.max(progressoUpload.value, progressoMapeado);
-    if (data.status === 'done') {
+    if (data.status === "done") {
       pararSimulacaoProcessamento();
       progressoUpload.value = 100;
-      etapaUpload.value = 'success';
-      detalheProcessamento.value = 'Processamento concluído';
-      item.status = 'done';
+      etapaUpload.value = "success";
+      detalheProcessamento.value = data.result?.cancelada
+        ? data.result.mensagemCancelamento ||
+          "Auditoria cancelada. Métricas zeradas."
+        : "Processamento concluído";
+      item.status = "done";
       item.resultado = data.result;
       ultimoResultado.value = data.result;
-      ui.sucesso(`${item.file.name}: ${data.result.tipo} — ${data.result.totalLidos} itens lidos`);
+      if (data.result?.cancelada) {
+        ui.info(
+          `${item.file.name}: auditoria cancelada. Dados não contabilizados.`,
+        );
+      } else {
+        ui.sucesso(
+          `${item.file.name}: ${data.result.tipo} — ${data.result.totalLidos} itens lidos`,
+        );
+      }
       await listar();
       return;
     }
-    if (data.status === 'error') {
-      throw new Error(data.error || 'Falha no processamento da planilha');
+    if (data.status === "error") {
+      throw new Error(data.error || "Falha no processamento da planilha");
     }
     await new Promise((resolve) => setTimeout(resolve, 700));
   }
@@ -261,8 +330,12 @@ async function acompanharProcessamentoItem(item, jobId) {
 function iniciarSimulacaoProcessamento() {
   pararSimulacaoProcessamento();
   simulacaoProcessamento = setInterval(() => {
-    if (etapaUpload.value !== 'processing') return;
-    progressoUpload.value = Math.min(96, progressoUpload.value + Math.max(0.35, (96 - progressoUpload.value) * 0.045));
+    if (etapaUpload.value !== "processing") return;
+    progressoUpload.value = Math.min(
+      96,
+      progressoUpload.value +
+        Math.max(0.35, (96 - progressoUpload.value) * 0.045),
+    );
   }, 180);
 }
 
@@ -272,26 +345,58 @@ function pararSimulacaoProcessamento() {
   simulacaoProcessamento = null;
 }
 
-function pickFile(e) { adicionarFilaArquivos(e.target.files); }
-function onDrop(e)   { dragOver.value = false; adicionarFilaArquivos(e.dataTransfer.files); }
+function pickFile(e) {
+  adicionarFilaArquivos(e.target.files);
+}
+function onDrop(e) {
+  dragOver.value = false;
+  adicionarFilaArquivos(e.dataTransfer.files);
+}
 
 function irParaDashboard() {
-  router.push({ path: '/dashboard', query: paramsEscopoLoja({ refresh: Date.now() }) });
+  router.push({
+    path: "/dashboard",
+    query: paramsEscopoLoja({ refresh: Date.now() }),
+  });
 }
 
 async function excluir(a) {
-  if (!confirm(`Excluir auditoria de ${a.tipo} de ${new Date(a.data).toLocaleDateString('pt-BR')}?`)) return;
-  await api.delete('/auditorias/' + a._id, { params: paramsEscopoLoja() });
-  ui.sucesso('Auditoria removida');
+  if (
+    !confirm(
+      `Excluir auditoria de ${a.tipo} de ${new Date(a.data).toLocaleDateString("pt-BR")}?`,
+    )
+  )
+    return;
+  await api.delete("/auditorias/" + a._id, { params: paramsEscopoLoja() });
+  ui.sucesso("Auditoria removida");
   listar();
 }
 
-const nomeDiaSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][new Date().getDay()];
-const tipoLabels = { ETIQUETA: 'Etiqueta', PRESENCA: 'Presença', RUPTURA: 'Ruptura' };
+const nomeDiaSemana = [
+  "Domingo",
+  "Segunda",
+  "Terça",
+  "Quarta",
+  "Quinta",
+  "Sexta",
+  "Sábado",
+][new Date().getDay()];
+const tipoLabels = {
+  ETIQUETA: "Etiqueta",
+  PRESENCA: "Presença",
+  RUPTURA: "Ruptura",
+};
 
-const uploadEmAndamento = computed(() => etapaUpload.value === 'upload' || etapaUpload.value === 'processing');
-const uploadComPreenchimento = computed(() => uploadEmAndamento.value || etapaUpload.value === 'success');
-const progressoExibido = computed(() => Math.round(Math.max(0, Math.min(100, progressoUpload.value))));
+const uploadEmAndamento = computed(
+  () => etapaUpload.value === "upload" || etapaUpload.value === "processing",
+);
+const uploadComPreenchimento = computed(
+  () => uploadEmAndamento.value || etapaUpload.value === "success",
+);
+const resultadoCancelado = computed(() => !!ultimoResultado.value?.cancelada);
+const progressoExibido = computed(() =>
+  Math.round(Math.max(0, Math.min(100, progressoUpload.value))),
+);
 const arquivoResumo = computed(() => {
   if (!arquivo.value) return null;
   return {
@@ -299,37 +404,70 @@ const arquivoResumo = computed(() => {
     tamanho: formatBytes(arquivo.value.size),
   };
 });
-const tipoAtualLabel = computed(() => tipoForcado.value ? tipoLabels[tipoForcado.value] : 'Automático');
-const lojaDestinoLabel = computed(() => lojaDestino.value?.nome || 'Selecione uma loja');
-const lojaDestinoResumo = computed(() => [lojaDestino.value?.cidade, lojaDestino.value?.estado].filter(Boolean).join(' / '));
-const filaVisivelOrdenada = computed(() => fila.value.filter((i) => i.status !== 'done' || fila.value.length <= 5));
-const temFilaEspera = computed(() => fila.value.some((i) => i.status === 'waiting'));
+const tipoAtualLabel = computed(() =>
+  tipoForcado.value ? tipoLabels[tipoForcado.value] : "Automático",
+);
+const lojaDestinoLabel = computed(
+  () => lojaDestino.value?.nome || "Selecione uma loja",
+);
+const lojaDestinoResumo = computed(() =>
+  [lojaDestino.value?.cidade, lojaDestino.value?.estado]
+    .filter(Boolean)
+    .join(" / "),
+);
+const filaVisivelOrdenada = computed(() =>
+  fila.value.filter((i) => i.status !== "done" || fila.value.length <= 5),
+);
+const temFilaEspera = computed(() =>
+  fila.value.some((i) => i.status === "waiting"),
+);
 const statusUploadTitulo = computed(() => {
-  if (uploadBloqueadoSemLoja.value) return 'Escolha a loja de destino';
-  if (etapaUpload.value === 'upload') return 'Enviando a planilha';
-  if (etapaUpload.value === 'processing') return 'Processando auditoria';
-  if (etapaUpload.value === 'success') return 'Upload concluído';
-  if (etapaUpload.value === 'error') return 'Falha no envio';
-  if (arquivo.value) return 'Arquivo pronto';
-  return 'Aguardando planilha';
+  if (uploadBloqueadoSemLoja.value) return "Escolha a loja de destino";
+  if (etapaUpload.value === "upload") return "Enviando a planilha";
+  if (etapaUpload.value === "processing") return "Processando auditoria";
+  if (etapaUpload.value === "success" && resultadoCancelado.value)
+    return "Auditoria cancelada";
+  if (etapaUpload.value === "success") return "Upload concluído";
+  if (etapaUpload.value === "error") return "Falha no envio";
+  if (arquivo.value) return "Arquivo pronto";
+  return "Aguardando planilha";
 });
 const statusUploadTexto = computed(() => {
   if (auth.isSuperAdmin && erroLojas.value) return erroLojas.value;
-  if (uploadBloqueadoSemLoja.value) return 'Selecione a loja em que esta auditoria deve ser processada. O histórico abaixo também seguirá a loja escolhida.';
-  if (etapaUpload.value === 'upload') return 'Transferindo o arquivo para o servidor.';
-  if (etapaUpload.value === 'processing') return detalheProcessamento.value || 'Classificando itens e atualizando métricas.';
-  if (etapaUpload.value === 'success') return 'Sua auditoria foi processada e o histórico já foi atualizado.';
-  if (etapaUpload.value === 'error') return erroUpload.value || 'Não foi possível concluir o upload.';
-  if (arquivo.value) return 'Confira o tipo, revise o arquivo e inicie o processamento.';
-  return 'Selecione uma planilha exportada do coletor para iniciar.';
+  if (uploadBloqueadoSemLoja.value)
+    return "Selecione a loja em que esta auditoria deve ser processada. O histórico abaixo também seguirá a loja escolhida.";
+  if (etapaUpload.value === "upload")
+    return "Transferindo o arquivo para o servidor.";
+  if (etapaUpload.value === "processing")
+    return (
+      detalheProcessamento.value ||
+      "Classificando itens e atualizando métricas."
+    );
+  if (etapaUpload.value === "success" && resultadoCancelado.value)
+    return (
+      ultimoResultado.value?.mensagemCancelamento ||
+      "A planilha foi recebida, mas essa auditoria está cancelada e não conta para métricas, rankings ou acumulados."
+    );
+  if (etapaUpload.value === "success")
+    return "Sua auditoria foi processada e o histórico já foi atualizado.";
+  if (etapaUpload.value === "error")
+    return erroUpload.value || "Não foi possível concluir o upload.";
+  if (arquivo.value)
+    return "Confira o tipo, revise o arquivo e inicie o processamento.";
+  return "Selecione uma planilha exportada do coletor para iniciar.";
 });
 const badgeStatusUpload = computed(() => {
-  if (uploadBloqueadoSemLoja.value) return { text: 'Loja obrigatória', klass: 'warn' };
-  if (etapaUpload.value === 'success') return { text: 'Concluído', klass: 'ok' };
-  if (etapaUpload.value === 'error') return { text: 'Erro', klass: 'bad' };
-  if (uploadEmAndamento.value) return { text: `${progressoExibido.value}%`, klass: 'info' };
-  if (arquivo.value) return { text: 'Pronto', klass: 'warn' };
-  return { text: 'Aguardando', klass: 'dim' };
+  if (uploadBloqueadoSemLoja.value)
+    return { text: "Loja obrigatória", klass: "warn" };
+  if (etapaUpload.value === "success" && resultadoCancelado.value)
+    return { text: "Cancelada", klass: "warn" };
+  if (etapaUpload.value === "success")
+    return { text: "Concluído", klass: "ok" };
+  if (etapaUpload.value === "error") return { text: "Erro", klass: "bad" };
+  if (uploadEmAndamento.value)
+    return { text: `${progressoExibido.value}%`, klass: "info" };
+  if (arquivo.value) return { text: "Pronto", klass: "warn" };
+  return { text: "Aguardando", klass: "dim" };
 });
 
 onBeforeUnmount(() => {
@@ -340,12 +478,25 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="grid gap-3">
-    <div v-if="auth.podeGerenciar" class="upload-shell card glow" :class="{ uploading: uploadEmAndamento, ready: !!arquivo, success: etapaUpload === 'success', error: etapaUpload === 'error' }">
+    <div
+      v-if="auth.podeGerenciar"
+      class="upload-shell card glow"
+      :class="{
+        uploading: uploadEmAndamento,
+        ready: !!arquivo,
+        success: etapaUpload === 'success',
+        canceled: resultadoCancelado,
+        error: etapaUpload === 'error',
+      }"
+    >
       <div
         v-if="uploadComPreenchimento"
         class="upload-liquid"
         :class="{ complete: etapaUpload === 'success' }"
-        :style="{ '--upload-fill': progressoExibido + '%', height: progressoExibido + '%' }"
+        :style="{
+          '--upload-fill': progressoExibido + '%',
+          height: progressoExibido + '%',
+        }"
         aria-hidden="true"
       >
         <div class="upload-liquid-depth"></div>
@@ -367,26 +518,56 @@ onBeforeUnmount(() => {
       <div class="upload-shell-inner">
         <div class="upload-topbar row">
           <div>
-            <h3 class="mt-0 mb-0"><fa icon="cloud-arrow-up" /> Enviar planilha de auditoria</h3>
-            <div v-if="tipoForcado" class="row mt-1" style="font-size: 13px; gap: 8px;">
-              <span class="badge" :class="'tipo-' + tipoForcado"><fa icon="calendar" /> {{ nomeDiaSemana }} → {{ tipoLabels[tipoForcado] }} sugerido</span>
+            <h3 class="mt-0 mb-0">
+              <fa icon="cloud-arrow-up" /> Enviar planilha de auditoria
+            </h3>
+            <div
+              v-if="tipoForcado"
+              class="row mt-1"
+              style="font-size: 13px; gap: 8px"
+            >
+              <span class="badge" :class="'tipo-' + tipoForcado"
+                ><fa icon="calendar" /> {{ nomeDiaSemana }} →
+                {{ tipoLabels[tipoForcado] }} sugerido</span
+              >
               <span class="muted">Você pode alterar o tipo acima</span>
             </div>
-            <div v-else class="muted mt-1" style="font-size: 13px;">Defina manualmente ou deixe a detecção automática agir.</div>
+            <div v-else class="muted mt-1" style="font-size: 13px">
+              Defina manualmente ou deixe a detecção automática agir.
+            </div>
           </div>
 
           <div class="upload-topbar-actions">
             <div v-if="auth.isSuperAdmin" class="field upload-type-field">
               <label>Loja de destino</label>
-              <select v-model="lojaDestinoId" class="upload-type-select" :disabled="uploadEmAndamento || carregandoLojas" @change="trocarLojaDestino">
-                <option value="">{{ carregandoLojas ? 'Carregando lojas…' : 'Escolha uma loja' }}</option>
-                <option v-for="loja in lojasDisponiveis" :key="loja._id" :value="loja._id">{{ loja.nome }}</option>
+              <select
+                v-model="lojaDestinoId"
+                class="upload-type-select"
+                :disabled="uploadEmAndamento || carregandoLojas"
+                @change="trocarLojaDestino"
+              >
+                <option value="">
+                  {{
+                    carregandoLojas ? "Carregando lojas…" : "Escolha uma loja"
+                  }}
+                </option>
+                <option
+                  v-for="loja in lojasDisponiveis"
+                  :key="loja._id"
+                  :value="loja._id"
+                >
+                  {{ loja.nome }}
+                </option>
               </select>
             </div>
 
             <div class="field upload-type-field">
               <label>Tipo da auditoria</label>
-              <select v-model="tipoForcado" class="upload-type-select" :disabled="uploadEmAndamento">
+              <select
+                v-model="tipoForcado"
+                class="upload-type-select"
+                :disabled="uploadEmAndamento"
+              >
                 <option value="">Detectar automaticamente</option>
                 <option value="ETIQUETA">Etiqueta</option>
                 <option value="PRESENCA">Presença</option>
@@ -397,13 +578,31 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="upload-layout">
-          <div class="upload-status-card" :class="{ 'has-fila': fila.length > 0 }">
+          <div
+            class="upload-status-card"
+            :class="{ 'has-fila': fila.length > 0 }"
+          >
             <div class="upload-status-icon">
-              <fa :icon="uploadEmAndamento ? 'spinner' : etapaUpload === 'success' ? 'check' : etapaUpload === 'error' ? 'triangle-exclamation' : 'cloud-arrow-up'" :spin="uploadEmAndamento" />
+              <fa
+                :icon="
+                  uploadEmAndamento
+                    ? 'spinner'
+                    : resultadoCancelado
+                      ? 'triangle-exclamation'
+                      : etapaUpload === 'success'
+                        ? 'check'
+                        : etapaUpload === 'error'
+                          ? 'triangle-exclamation'
+                          : 'cloud-arrow-up'
+                "
+                :spin="uploadEmAndamento"
+              />
             </div>
 
             <div class="upload-status-copy">
-              <span class="badge" :class="badgeStatusUpload.klass">{{ badgeStatusUpload.text }}</span>
+              <span class="badge" :class="badgeStatusUpload.klass">{{
+                badgeStatusUpload.text
+              }}</span>
               <h4>{{ statusUploadTitulo }}</h4>
               <p>{{ statusUploadTexto }}</p>
             </div>
@@ -413,7 +612,10 @@ onBeforeUnmount(() => {
                 <span class="muted">Loja</span>
                 <strong>{{ lojaDestinoLabel }}</strong>
               </div>
-              <div v-if="auth.isSuperAdmin && lojaDestinoResumo" class="upload-meta-row">
+              <div
+                v-if="auth.isSuperAdmin && lojaDestinoResumo"
+                class="upload-meta-row"
+              >
                 <span class="muted">Local</span>
                 <strong>{{ lojaDestinoResumo }}</strong>
               </div>
@@ -431,15 +633,40 @@ onBeforeUnmount(() => {
             <Transition name="fila-fade">
               <div v-if="fila.length > 0" class="upload-fila-interna">
                 <div class="upload-fila-header row">
-                  <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; opacity: .6;">Fila</span>
-                  <span class="badge dim" style="font-size: 11px;">{{ fila.filter(i => i.status !== 'done').length }} pendente(s)</span>
+                  <span
+                    style="
+                      font-size: 12px;
+                      font-weight: 600;
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                      opacity: 0.6;
+                    "
+                    >Fila</span
+                  >
+                  <span class="badge dim" style="font-size: 11px"
+                    >{{
+                      fila.filter((i) => i.status !== "done").length
+                    }}
+                    pendente(s)</span
+                  >
                   <span class="spacer" />
                   <button
-                    v-if="!uploadEmAndamento && fila.some(i => i.status === 'done')"
+                    v-if="
+                      !uploadEmAndamento &&
+                      fila.some((i) => i.status === 'done')
+                    "
                     class="btn ghost"
-                    style="font-size: 11px; padding: 2px 8px;"
-                    @click="fila.splice(0, fila.length, ...fila.filter(i => i.status !== 'done'))"
-                  ><fa icon="broom" /></button>
+                    style="font-size: 11px; padding: 2px 8px"
+                    @click="
+                      fila.splice(
+                        0,
+                        fila.length,
+                        ...fila.filter((i) => i.status !== 'done'),
+                      )
+                    "
+                  >
+                    <fa icon="broom" />
+                  </button>
                 </div>
                 <div class="upload-fila-scroll">
                   <TransitionGroup name="fila-item" tag="div">
@@ -450,8 +677,15 @@ onBeforeUnmount(() => {
                       :class="item.status"
                     >
                       <div class="fila-item-icon">
-                        <fa v-if="item.status === 'processing'" icon="spinner" spin />
-                        <span v-else-if="item.status === 'waiting'" class="fila-waiting-pulse" />
+                        <fa
+                          v-if="item.status === 'processing'"
+                          icon="spinner"
+                          spin
+                        />
+                        <span
+                          v-else-if="item.status === 'waiting'"
+                          class="fila-waiting-pulse"
+                        />
                         <fa v-else-if="item.status === 'done'" icon="check" />
                         <fa v-else icon="triangle-exclamation" />
                       </div>
@@ -459,10 +693,21 @@ onBeforeUnmount(() => {
                         <div class="fila-item-nome">{{ item.file.name }}</div>
                         <div class="fila-item-meta muted">
                           <span>{{ formatBytes(item.file.size) }}</span>
-                          <span v-if="item.status === 'processing'"> · Processando…</span>
-                          <span v-else-if="item.status === 'waiting'"> · Na fila</span>
-                          <span v-else-if="item.status === 'done'"> · Concluído</span>
-                          <span v-else-if="item.status === 'error'" class="fila-item-erro"> · {{ item.erro }}</span>
+                          <span v-if="item.status === 'processing'">
+                            · Processando…</span
+                          >
+                          <span v-else-if="item.status === 'waiting'">
+                            · Na fila</span
+                          >
+                          <span v-else-if="item.status === 'done'">
+                            · Concluído</span
+                          >
+                          <span
+                            v-else-if="item.status === 'error'"
+                            class="fila-item-erro"
+                          >
+                            · {{ item.erro }}</span
+                          >
                         </div>
                       </div>
                       <button
@@ -470,7 +715,9 @@ onBeforeUnmount(() => {
                         class="btn ghost fila-item-remove"
                         title="Remover da fila"
                         @click.prevent="removerDaFila(item.id)"
-                      ><fa icon="xmark" /></button>
+                      >
+                        <fa icon="xmark" />
+                      </button>
                     </div>
                   </TransitionGroup>
                 </div>
@@ -480,24 +727,47 @@ onBeforeUnmount(() => {
 
           <label
             class="dropzone upload-dropzone"
-            :class="{ over: dragOver, active: fila.length > 0, disabled: !podeSelecionarArquivo }"
+            :class="{
+              over: dragOver,
+              active: fila.length > 0,
+              disabled: !podeSelecionarArquivo,
+              'cursor-pointer': podeSelecionarArquivo,
+              'cursor-not-allowed': uploadBloqueadoSemLoja,
+            }"
             @dragover.prevent="podeSelecionarArquivo && (dragOver = true)"
             @dragleave.prevent="dragOver = false"
             @drop.prevent="podeSelecionarArquivo && onDrop($event)"
           >
-            <input ref="fileInput" type="file" multiple accept=".xlsx,.xls,.xlsb,.xlsm,.csv,.ods" @change="pickFile" hidden :disabled="!podeSelecionarArquivo" />
+            <input
+              ref="fileInput"
+              type="file"
+              multiple
+              accept=".xlsx,.xls,.xlsb,.xlsm,.csv,.ods"
+              @change="pickFile"
+              hidden
+              :disabled="!podeSelecionarArquivo"
+            />
 
             <template v-if="uploadEmAndamento">
               <div class="upload-progress-stage">
-                <div class="upload-progress-meter" :style="{ '--meter-progress': progressoExibido + '%' }">
-                  <div class="upload-progress-value">{{ progressoExibido }}%</div>
+                <div
+                  class="upload-progress-meter"
+                  :style="{ '--meter-progress': progressoExibido + '%' }"
+                >
+                  <div class="upload-progress-value">
+                    {{ progressoExibido }}%
+                  </div>
                   <div class="upload-progress-ripple"></div>
                 </div>
-                <div class="upload-progress-label">{{ statusUploadTitulo }}</div>
+                <div class="upload-progress-label">
+                  {{ statusUploadTitulo }}
+                </div>
                 <div class="upload-stage-display">
                   <div class="stage-live-label">
                     <span class="stage-live-dot"></span>
-                    <span>{{ detalheProcessamento || 'Acompanhando processamento' }}</span>
+                    <span>{{
+                      detalheProcessamento || "Acompanhando processamento"
+                    }}</span>
                   </div>
                   <div class="stage-name-rotator" aria-hidden="true">
                     <span>Validando estrutura da planilha</span>
@@ -510,31 +780,51 @@ onBeforeUnmount(() => {
                 <div class="progress upload-progress-bar">
                   <span :style="{ width: progressoExibido + '%' }" />
                 </div>
-                <div class="muted upload-progress-footnote">A barra combina envio real do arquivo com o avanço do processamento da auditoria.</div>
+                <div class="muted upload-progress-footnote">
+                  A barra combina envio real do arquivo com o avanço do
+                  processamento da auditoria.
+                </div>
               </div>
             </template>
 
             <template v-else-if="auth.isSuperAdmin && !lojaDestinoId">
               <div class="upload-drop-content">
                 <div class="upload-drop-icon"><fa icon="store" /></div>
-                <strong>Escolha a loja de destino para habilitar o envio</strong>
-                <div class="muted">A planilha será processada exatamente para a loja selecionada acima.</div>
+                <strong
+                  >Escolha a loja de destino para habilitar o envio</strong
+                >
+                <div class="muted">
+                  A planilha será processada exatamente para a loja selecionada
+                  acima.
+                </div>
               </div>
             </template>
 
             <template v-else-if="temFilaEspera">
               <div class="upload-drop-content">
                 <div class="upload-drop-icon"><fa icon="layer-group" /></div>
-                <strong>{{ fila.filter(i => i.status === 'waiting').length }} arquivo(s) aguardando na fila</strong>
-                <div class="muted">Clique ou arraste para adicionar mais planilhas</div>
+                <strong
+                  >{{
+                    fila.filter((i) => i.status === "waiting").length
+                  }}
+                  arquivo(s) aguardando na fila</strong
+                >
+                <div class="muted">
+                  Clique ou arraste para adicionar mais planilhas
+                </div>
               </div>
             </template>
 
             <template v-else>
               <div class="upload-drop-content">
                 <div class="upload-drop-icon"><fa icon="cloud-arrow-up" /></div>
-                <strong>Arraste planilhas aqui ou clique para selecionar</strong>
-                <div class="muted">Selecione vários arquivos de uma vez — Excel / CSV até 100 MB cada</div>
+                <strong
+                  >Arraste planilhas aqui ou clique para selecionar</strong
+                >
+                <div class="muted">
+                  Selecione vários arquivos de uma vez — Excel / CSV até 100 MB
+                  cada
+                </div>
               </div>
             </template>
           </label>
@@ -542,18 +832,28 @@ onBeforeUnmount(() => {
 
         <div class="upload-footer row">
           <div class="upload-footer-copy">
-            <span class="muted" style="font-size: 12px;">
-              Detecção automática usa o nome do arquivo e a aba. Override manual tem prioridade.
+            <span class="muted" style="font-size: 12px">
+              Detecção automática usa o nome do arquivo e a aba. Override manual
+              tem prioridade.
             </span>
-            <span v-if="auth.isSuperAdmin && lojaDestinoId" class="badge dim upload-store-badge">
+            <span
+              v-if="auth.isSuperAdmin && lojaDestinoId"
+              class="badge dim upload-store-badge"
+            >
               <fa icon="store" /> {{ lojaDestinoLabel }}
             </span>
-            <span v-if="erroUpload" class="badge bad upload-error-badge">{{ erroUpload }}</span>
+            <span v-if="erroUpload" class="badge bad upload-error-badge">{{
+              erroUpload
+            }}</span>
           </div>
 
           <div class="upload-footer-actions">
             <div v-if="uploadComPreenchimento" class="upload-inline-progress">
-              <span class="muted">{{ uploadEmAndamento ? (detalheProcessamento || 'Processando') : 'Último processamento' }}</span>
+              <span class="muted">{{
+                uploadEmAndamento
+                  ? detalheProcessamento || "Processando"
+                  : "Último processamento"
+              }}</span>
               <strong>{{ progressoExibido }}%</strong>
             </div>
           </div>
@@ -562,24 +862,66 @@ onBeforeUnmount(() => {
 
       <!-- Resultado do upload -->
       <Transition name="fade">
-        <div v-if="ultimoResultado" class="card mt-3" style="background: rgba(34,197,94,.06); border-color: rgba(34,197,94,.3);">
+        <div
+          v-if="ultimoResultado"
+          class="card mt-3 upload-result-card"
+          :class="{ canceled: ultimoResultado.cancelada }"
+        >
           <div class="row">
-            <fa icon="check" style="color: var(--success); font-size: 18px;" />
+            <fa
+              :icon="
+                ultimoResultado.cancelada ? 'triangle-exclamation' : 'check'
+              "
+              class="upload-result-icon"
+            />
             <strong>{{ ultimoResultado.tipo }}</strong>
             <span class="muted">·</span>
-            <span>{{ new Date(ultimoResultado.dataAuditoria).toLocaleDateString('pt-BR') }}</span>
+            <span>{{
+              new Date(ultimoResultado.dataAuditoria).toLocaleDateString(
+                "pt-BR",
+              )
+            }}</span>
             <span v-if="ultimaLojaProcessada?.nome" class="muted">·</span>
-            <span v-if="ultimaLojaProcessada?.nome" class="badge dim"><fa icon="store" /> {{ ultimaLojaProcessada.nome }}</span>
+            <span v-if="ultimaLojaProcessada?.nome" class="badge dim"
+              ><fa icon="store" /> {{ ultimaLojaProcessada.nome }}</span
+            >
             <span class="spacer" />
-            <span class="badge ok">{{ ultimoResultado.taxaConformidade?.toFixed(1) }}% conformidade</span>
+            <span v-if="ultimoResultado.cancelada" class="badge warn"
+              >Auditoria cancelada</span
+            >
+            <span v-else class="badge ok">
+              {{ ultimoResultado.taxaConformidade?.toFixed(1) }}% conformidade
+            </span>
           </div>
-          <div class="row mt-2 gap-3" style="font-size: 13px;">
-            <span><span class="muted">Itens:</span> <strong>{{ ultimoResultado.totalItens }}</strong></span>
-            <span><span class="muted">Lidos:</span> <strong>{{ ultimoResultado.totalLidos }}</strong></span>
-            <span><span class="muted">Conformes:</span> <strong>{{ ultimoResultado.totalConformes }}</strong></span>
-            <span><span class="muted">Pts:</span> <strong>{{ Math.round(ultimoResultado.pontuacao || 0) }}</strong></span>
+          <div v-if="ultimoResultado.cancelada" class="upload-cancel-copy mt-2">
+            <fa icon="triangle-exclamation" />
+            <span>{{ ultimoResultado.mensagemCancelamento }}</span>
+          </div>
+          <div class="row mt-2 gap-3" style="font-size: 13px">
+            <span
+              ><span class="muted">Itens:</span>
+              <strong>{{ ultimoResultado.totalItens }}</strong></span
+            >
+            <span
+              ><span class="muted">Lidos:</span>
+              <strong>{{ ultimoResultado.totalLidos }}</strong></span
+            >
+            <span
+              ><span class="muted">Conformes:</span>
+              <strong>{{ ultimoResultado.totalConformes }}</strong></span
+            >
+            <span
+              ><span class="muted">Pts:</span>
+              <strong>{{
+                Math.round(ultimoResultado.pontuacao || 0)
+              }}</strong></span
+            >
             <span class="spacer" />
-            <button class="btn ghost" style="font-size: 13px;" @click="irParaDashboard">
+            <button
+              class="btn ghost"
+              style="font-size: 13px"
+              @click="irParaDashboard"
+            >
               <fa icon="gauge" /> Ver no Dashboard
             </button>
           </div>
@@ -591,9 +933,16 @@ onBeforeUnmount(() => {
     <div class="card">
       <div class="row mb-2">
         <h3 class="mt-0 mb-0">Histórico de auditorias</h3>
-        <span v-if="auth.isSuperAdmin && lojaDestinoId" class="badge dim"><fa icon="store" /> {{ lojaDestinoLabel }}</span>
+        <span v-if="auth.isSuperAdmin && lojaDestinoId" class="badge dim"
+          ><fa icon="store" /> {{ lojaDestinoLabel }}</span
+        >
         <span class="spacer" />
-        <select v-model="filtroTipo" @change="listar" class="btn ghost" style="padding: 8px 14px;">
+        <select
+          v-model="filtroTipo"
+          @change="listar"
+          class="btn ghost"
+          style="padding: 8px 14px"
+        >
           <option value="">Todos os tipos</option>
           <option value="ETIQUETA">Etiqueta</option>
           <option value="PRESENCA">Presença</option>
@@ -602,36 +951,81 @@ onBeforeUnmount(() => {
       </div>
 
       <Loader v-if="carregando" />
-      <div v-else-if="auth.isSuperAdmin && !lojaDestinoId" class="empty">Escolha uma loja acima para ver o histórico e enviar planilhas para ela.</div>
-      <div v-else-if="!auditorias.length" class="empty">Nenhuma auditoria encontrada.</div>
+      <div v-else-if="auth.isSuperAdmin && !lojaDestinoId" class="empty">
+        Escolha uma loja acima para ver o histórico e enviar planilhas para ela.
+      </div>
+      <div v-else-if="!auditorias.length" class="empty">
+        Nenhuma auditoria encontrada.
+      </div>
       <div v-else class="table-wrap">
         <table class="table">
           <thead>
-            <tr><th>Tipo</th><th>Data</th><th>Itens lidos</th><th>Conformidade</th><th>Pontuação</th><th>Custo Ruptura</th><th></th></tr>
+            <tr>
+              <th>Tipo</th>
+              <th>Data</th>
+              <th>Itens lidos</th>
+              <th>Conformidade</th>
+              <th>Pontuação</th>
+              <th>Custo Ruptura</th>
+              <th></th>
+            </tr>
           </thead>
           <tbody>
-            <tr v-for="a in auditorias" :key="a._id">
-              <td><span class="badge" :class="'tipo-' + a.tipo">{{ a.tipo }}</span></td>
-              <td>{{ new Date(a.data).toLocaleDateString('pt-BR') }}</td>
-              <td>{{ a.totalLidos?.toLocaleString('pt-BR') }} / {{ a.totalItens?.toLocaleString('pt-BR') }}</td>
+            <tr
+              v-for="a in auditorias"
+              :key="a._id"
+              :class="a.status === 'CANCELADA' ? 'auditoria-cancelada-row' : ''"
+            >
+              <td>
+                <span class="badge" :class="'tipo-' + a.tipo">{{
+                  a.tipo
+                }}</span>
+                <span
+                  class="badge audit-status-badge"
+                  :class="statusAuditoria(a).klass"
+                >
+                  {{ statusAuditoria(a).text }}
+                </span>
+              </td>
+              <td>{{ new Date(a.data).toLocaleDateString("pt-BR") }}</td>
+              <td>
+                {{ a.totalLidos?.toLocaleString("pt-BR") }} /
+                {{ a.totalItens?.toLocaleString("pt-BR") }}
+              </td>
               <td>
                 <div class="row gap-2">
                   {{ a.taxaConformidade?.toFixed(1) }}%
-                  <div class="progress" style="flex:1; min-width:60px;">
-                    <span :style="{ width: Math.min(100, a.taxaConformidade || 0) + '%' }" />
+                  <div class="progress" style="flex: 1; min-width: 60px">
+                    <span
+                      :style="{
+                        width: Math.min(100, a.taxaConformidade || 0) + '%',
+                      }"
+                    />
                   </div>
                 </div>
               </td>
               <td>{{ Math.round(a.pontuacao || 0) }}</td>
               <td>
                 <span v-if="a.custoRupturaTotal > 0" class="badge bad">
-                  R$ {{ a.custoRupturaTotal.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) }}
+                  R$
+                  {{
+                    a.custoRupturaTotal.toLocaleString("pt-BR", {
+                      maximumFractionDigits: 0,
+                    })
+                  }}
                 </span>
                 <span v-else class="muted">—</span>
               </td>
               <td class="text-right">
-                <RouterLink :to="rotaAuditoria(a._id)" class="btn ghost"><fa icon="eye" /></RouterLink>
-                <button v-if="auth.podeGerenciar" class="btn ghost danger" @click="excluir(a)" title="Excluir">
+                <RouterLink :to="rotaAuditoria(a._id)" class="btn ghost"
+                  ><fa icon="eye"
+                /></RouterLink>
+                <button
+                  v-if="auth.podeGerenciar"
+                  class="btn ghost danger"
+                  @click="excluir(a)"
+                  title="Excluir"
+                >
                   <fa icon="trash" />
                 </button>
               </td>
@@ -649,36 +1043,95 @@ onBeforeUnmount(() => {
   overflow: hidden;
   isolation: isolate;
   background:
-    linear-gradient(145deg, rgba(124,92,255,.13), rgba(34,211,238,.08) 48%, rgba(34,197,94,.07)),
-    linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0)),
+    linear-gradient(
+      145deg,
+      rgba(124, 92, 255, 0.13),
+      rgba(34, 211, 238, 0.08) 48%,
+      rgba(34, 197, 94, 0.07)
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
     var(--surface);
-  border-color: rgba(124,92,255,.20);
-  transition: border-color .28s ease, box-shadow .28s ease, transform .28s ease;
+  border-color: rgba(124, 92, 255, 0.2);
+  transition:
+    border-color 0.28s ease,
+    box-shadow 0.28s ease,
+    transform 0.28s ease;
 }
 
 .upload-shell.uploading {
-  border-color: rgba(34,211,238,.34);
-  box-shadow: 0 18px 48px rgba(10,25,55,.22), inset 0 1px 0 rgba(255,255,255,.10);
+  border-color: rgba(34, 211, 238, 0.34);
+  box-shadow:
+    0 18px 48px rgba(10, 25, 55, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .upload-shell.success {
-  border-color: rgba(34,197,94,.34);
+  border-color: rgba(34, 197, 94, 0.34);
+}
+
+.upload-shell.canceled {
+  border-color: rgba(245, 158, 11, 0.42);
 }
 
 .upload-shell.error {
-  border-color: rgba(239,68,68,.38);
+  border-color: rgba(239, 68, 68, 0.38);
+}
+
+.upload-result-card {
+  background: rgba(34, 197, 94, 0.06);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.upload-result-card.canceled {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.32);
+}
+
+.upload-result-icon {
+  color: var(--success);
+  font-size: 18px;
+}
+
+.upload-result-card.canceled .upload-result-icon {
+  color: #f59e0b;
+}
+
+.upload-cancel-copy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fbbf24;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.audit-status-badge {
+  margin-left: 6px;
+}
+
+.auditoria-cancelada-row {
+  background: rgba(245, 158, 11, 0.05);
+}
+
+[data-theme="light"] .upload-cancel-copy {
+  color: #92400e;
 }
 
 .upload-shell::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(115deg, transparent 0 28%, rgba(255,255,255,.08) 43%, transparent 58% 100%),
-    linear-gradient(180deg, rgba(255,255,255,.06), transparent 32%);
+    linear-gradient(
+      115deg,
+      transparent 0 28%,
+      rgba(255, 255, 255, 0.08) 43%,
+      transparent 58% 100%
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 32%);
   pointer-events: none;
   z-index: 0;
-  opacity: .72;
+  opacity: 0.72;
 }
 
 .upload-shell-inner,
@@ -699,13 +1152,24 @@ onBeforeUnmount(() => {
   bottom: 0;
   min-height: 42px;
   background:
-    linear-gradient(180deg, rgba(236,253,255,.42) 0%, rgba(34,211,238,.30) 16%, rgba(37,99,235,.24) 62%, rgba(124,92,255,.24) 100%),
-    linear-gradient(90deg, rgba(34,211,238,.10), rgba(255,255,255,.13) 46%, rgba(124,92,255,.12));
+    linear-gradient(
+      180deg,
+      rgba(236, 253, 255, 0.42) 0%,
+      rgba(34, 211, 238, 0.3) 16%,
+      rgba(37, 99, 235, 0.24) 62%,
+      rgba(124, 92, 255, 0.24) 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(34, 211, 238, 0.1),
+      rgba(255, 255, 255, 0.13) 46%,
+      rgba(124, 92, 255, 0.12)
+    );
   box-shadow:
-    inset 0 28px 48px rgba(255,255,255,.20),
-    inset 0 -34px 72px rgba(15,23,42,.16),
-    0 -18px 48px rgba(34,211,238,.20);
-  transition: height .68s cubic-bezier(.2,.8,.2,1);
+    inset 0 28px 48px rgba(255, 255, 255, 0.2),
+    inset 0 -34px 72px rgba(15, 23, 42, 0.16),
+    0 -18px 48px rgba(34, 211, 238, 0.2);
+  transition: height 0.68s cubic-bezier(0.2, 0.8, 0.2, 1);
   pointer-events: none;
   z-index: 1;
   transform: translateZ(0);
@@ -724,28 +1188,54 @@ onBeforeUnmount(() => {
 
 .upload-liquid-depth {
   background:
-    linear-gradient(90deg, rgba(255,255,255,.16), transparent 16% 72%, rgba(255,255,255,.10)),
-    repeating-linear-gradient(104deg, rgba(255,255,255,.08) 0 2px, transparent 2px 32px);
-  opacity: .42;
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.16),
+      transparent 16% 72%,
+      rgba(255, 255, 255, 0.1)
+    ),
+    repeating-linear-gradient(
+      104deg,
+      rgba(255, 255, 255, 0.08) 0 2px,
+      transparent 2px 32px
+    );
+  opacity: 0.42;
   animation: liquidCurrent 9s linear infinite;
 }
 
 .upload-caustics {
   background:
-    repeating-linear-gradient(128deg, transparent 0 34px, rgba(255,255,255,.18) 35px 39px, transparent 40px 74px),
-    repeating-linear-gradient(52deg, transparent 0 42px, rgba(34,211,238,.16) 43px 46px, transparent 47px 90px);
-  background-size: 220px 180px, 260px 210px;
+    repeating-linear-gradient(
+      128deg,
+      transparent 0 34px,
+      rgba(255, 255, 255, 0.18) 35px 39px,
+      transparent 40px 74px
+    ),
+    repeating-linear-gradient(
+      52deg,
+      transparent 0 42px,
+      rgba(34, 211, 238, 0.16) 43px 46px,
+      transparent 47px 90px
+    );
+  background-size:
+    220px 180px,
+    260px 210px;
   mix-blend-mode: screen;
-  opacity: .34;
+  opacity: 0.34;
   animation: causticDrift 10s linear infinite;
 }
 
 .upload-waterline {
   inset: auto -4% calc(100% - 18px) -4%;
   height: 34px;
-  background: linear-gradient(180deg, rgba(255,255,255,.64), rgba(236,253,255,.22) 42%, transparent 78%);
-  filter: blur(.2px);
-  opacity: .82;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.64),
+    rgba(236, 253, 255, 0.22) 42%,
+    transparent 78%
+  );
+  filter: blur(0.2px);
+  opacity: 0.82;
   animation: waterlineBreath 3.4s ease-in-out infinite;
 }
 
@@ -756,29 +1246,45 @@ onBeforeUnmount(() => {
   height: 70px;
   top: -38px;
   background:
-    radial-gradient(62px 28px at 62px 40px, rgba(255,255,255,.74) 0 54%, transparent 56%) 0 0 / 124px 70px repeat-x,
-    radial-gradient(58px 26px at 62px 33px, rgba(34,211,238,.30) 0 52%, transparent 54%) 0 0 / 124px 70px repeat-x;
-  filter: blur(.4px);
+    radial-gradient(
+        62px 28px at 62px 40px,
+        rgba(255, 255, 255, 0.74) 0 54%,
+        transparent 56%
+      )
+      0 0 / 124px 70px repeat-x,
+    radial-gradient(
+        58px 26px at 62px 33px,
+        rgba(34, 211, 238, 0.3) 0 52%,
+        transparent 54%
+      )
+      0 0 / 124px 70px repeat-x;
+  filter: blur(0.4px);
   transform-origin: center;
   z-index: 4;
 }
 
 .wave-a {
-  animation: waterDrift 8.5s linear infinite, waterBob 3.1s ease-in-out infinite;
-  opacity: .68;
+  animation:
+    waterDrift 8.5s linear infinite,
+    waterBob 3.1s ease-in-out infinite;
+  opacity: 0.68;
 }
 
 .wave-b {
   top: -30px;
-  animation: waterDriftReverse 12.5s linear infinite, waterBob 4s ease-in-out infinite reverse;
-  opacity: .42;
+  animation:
+    waterDriftReverse 12.5s linear infinite,
+    waterBob 4s ease-in-out infinite reverse;
+  opacity: 0.42;
   filter: blur(1px);
 }
 
 .wave-c {
   top: -22px;
-  animation: waterDrift 17s linear infinite, waterBob 5.2s ease-in-out infinite;
-  opacity: .30;
+  animation:
+    waterDrift 17s linear infinite,
+    waterBob 5.2s ease-in-out infinite;
+  opacity: 0.3;
   filter: blur(1.6px);
 }
 
@@ -788,37 +1294,101 @@ onBeforeUnmount(() => {
   width: 9px;
   height: 9px;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.52);
-  background: rgba(255,255,255,.16);
-  box-shadow: inset 1px 1px 4px rgba(255,255,255,.45);
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 1px 1px 4px rgba(255, 255, 255, 0.45);
   opacity: 0;
   animation: bubbleRise 7.2s ease-in infinite;
 }
 
-.bubble-1 { left: 7%;  width: 7px;  height: 7px;  animation-delay: -1.2s; animation-duration: 6.8s; }
-.bubble-2 { left: 18%; width: 12px; height: 12px; animation-delay: -4.4s; animation-duration: 8.8s; }
-.bubble-3 { left: 31%; width: 6px;  height: 6px;  animation-delay: -2.8s; animation-duration: 7.4s; }
-.bubble-4 { left: 47%; width: 10px; height: 10px; animation-delay: -5.8s; animation-duration: 9.4s; }
-.bubble-5 { left: 61%; width: 5px;  height: 5px;  animation-delay: -3.3s; animation-duration: 6.2s; }
-.bubble-6 { left: 74%; width: 11px; height: 11px; animation-delay: -6.4s; animation-duration: 10s; }
-.bubble-7 { left: 84%; width: 7px;  height: 7px;  animation-delay: -2s;   animation-duration: 7.8s; }
-.bubble-8 { left: 93%; width: 13px; height: 13px; animation-delay: -7.2s; animation-duration: 9.8s; }
+.bubble-1 {
+  left: 7%;
+  width: 7px;
+  height: 7px;
+  animation-delay: -1.2s;
+  animation-duration: 6.8s;
+}
+.bubble-2 {
+  left: 18%;
+  width: 12px;
+  height: 12px;
+  animation-delay: -4.4s;
+  animation-duration: 8.8s;
+}
+.bubble-3 {
+  left: 31%;
+  width: 6px;
+  height: 6px;
+  animation-delay: -2.8s;
+  animation-duration: 7.4s;
+}
+.bubble-4 {
+  left: 47%;
+  width: 10px;
+  height: 10px;
+  animation-delay: -5.8s;
+  animation-duration: 9.4s;
+}
+.bubble-5 {
+  left: 61%;
+  width: 5px;
+  height: 5px;
+  animation-delay: -3.3s;
+  animation-duration: 6.2s;
+}
+.bubble-6 {
+  left: 74%;
+  width: 11px;
+  height: 11px;
+  animation-delay: -6.4s;
+  animation-duration: 10s;
+}
+.bubble-7 {
+  left: 84%;
+  width: 7px;
+  height: 7px;
+  animation-delay: -2s;
+  animation-duration: 7.8s;
+}
+.bubble-8 {
+  left: 93%;
+  width: 13px;
+  height: 13px;
+  animation-delay: -7.2s;
+  animation-duration: 9.8s;
+}
 
 [data-theme="light"] .upload-shell {
   background:
-    linear-gradient(145deg, rgba(109,92,255,.16), rgba(17,197,255,.11) 48%, rgba(16,185,129,.08)),
-    linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,0)),
-    rgba(255,255,255,.72);
+    linear-gradient(
+      145deg,
+      rgba(109, 92, 255, 0.16),
+      rgba(17, 197, 255, 0.11) 48%,
+      rgba(16, 185, 129, 0.08)
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0)),
+    rgba(255, 255, 255, 0.72);
 }
 
 [data-theme="light"] .upload-liquid {
   background:
-    linear-gradient(180deg, rgba(255,255,255,.62) 0%, rgba(103,232,249,.42) 16%, rgba(37,99,235,.21) 62%, rgba(109,92,255,.18) 100%),
-    linear-gradient(90deg, rgba(17,197,255,.14), rgba(255,255,255,.24) 46%, rgba(109,92,255,.13));
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.62) 0%,
+      rgba(103, 232, 249, 0.42) 16%,
+      rgba(37, 99, 235, 0.21) 62%,
+      rgba(109, 92, 255, 0.18) 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(17, 197, 255, 0.14),
+      rgba(255, 255, 255, 0.24) 46%,
+      rgba(109, 92, 255, 0.13)
+    );
   box-shadow:
-    inset 0 30px 48px rgba(255,255,255,.36),
-    inset 0 -30px 70px rgba(47,88,155,.10),
-    0 -20px 48px rgba(17,197,255,.18);
+    inset 0 30px 48px rgba(255, 255, 255, 0.36),
+    inset 0 -30px 70px rgba(47, 88, 155, 0.1),
+    0 -20px 48px rgba(17, 197, 255, 0.18);
 }
 
 .upload-topbar {
@@ -839,14 +1409,14 @@ onBeforeUnmount(() => {
 }
 
 .upload-type-select {
-  background: rgba(255,255,255,.74);
+  background: rgba(255, 255, 255, 0.74);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 12px 16px;
   color: var(--text);
   font-size: 15px;
   font-weight: 700;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .upload-layout {
@@ -865,19 +1435,28 @@ onBeforeUnmount(() => {
   border-radius: 18px;
   border: 1px solid var(--border);
   background:
-    linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.07)),
-    rgba(8,13,26,.10);
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.16),
+      rgba(255, 255, 255, 0.07)
+    ),
+    rgba(8, 13, 26, 0.1);
   backdrop-filter: blur(6px);
   min-height: 100%;
   overflow: hidden;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.10);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .upload-status-card::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(110deg, transparent 0 34%, rgba(255,255,255,.12) 47%, transparent 60% 100%);
+  background: linear-gradient(
+    110deg,
+    transparent 0 34%,
+    rgba(255, 255, 255, 0.12) 47%,
+    transparent 60% 100%
+  );
   opacity: 0;
   transform: translateX(-45%);
   pointer-events: none;
@@ -899,19 +1478,23 @@ onBeforeUnmount(() => {
   border-radius: 18px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, rgba(124,92,255,.24), rgba(34,211,238,.24));
+  background: linear-gradient(
+    135deg,
+    rgba(124, 92, 255, 0.24),
+    rgba(34, 211, 238, 0.24)
+  );
   color: var(--text);
   font-size: 24px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .upload-status-icon::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 8px;
   border-radius: 14px;
-  border: 1px solid rgba(255,255,255,.24);
-  opacity: .45;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  opacity: 0.45;
 }
 
 .upload-shell.uploading .upload-status-icon {
@@ -947,18 +1530,23 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   text-align: center;
-  background: rgba(255,255,255,.08);
+  background: rgba(255, 255, 255, 0.08);
   border-width: 2px;
   position: relative;
   overflow: hidden;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .upload-dropzone::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, transparent 0 35%, rgba(255,255,255,.10) 48%, transparent 62% 100%);
+  background: linear-gradient(
+    120deg,
+    transparent 0 35%,
+    rgba(255, 255, 255, 0.1) 48%,
+    transparent 62% 100%
+  );
   opacity: 0;
   transform: translateX(-55%);
   pointer-events: none;
@@ -971,12 +1559,19 @@ onBeforeUnmount(() => {
 }
 
 .upload-dropzone.active {
-  border-color: rgba(124,92,255,.36);
-  background: rgba(255,255,255,.10);
+  border-color: rgba(124, 92, 255, 0.36);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .upload-dropzone.disabled {
   cursor: progress;
+}
+
+.upload-dropzone.cursor-pointer {
+  cursor: pointer;
+}
+.upload-dropzone.cursor-not-allowed {
+  cursor: not-allowed;
 }
 
 .upload-drop-content,
@@ -995,10 +1590,10 @@ onBeforeUnmount(() => {
   border-radius: 22px;
   display: grid;
   place-items: center;
-  background: rgba(255,255,255,.78);
+  background: rgba(255, 255, 255, 0.78);
   color: var(--text-dim);
   font-size: 28px;
-  box-shadow: 0 10px 24px rgba(70,82,126,.14);
+  box-shadow: 0 10px 24px rgba(70, 82, 126, 0.14);
 }
 
 .upload-progress-meter {
@@ -1010,32 +1605,44 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   background:
-    conic-gradient(from -90deg, rgba(34,211,238,.95) var(--meter-progress), rgba(255,255,255,.18) 0),
-    linear-gradient(135deg, rgba(124,92,255,.36), rgba(34,211,238,.24));
+    conic-gradient(
+      from -90deg,
+      rgba(34, 211, 238, 0.95) var(--meter-progress),
+      rgba(255, 255, 255, 0.18) 0
+    ),
+    linear-gradient(135deg, rgba(124, 92, 255, 0.36), rgba(34, 211, 238, 0.24));
   box-shadow:
-    0 18px 42px rgba(9,18,38,.22),
-    inset 0 1px 0 rgba(255,255,255,.32);
+    0 18px 42px rgba(9, 18, 38, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
 }
 
 .upload-progress-meter::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 9px;
   border-radius: inherit;
   background:
-    linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,.14)),
-    rgba(8,13,26,.18);
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.34),
+      rgba(255, 255, 255, 0.14)
+    ),
+    rgba(8, 13, 26, 0.18);
   backdrop-filter: blur(8px);
-  box-shadow: inset 0 0 32px rgba(255,255,255,.10);
+  box-shadow: inset 0 0 32px rgba(255, 255, 255, 0.1);
 }
 
 .upload-progress-meter::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 24px;
   border-radius: inherit;
-  background: linear-gradient(180deg, rgba(255,255,255,.30), transparent 48%);
-  opacity: .58;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.3),
+    transparent 48%
+  );
+  opacity: 0.58;
   animation: meterGleam 4s ease-in-out infinite;
 }
 
@@ -1043,7 +1650,7 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 17px;
   border-radius: inherit;
-  border: 1px solid rgba(255,255,255,.32);
+  border: 1px solid rgba(255, 255, 255, 0.32);
   z-index: 3;
   animation: meterRipple 2.4s ease-out infinite;
 }
@@ -1055,7 +1662,7 @@ onBeforeUnmount(() => {
   font-weight: 800;
   line-height: 1;
   letter-spacing: 0;
-  text-shadow: 0 2px 14px rgba(11,15,26,.18);
+  text-shadow: 0 2px 14px rgba(11, 15, 26, 0.18);
 }
 
 .upload-progress-label {
@@ -1069,10 +1676,10 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 8px;
   padding: 11px 14px;
-  border: 1px solid rgba(255,255,255,.18);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 16px;
-  background: rgba(255,255,255,.12);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(8px);
 }
 
@@ -1093,7 +1700,7 @@ onBeforeUnmount(() => {
   height: 8px;
   border-radius: 999px;
   background: var(--accent);
-  box-shadow: 0 0 0 0 rgba(34,211,238,.42);
+  box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.42);
   flex: 0 0 auto;
   animation: stagePulse 1.55s ease-out infinite;
 }
@@ -1117,10 +1724,18 @@ onBeforeUnmount(() => {
   animation: stageNameCycle 12.5s ease-in-out infinite;
 }
 
-.stage-name-rotator span:nth-child(2) { animation-delay: 2.5s; }
-.stage-name-rotator span:nth-child(3) { animation-delay: 5s; }
-.stage-name-rotator span:nth-child(4) { animation-delay: 7.5s; }
-.stage-name-rotator span:nth-child(5) { animation-delay: 10s; }
+.stage-name-rotator span:nth-child(2) {
+  animation-delay: 2.5s;
+}
+.stage-name-rotator span:nth-child(3) {
+  animation-delay: 5s;
+}
+.stage-name-rotator span:nth-child(4) {
+  animation-delay: 7.5s;
+}
+.stage-name-rotator span:nth-child(5) {
+  animation-delay: 10s;
+}
 
 .upload-progress-footnote {
   font-size: 12px;
@@ -1131,12 +1746,12 @@ onBeforeUnmount(() => {
 .upload-progress-bar {
   width: min(100%, 420px);
   height: 12px;
-  background: rgba(255,255,255,.26);
-  box-shadow: inset 0 1px 2px rgba(0,0,0,.08);
+  background: rgba(255, 255, 255, 0.26);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .upload-progress-bar > span {
-  transition: width .24s ease;
+  transition: width 0.24s ease;
 }
 
 .upload-footer {
@@ -1184,7 +1799,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: rgba(0,0,0,.06);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .upload-fila-header {
@@ -1201,12 +1816,19 @@ onBeforeUnmount(() => {
   min-height: 0;
   max-height: 260px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(124,92,255,.3) transparent;
+  scrollbar-color: rgba(124, 92, 255, 0.3) transparent;
 }
 
-.upload-fila-scroll::-webkit-scrollbar { width: 4px; }
-.upload-fila-scroll::-webkit-scrollbar-track { background: transparent; }
-.upload-fila-scroll::-webkit-scrollbar-thumb { background: rgba(124,92,255,.3); border-radius: 2px; }
+.upload-fila-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.upload-fila-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.upload-fila-scroll::-webkit-scrollbar-thumb {
+  background: rgba(124, 92, 255, 0.3);
+  border-radius: 2px;
+}
 
 .upload-fila-list {
   display: grid;
@@ -1217,8 +1839,8 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
-  border-bottom: 1px solid rgba(255,255,255,.06);
-  transition: background .2s;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transition: background 0.2s;
 }
 
 .upload-fila-item:last-child {
@@ -1226,15 +1848,15 @@ onBeforeUnmount(() => {
 }
 
 .upload-fila-item.processing {
-  background: rgba(124,92,255,.08);
+  background: rgba(124, 92, 255, 0.08);
 }
 
 .upload-fila-item.done {
-  opacity: .6;
+  opacity: 0.6;
 }
 
 .upload-fila-item.error {
-  background: rgba(239,68,68,.06);
+  background: rgba(239, 68, 68, 0.06);
 }
 
 .fila-item-icon {
@@ -1247,10 +1869,18 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
-.upload-fila-item.processing .fila-item-icon { color: var(--accent, #7c5cff); }
-.upload-fila-item.done       .fila-item-icon { color: var(--success, #22c55e); }
-.upload-fila-item.error      .fila-item-icon { color: var(--danger, #ef4444); }
-.upload-fila-item.waiting    .fila-item-icon { color: var(--text-dim); }
+.upload-fila-item.processing .fila-item-icon {
+  color: var(--accent, #7c5cff);
+}
+.upload-fila-item.done .fila-item-icon {
+  color: var(--success, #22c55e);
+}
+.upload-fila-item.error .fila-item-icon {
+  color: var(--danger, #ef4444);
+}
+.upload-fila-item.waiting .fila-item-icon {
+  color: var(--text-dim);
+}
 
 .fila-waiting-pulse {
   display: block;
@@ -1262,8 +1892,15 @@ onBeforeUnmount(() => {
 }
 
 @keyframes filaWaitPulse {
-  0%, 100% { opacity: .35; transform: scale(.8); }
-  50%       { opacity: 1;   transform: scale(1.1); }
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }
 
 .fila-item-info {
@@ -1292,100 +1929,223 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   padding: 4px 8px;
   font-size: 12px;
-  opacity: .6;
+  opacity: 0.6;
 }
-.fila-item-remove:hover { opacity: 1; }
+.fila-item-remove:hover {
+  opacity: 1;
+}
 
 /* Transitions fila */
 .fila-fade-enter-active,
-.fila-fade-leave-active { transition: opacity .25s, transform .25s; }
+.fila-fade-leave-active {
+  transition:
+    opacity 0.25s,
+    transform 0.25s;
+}
 .fila-fade-enter-from,
-.fila-fade-leave-to    { opacity: 0; transform: translateY(-6px); }
+.fila-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
 
-.fila-item-enter-active { transition: opacity .2s, transform .2s; }
-.fila-item-leave-active { transition: opacity .15s; }
-.fila-item-enter-from   { opacity: 0; transform: translateX(-10px); }
-.fila-item-leave-to     { opacity: 0; }
+.fila-item-enter-active {
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
+}
+.fila-item-leave-active {
+  transition: opacity 0.15s;
+}
+.fila-item-enter-from {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+.fila-item-leave-to {
+  opacity: 0;
+}
 
 @keyframes waterDrift {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(124px); }
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(124px);
+  }
 }
 
 @keyframes waterDriftReverse {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-124px); }
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-124px);
+  }
 }
 
 @keyframes waterBob {
-  0%, 100% { margin-top: 0; }
-  50% { margin-top: 5px; }
+  0%,
+  100% {
+    margin-top: 0;
+  }
+  50% {
+    margin-top: 5px;
+  }
 }
 
 @keyframes liquidSettle {
-  0% { filter: saturate(1); }
-  42% { filter: saturate(1.16) brightness(1.04); }
-  100% { filter: saturate(1.02); }
+  0% {
+    filter: saturate(1);
+  }
+  42% {
+    filter: saturate(1.16) brightness(1.04);
+  }
+  100% {
+    filter: saturate(1.02);
+  }
 }
 
 @keyframes liquidCurrent {
-  0% { background-position: 0 0, 0 0; }
-  100% { background-position: 160px 0, 240px 0; }
+  0% {
+    background-position:
+      0 0,
+      0 0;
+  }
+  100% {
+    background-position:
+      160px 0,
+      240px 0;
+  }
 }
 
 @keyframes causticDrift {
-  0% { background-position: 0 0, 0 0; }
-  100% { background-position: 220px 180px, -260px 210px; }
+  0% {
+    background-position:
+      0 0,
+      0 0;
+  }
+  100% {
+    background-position:
+      220px 180px,
+      -260px 210px;
+  }
 }
 
 @keyframes waterlineBreath {
-  0%, 100% { transform: translateY(0) scaleY(1); opacity: .76; }
-  50% { transform: translateY(3px) scaleY(1.12); opacity: .96; }
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+    opacity: 0.76;
+  }
+  50% {
+    transform: translateY(3px) scaleY(1.12);
+    opacity: 0.96;
+  }
 }
 
 @keyframes bubbleRise {
-  0% { opacity: 0; transform: translate3d(0, 0, 0) scale(.72); }
-  12% { opacity: .72; }
-  72% { opacity: .46; }
-  100% { opacity: 0; transform: translate3d(18px, -430px, 0) scale(1.18); }
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.72);
+  }
+  12% {
+    opacity: 0.72;
+  }
+  72% {
+    opacity: 0.46;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(18px, -430px, 0) scale(1.18);
+  }
 }
 
 @keyframes cardSheen {
-  0% { opacity: 0; transform: translateX(-55%); }
-  18%, 52% { opacity: .9; }
-  100% { opacity: 0; transform: translateX(64%); }
+  0% {
+    opacity: 0;
+    transform: translateX(-55%);
+  }
+  18%,
+  52% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(64%);
+  }
 }
 
 @keyframes iconBuoy {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
 }
 
 @keyframes dropzoneSweep {
-  0% { transform: translateX(-65%); }
-  100% { transform: translateX(70%); }
+  0% {
+    transform: translateX(-65%);
+  }
+  100% {
+    transform: translateX(70%);
+  }
 }
 
 @keyframes meterGleam {
-  0%, 100% { transform: translateY(0); opacity: .44; }
-  50% { transform: translateY(-7px); opacity: .72; }
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.44;
+  }
+  50% {
+    transform: translateY(-7px);
+    opacity: 0.72;
+  }
 }
 
 @keyframes meterRipple {
-  0% { transform: scale(.92); opacity: .68; }
-  100% { transform: scale(1.13); opacity: 0; }
+  0% {
+    transform: scale(0.92);
+    opacity: 0.68;
+  }
+  100% {
+    transform: scale(1.13);
+    opacity: 0;
+  }
 }
 
 @keyframes stagePulse {
-  0% { box-shadow: 0 0 0 0 rgba(34,211,238,.42); transform: scale(.92); }
-  70% { box-shadow: 0 0 0 9px rgba(34,211,238,0); transform: scale(1); }
-  100% { box-shadow: 0 0 0 0 rgba(34,211,238,0); transform: scale(.92); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.42);
+    transform: scale(0.92);
+  }
+  70% {
+    box-shadow: 0 0 0 9px rgba(34, 211, 238, 0);
+    transform: scale(1);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0);
+    transform: scale(0.92);
+  }
 }
 
 @keyframes stageNameCycle {
-  0% { opacity: 0; transform: translateY(13px); }
-  7%, 18% { opacity: 1; transform: translateY(0); }
-  25%, 100% { opacity: 0; transform: translateY(-13px); }
+  0% {
+    opacity: 0;
+    transform: translateY(13px);
+  }
+  7%,
+  18% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  25%,
+  100% {
+    opacity: 0;
+    transform: translateY(-13px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

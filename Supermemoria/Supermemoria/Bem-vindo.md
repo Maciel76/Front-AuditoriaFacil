@@ -12,6 +12,8 @@ Este cofre e a memoria viva do sistema NovaAuditoria. A documentacao abaixo foi 
 - [[Componentes/MapaDeComponentes]]
 - [[BancoDeDados/ModelosESchemas]]
 - [[RegrasDeNegocio/RegrasOperacionais]]
+- [[Auditorias/CancelamentoDeAuditorias]]
+- [[Gamificacao/Bem-vindo]]
 - [[Integracoes/DependenciasEIntegracoes]]
 - [[FluxosDoSistema/FluxosPrincipais]]
 - [[PadroesEArquitetura/PadroesDoProjeto]]

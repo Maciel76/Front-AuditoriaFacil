@@ -29,7 +29,8 @@
 8. Frontend consulta GET /api/auditorias/upload/:jobId/status ate o status final.
 9. planilhaParser normaliza linhas e detecta tipo/data. A data e extraida da coluna auditadoEm (dia mais frequente) — nao da data do upload.
 10. auditoriaProcessor garante colaboradores, classifica linhas, persiste AuditItems, atualiza Auditoria, MetricaDiaria, Colaborador e Loja, emitindo progresso por etapa.
-11. Frontend recebe o resultado final do job, atualiza o historico filtrado pela loja escolhida e exibe o resumo do processamento.
+11. Se a chave loja + tipo + data ja estiver cancelada, o processador substitui os itens, mantem a auditoria como `CANCELADA`, zera as metricas e devolve resultado com `cancelada: true`.
+12. Frontend recebe o resultado final do job, atualiza o historico filtrado pela loja escolhida e exibe o resumo do processamento ou o aviso de cancelamento.
 
 > **Carregamento de historico**: o sistema aceita planilhas de qualquer data passada. Basta enviar normalmente; cada planilha sera indexada pela data real da auditoria e alimentara todos os periodos (dia, semana, mes, ano, tudo) retroativamente. Apos carregar um lote de historico, executar `scripts/recompute-acumulados.js` garante consistencia dos acumulados.
 
@@ -92,7 +93,8 @@
 
 1. Frontend carrega /api/colaboradores/portal/me.
 2. Frontend carrega /api/metricas/portal/me?periodo=tudo.
-3. Colaborador visualiza dados pessoais, metricas e configuracoes.
+3. Backend resolve corredores e conquistas do colaborador com base no estado atual e nas definicoes ativas.
+4. Colaborador visualiza dados pessoais, metricas, progresso de gamificacao e configuracoes.
 
 ## Fluxo 9 - Avatar do colaborador
 
@@ -118,3 +120,30 @@
 5. Backend agrega MetricaDiaria, AuditItem, Auditoria e Colaborador apenas para a loja solicitada.
 6. Frontend renderiza KPIs, serie de conformidade, distribuicao por tipo, situacoes, destaques por classe e corredor e ultimas auditorias.
 7. Quando o usuario nao tem acesso ao tenant da loja, o perfil continua visivel, mas o link para o detalhe da auditoria permanece restrito.
+
+## Fluxo 12 - Gamificacao, XP e niveis do colaborador
+
+1. Um upload em /api/auditorias/upload passa pelo auditoriaProcessor.
+2. O processador classifica os itens, soma a pontuacao operacional do colaborador e atualiza seus acumulados (`totalItensLidos`, `totalItensConformes`, `totalAuditorias`, `pontuacao`).
+3. O nivel e recalculado pela formula `max(1, floor(pontuacao / 500) + 1)`.
+4. Em seguida, `avaliarConquistas(colab)` percorre todas as conquistas ativas e compara a `metricaBase` atual do colaborador com as metas de cada tier.
+5. Tiers recem-desbloqueados concedem `xpBonus`, que e somado em `colab.pontuacao` uma unica vez por tier novo.
+6. O nivel e recalculado novamente depois do bonus de XP, garantindo que uma conquista tambem possa subir o nivel no mesmo ciclo.
+7. O estado persistido em `colab.conquistas` guarda codigo, tier atual, tiers desbloqueados, progresso e timestamps.
+8. No portal, `GET /api/metricas/portal/me` chama `resolverConquistasPortal` e devolve a lista pronta para UI com progresso, proximo tier, labels e cores.
+9. A aba Inicio mostra nivel, barra de XP e conquistas em destaque; a aba Conquistas mostra a lista completa com filtros por categoria e status.
+10. A manutencao das definicoes fica no painel `/admin/conquistas`, exclusivo de SUPER_ADMIN.
+
+> Documentacao detalhada: [[Gamificacao/Bem-vindo]]
+
+## Fluxo 13 - Cancelamento de auditoria da loja
+
+1. SUPER_ADMIN abre o catalogo de lojas em `/lojas`.
+2. No card da loja, clica para cancelar a ultima auditoria ativa do periodo.
+3. Frontend chama `POST /api/auditorias/:id/cancelar` com `lojaId` por query string.
+4. Backend valida role, escopo e existencia da auditoria.
+5. Backend marca a Auditoria como `CANCELADA`, marca AuditItems como `cancelada: true`, zera MetricaDiaria da loja/tipo/data e recalcula acumulados da loja e dos colaboradores.
+6. Catalogo e perfil da loja passam a refletir a ausencia da auditoria ativa e o alerta de cancelamentos no periodo.
+7. Ranking de lojas recebe `auditoriasCanceladas` e destaca a loja com alerta, sem somar itens, pontos ou conformidade da auditoria cancelada.
+
+> Documentacao detalhada: [[Auditorias/CancelamentoDeAuditorias]]

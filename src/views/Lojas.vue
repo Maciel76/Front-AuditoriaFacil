@@ -1,13 +1,16 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
-import { RouterLink } from "vue-router";
+import { useRouter } from "vue-router";
 import api from "@/services/api";
 import Loader from "@/components/Loader.vue";
 import { useAuthStore } from "@/stores/auth";
+import { useUiStore } from "@/stores/ui";
 import StoreAvatar from "@/components/StoreAvatar.vue";
 import PeriodoSelector from "@/components/PeriodoSelector.vue";
 
 const auth = useAuthStore();
+const ui = useUiStore();
+const router = useRouter();
 const carregando = ref(true);
 const atualizando = ref(false);
 const erro = ref("");
@@ -17,6 +20,7 @@ const dataInicio = ref("");
 const dataFim = ref("");
 const periodoApi = ref(null);
 const items = ref([]);
+const cancelandoLojaId = ref("");
 
 const labelsTipo = {
   ETIQUETA: "Etiqueta",
@@ -50,6 +54,7 @@ const resumoVazio = {
     PRESENCA: { totalAuditorias: 0 },
     RUPTURA: { totalAuditorias: 0 },
   },
+  ultimaAuditoria: null,
 };
 
 function normalizar(valor = "") {
@@ -92,6 +97,10 @@ function resumoLoja(loja) {
   return loja?.resumoPeriodo || resumoVazio;
 }
 
+function ultimaAuditoriaLoja(loja) {
+  return resumoLoja(loja).ultimaAuditoria || null;
+}
+
 function auditoriasPorTipo(loja) {
   const resumo = resumoLoja(loja);
   return Object.entries(labelsTipo).map(([key, label]) => ({
@@ -113,6 +122,37 @@ function statusLoja(loja) {
   if (taxa >= 80) return { label: "Bom", classe: "info" };
   if (taxa >= 65) return { label: "Atenção", classe: "warn" };
   return { label: "Crítico", classe: "bad" };
+}
+
+function abrirLoja(lojaId) {
+  router.push(`/lojas/${lojaId}`);
+}
+
+async function cancelarUltimaAuditoria(loja) {
+  const auditoria = ultimaAuditoriaLoja(loja);
+  if (!auth.isSuperAdmin || !loja?._id || !auditoria?._id) return;
+
+  const confirmar = window.confirm(
+    `Cancelar a última auditoria de ${loja.nome}? As métricas desse dia serão zeradas e não entrarão nos rankings nem nos acumulados.`,
+  );
+  if (!confirmar) return;
+
+  cancelandoLojaId.value = loja._id;
+  try {
+    const { data } = await api.post(
+      `/auditorias/${auditoria._id}/cancelar`,
+      {},
+      { params: { lojaId: loja._id } },
+    );
+    ui.sucesso(data?.mensagem || "Auditoria cancelada.");
+    await carregar();
+  } catch (error) {
+    ui.erro(
+      error?.response?.data?.error || "Não foi possível cancelar a auditoria.",
+    );
+  } finally {
+    cancelandoLojaId.value = "";
+  }
 }
 
 async function carregar() {
@@ -190,9 +230,10 @@ const resumoCatalogo = computed(() => {
     },
   );
 
-  base.taxaConformidade = base.denominadorConformidade > 0
-    ? (base.numeradorConformidade / base.denominadorConformidade) * 100
-    : 0;
+  base.taxaConformidade =
+    base.denominadorConformidade > 0
+      ? (base.numeradorConformidade / base.denominadorConformidade) * 100
+      : 0;
   return base;
 });
 
@@ -273,7 +314,9 @@ const lojasFiltradas = computed(() => {
       </article>
       <article class="stores-summary-item">
         <span class="muted">Conformidade</span>
-        <strong>{{ formatarPercentual(resumoCatalogo.taxaConformidade) }}</strong>
+        <strong>{{
+          formatarPercentual(resumoCatalogo.taxaConformidade)
+        }}</strong>
       </article>
       <span v-if="atualizando" class="badge info stores-refresh">
         Atualizando...
@@ -291,11 +334,15 @@ const lojasFiltradas = computed(() => {
     </div>
 
     <div v-else class="stores-grid" :class="{ 'is-refreshing': atualizando }">
-      <RouterLink
+      <article
         v-for="loja in lojasFiltradas"
         :key="loja._id"
-        :to="`/lojas/${loja._id}`"
         class="card store-card glow"
+        role="link"
+        tabindex="0"
+        @click="abrirLoja(loja._id)"
+        @keydown.enter.prevent="abrirLoja(loja._id)"
+        @keydown.space.prevent="abrirLoja(loja._id)"
       >
         <div class="row store-card-head">
           <StoreAvatar
@@ -341,11 +388,15 @@ const lojasFiltradas = computed(() => {
           </div>
           <div class="store-card-stat">
             <span class="muted">Auditorias</span>
-            <strong>{{ formatarInteiro(resumoLoja(loja).totalAuditorias) }}</strong>
+            <strong>{{
+              formatarInteiro(resumoLoja(loja).totalAuditorias)
+            }}</strong>
           </div>
           <div class="store-card-stat">
             <span class="muted">Conformidade</span>
-            <strong>{{ formatarPercentual(resumoLoja(loja).taxaConformidade) }}</strong>
+            <strong>{{
+              formatarPercentual(resumoLoja(loja).taxaConformidade)
+            }}</strong>
           </div>
           <div class="store-card-stat">
             <span class="muted">Pontos no período</span>
@@ -373,6 +424,12 @@ const lojasFiltradas = computed(() => {
           <span class="muted">
             Última: {{ formatarData(resumoLoja(loja).ultimaAuditoriaEm) }}
           </span>
+          <span v-if="ultimaAuditoriaLoja(loja)?.tipo" class="muted">
+            {{
+              labelsTipo[ultimaAuditoriaLoja(loja).tipo] ||
+              ultimaAuditoriaLoja(loja).tipo
+            }}
+          </span>
           <span v-if="resumoLoja(loja).custoRuptura" class="muted">
             Ruptura {{ formatarMoeda(resumoLoja(loja).custoRuptura) }}
           </span>
@@ -383,11 +440,23 @@ const lojasFiltradas = computed(() => {
         </div>
 
         <div class="row store-card-footer">
+          <button
+            v-if="auth.isSuperAdmin && ultimaAuditoriaLoja(loja)?._id"
+            class="btn ghost store-card-cancel-btn"
+            :disabled="cancelandoLojaId === loja._id"
+            @click.stop="cancelarUltimaAuditoria(loja)"
+          >
+            <fa
+              :icon="cancelandoLojaId === loja._id ? 'spinner' : 'xmark'"
+              :spin="cancelandoLojaId === loja._id"
+            />
+            Cancelar última auditoria
+          </button>
           <span class="muted">Ver perfil analítico</span>
           <span class="spacer" />
           <fa icon="chevron-right" />
         </div>
-      </RouterLink>
+      </article>
     </div>
   </div>
 </template>
@@ -461,7 +530,7 @@ const lojasFiltradas = computed(() => {
   display: grid;
   gap: 14px;
   color: inherit;
-  text-decoration: none;
+  cursor: pointer;
   transition:
     transform 0.22s ease,
     box-shadow 0.22s ease,
@@ -608,6 +677,10 @@ const lojasFiltradas = computed(() => {
 .store-card-footer {
   align-items: center;
   color: var(--text-dim);
+}
+
+.store-card-cancel-btn {
+  color: #ef4444;
 }
 
 @media (max-width: 720px) {

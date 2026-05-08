@@ -2,7 +2,7 @@
 
 ## Visao geral das entidades
 
-O sistema usa MongoDB com Mongoose e concentra o dominio em seis modelos principais: Usuario, Loja, Colaborador, Auditoria, AuditItem e MetricaDiaria.
+O sistema usa MongoDB com Mongoose e concentra o dominio em sete modelos principais: Usuario, Loja, Colaborador, Conquista, Auditoria, AuditItem e MetricaDiaria.
 
 ## Usuario
 
@@ -24,7 +24,7 @@ Arquivo: backend/src/models/Usuario.js
 
 - checarSenha compara senha com bcrypt.
 - hashSenha gera hash com 10 rounds.
-- toJSON remove senhaHash e __v.
+- toJSON remove senhaHash e \_\_v.
 
 ## Loja
 
@@ -63,11 +63,35 @@ Arquivo: backend/src/models/Colaborador.js
 - senhaHash com select false.
 - primeiroAcesso.
 - pontuacao, nivel, totalAuditorias, totalItensLidos, totalItensConformes.
-- conquistas: array de objetos com codigo, nome e conquistadaEm.
+- conquistas: array com estado da gamificacao por codigo (`codigo`, `tierAtual`, `tiersDesbloqueados[]`, `progresso`, `desbloqueadaEm`, `ultimaAtualizacao`).
 
 ### Comportamentos
 
 - checarSenha e hashSenha para o portal.
+
+## Conquista
+
+Arquivo: backend/src/models/Conquista.js
+
+### Papel
+
+Representa a definicao mestre de uma conquista configuravel do sistema de gamificacao.
+
+### Campos principais
+
+- codigo unico em formato A-Z, 0-9 e \_.
+- nome, descricao, icone, cor.
+- categoria e metricaBase.
+- operador (atualmente apenas `gte`).
+- recorrente.
+- tiers[] com `nivel`, `meta`, `xpBonus` e `titulo`.
+- ativa, ordem, criadoPor, atualizadoPor.
+
+### Comportamentos
+
+- Mantem tiers ordenados por meta no pre-save.
+- Define os tiers aceitos do sistema (`comum`, `raro`, `epico`, `lendario`, `mitico`).
+- Define tambem as metricas base suportadas para avaliacao de conquistas.
 
 ## Auditoria
 
@@ -84,8 +108,9 @@ Representa um upload processado de planilha para uma loja, um tipo e uma data of
 - taxaConformidade, pontuacao, custoRupturaTotal.
 - situacoes como Map.
 - topColaboradores como snapshot resumido.
-- status: PROCESSANDO, CONCLUIDA, ERRO.
+- status: PROCESSANDO, CONCLUIDA, ERRO, CANCELADA.
 - erro.
+- canceladaEm, canceladaPor e motivoCancelamento.
 
 ### Indice
 
@@ -107,6 +132,7 @@ Representa uma linha individual da planilha ja classificada.
 - situacao, situacaoAuditoria, auditadoEm, presencaConfirmadaEm, ultimaCompraEm.
 - estoqueAtual, estoqueLeitura, diasSemVenda, custoRuptura, residuo, fornecedor.
 - conforme e pontos resultantes da classificacao.
+- cancelada: quando true, a linha permanece no historico da auditoria, mas fica fora das agregacoes analiticas.
 
 ### Indices
 
@@ -130,6 +156,7 @@ Materializacao diaria das metricas para evitar agregacao pesada sobre AuditItem 
 - totalItens, totalLidos, totalConformes, totalNaoConformes.
 - taxaConformidade, pontuacao, custoRuptura.
 - situacoes como Map.
+- cancelada, canceladaEm, canceladaPor e motivoCancelamento. Quando cancelada, os totais ficam zerados e nao entram nos acumulados.
 
 ### Indice unico
 
@@ -139,6 +166,7 @@ Materializacao diaria das metricas para evitar agregacao pesada sobre AuditItem 
 
 - Loja 1:N Usuario.
 - Loja 1:N Colaborador.
+- Conquista 1:N estados embutidos em Colaborador.conquistas por meio do campo `codigo`.
 - Loja 1:N Auditoria.
 - Auditoria 1:N AuditItem.
 - Colaborador 1:N MetricaDiaria por dia e tipo.
@@ -152,6 +180,7 @@ Materializacao diaria das metricas para evitar agregacao pesada sobre AuditItem 
 4. Totais do upload atualizam Auditoria.
 5. Agregados diarios alimentam MetricaDiaria.
 6. Pontuacao acumulada sobe para Colaborador e Loja.
+7. O processador recalcula nivel do colaborador, avalia conquistas e pode somar bonus de XP por tier desbloqueado.
 
 ## Persistencia fora do banco
 

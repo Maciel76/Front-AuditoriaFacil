@@ -117,6 +117,17 @@ function formatarPontos(total) {
   return `${Math.round(total || 0).toLocaleString("pt-BR")} pts`;
 }
 
+function temCancelamento(item) {
+  return Number(item?.auditoriasCanceladas || 0) > 0;
+}
+
+function cancelamentoLabel(item) {
+  const total = Number(item?.auditoriasCanceladas || 0);
+  if (!total) return "";
+  if (periodo.value === "1d") return "Auditoria cancelada no dia";
+  return `${total.toLocaleString("pt-BR")} auditoria(s) cancelada(s)`;
+}
+
 function periodoArquivoAtual() {
   return (
     {
@@ -215,7 +226,10 @@ const visualizacaoKey = computed(() => {
                 v-for="card in podiumCards"
                 :key="card.item._id"
                 class="podium-card ranking-reveal"
-                :class="`rank-${card.rank}`"
+                :class="[
+                  `rank-${card.rank}`,
+                  temCancelamento(card.item) ? 'has-cancelamento' : '',
+                ]"
                 :style="{ animationDelay: `${card.rank * 70}ms` }"
               >
                 <div class="podium-rank">{{ podioMeta(card.rank).titulo }}</div>
@@ -234,6 +248,13 @@ const visualizacaoKey = computed(() => {
                 />
                 <div class="podium-name">{{ card.item.nome }}</div>
                 <div class="podium-detail">{{ detalhePodio(card.item) }}</div>
+                <div
+                  v-if="temCancelamento(card.item)"
+                  class="ranking-cancel-badge"
+                >
+                  <fa icon="triangle-exclamation" />
+                  <span>{{ cancelamentoLabel(card.item) }}</span>
+                </div>
                 <div class="podium-chip">
                   <fa icon="chart-bar" />
                   <span>{{ formatarItens(card.item.totalLidos) }}</span>
@@ -255,11 +276,14 @@ const visualizacaoKey = computed(() => {
                 v-for="(l, i) in itensRestantes"
                 :key="l._id"
                 class="card row ranking-row ranking-reveal"
+                :class="temCancelamento(l) ? 'has-cancelamento' : ''"
                 style="padding: 14px 18px"
                 :style="{ animationDelay: `${(i + 1) * 55}ms` }"
               >
                 <div style="width: 40px; text-align: center">
-                  <span class="muted" style="font-weight: 700">#{{ i + 4 }}</span>
+                  <span class="muted" style="font-weight: 700"
+                    >#{{ i + 4 }}</span
+                  >
                 </div>
                 <StoreAvatar
                   :nome="l.nome"
@@ -270,13 +294,20 @@ const visualizacaoKey = computed(() => {
                 <div style="flex: 1; min-width: 0">
                   <div style="font-weight: 600">
                     {{ l.nome }}
-                    <span class="muted" style="font-weight: 400; font-size: 12px">
+                    <span
+                      class="muted"
+                      style="font-weight: 400; font-size: 12px"
+                    >
                       {{ l.cidade }} {{ l.estado ? "/" + l.estado : "" }}
                     </span>
                   </div>
                   <div class="muted" style="font-size: 12px">
                     Nível {{ l.nivel }} ·
                     {{ l.totalLidos.toLocaleString("pt-BR") }} itens
+                  </div>
+                  <div v-if="temCancelamento(l)" class="ranking-row-alert">
+                    <fa icon="triangle-exclamation" />
+                    {{ cancelamentoLabel(l) }}
                   </div>
                 </div>
                 <div style="width: 130px">
@@ -385,6 +416,12 @@ const visualizacaoKey = computed(() => {
   filter: saturate(1.06);
 }
 
+.podium-card.has-cancelamento,
+.ranking-row.has-cancelamento {
+  border-color: rgba(239, 68, 68, 0.42);
+  box-shadow: 0 14px 34px rgba(127, 29, 29, 0.12);
+}
+
 .podium-card.rank-1 {
   background: linear-gradient(
     180deg,
@@ -475,6 +512,29 @@ const visualizacaoKey = computed(() => {
   font-size: 13px;
 }
 
+.ranking-cancel-badge,
+.ranking-row-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.32);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ranking-cancel-badge {
+  margin-top: 10px;
+  padding: 7px 10px;
+}
+
+.ranking-row-alert {
+  margin-top: 6px;
+  padding: 5px 9px;
+}
+
 .podium-chip {
   width: fit-content;
   margin: 18px auto 10px;
@@ -535,6 +595,12 @@ const visualizacaoKey = computed(() => {
 :global([data-theme="light"]) .rankings-list-section {
   background: rgba(255, 255, 255, 0.58);
   border-color: rgba(89, 108, 165, 0.16);
+}
+
+:global([data-theme="light"]) .ranking-cancel-badge,
+:global([data-theme="light"]) .ranking-row-alert {
+  color: #991b1b;
+  background: rgba(254, 226, 226, 0.9);
 }
 
 @keyframes rankReveal {

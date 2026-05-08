@@ -114,6 +114,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - O frontend combina progresso real de envio do arquivo com polling do status de processamento no backend.
 - Para SUPER_ADMIN, GET /auditorias, POST /auditorias/upload e DELETE /auditorias/:id passam lojaId por query string, seguindo o contrato de escopo multi-loja do backend.
 - O historico, o resultado do upload e a navegacao para o detalhe da auditoria seguem a loja selecionada.
+- Quando o status retornado pelo upload e cancelado, a tela mostra badge/alerta de auditoria cancelada e informa que os dados nao foram contabilizados.
 - Consulta GET /auditorias para historico.
 - Faz POST /auditorias/upload, consulta GET /auditorias/upload/:jobId/status e DELETE /auditorias/:id.
 
@@ -141,6 +142,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Aceita filtros de periodo e tipo.
 - Fica disponivel para SUPER_ADMIN e STORE_ADMIN.
 - Nao possui seletor de loja; ambos enxergam o ranking geral das lojas no periodo/tipo selecionado.
+- Destaca lojas com `auditoriasCanceladas > 0` usando alerta no podium e nas linhas da lista, mantendo os valores zerados para a auditoria cancelada.
 - O botao `Compartilhar` exporta um PNG fiel ao estado atual da tela, incluindo filtros aplicados e render final dos cards, reutilizando o mesmo padrao de captura estabilizada do Dashboard.
 
 ### Lojas.vue
@@ -148,6 +150,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Catalogo autenticado de lojas ativas.
 - Consulta GET /lojas/catalogo com filtro de periodo, usando PeriodoSelector no topo.
 - A lista exibe nome, localizacao, nivel, status operacional, total de auditorias por tipo, itens lidos, conformidade, pontuacao do periodo, custo de ruptura quando existir e ultima auditoria dentro do recorte ativo.
+- Para `SUPER_ADMIN`, cada card pode cancelar a ultima auditoria ativa do periodo chamando POST /auditorias/:id/cancelar com lojaId, usando o snapshot `ultimaAuditoria` retornado pelo catalogo.
 - A tela nao exibe mais metas base nos cards do catalogo; metas continuam no perfil analitico da loja e nas configuracoes.
 - Permite buscar por nome, codigo, cidade ou slug e abrir o perfil analitico de qualquer loja.
 
@@ -156,6 +159,8 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Consulta GET /metricas/lojas/:id/perfil.
 - Reutiliza a linguagem de Dashboard e Relatorios para mostrar KPIs, serie de conformidade, distribuicao por tipo, situacoes, classes e corredores criticos, metas por tipo e ultimas auditorias.
 - Exibe o detalhe de auditoria apenas quando o usuario realmente possui acesso ao tenant da loja ou quando e SUPER_ADMIN.
+- Exibe status das ultimas auditorias e alerta quando existem cancelamentos no periodo, mas a acao de cancelamento ficou centralizada em Lojas.vue.
+- Quando ha auditorias canceladas no periodo, mostra alerta e KPI dedicado para deixar claro que esses dados foram neutralizados.
 
 ### Colaboradores.vue
 
@@ -174,6 +179,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Quando aberto a partir da listagem filtrada de SUPER_ADMIN, preserva `lojaId` na query para manter o retorno coerente ao contexto anterior.
 - Para STORE_ADMIN e SUPER_ADMIN, a tela tambem permite editar nome, matricula, cargo, setor e foto do colaborador no proprio perfil.
 - O upload da foto do colaborador usa recorte previo com Cropper.js 2.1.1 e guia visual circular para manter o avatar padronizado.
+- A foto administrativa e salva no mesmo campo `avatarUrl` consumido pelo portal do colaborador, evitando divergencia entre os dois pontos de acesso.
 - Exibe resumo do colaborador, conquistas, pontos, nivel e grafico por periodo, com filtro adicional por tipo de auditoria (`Todos os tipos`, ETIQUETA, PRESENCA e RUPTURA) e alternancia automatica entre colunas e linha conforme a densidade da serie.
 - Quando um tipo selecionado nao possui leituras para o colaborador no periodo, a tela mostra o KPI daquele tipo zerado e um estado vazio no grafico, evitando reutilizar visualmente dados de outro tipo.
 
@@ -210,6 +216,13 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Os cards usam a foto da loja quando houver avatarUrl, caindo para iniciais quando nao houver imagem.
 - Permite criar via POST /lojas e desativar via DELETE /lojas/:id.
 
+### AdminConquistas.vue
+
+- View exclusiva de super admin para administrar conquistas do sistema de gamificacao.
+- Consulta GET /conquistas e GET /conquistas/meta para listar definicoes, categorias e metricas disponiveis.
+- Permite criar, editar, ativar/desativar e excluir conquistas via modal com tiers progressivos, usando POST, PUT e DELETE em /conquistas.
+- No tema claro, o modal de criacao/edicao usa superfices mais opacas para preservar contraste em fundo, campos e linhas de tier.
+
 ### ColaboradorPortal.vue
 
 - Tela mais complexa do frontend.
@@ -220,6 +233,8 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Carrega perfil em /colaboradores/portal/me.
 - Carrega metricas em /metricas/portal/me.
 - Faz upload de avatar em /colaboradores/:id/avatar.
+- Passou a renderizar a foto do colaborador pelo mesmo componente ColaboradorAvatar.vue usado no app principal, garantindo resolucao correta de `avatarUrl` relativo a uploads.
+- O modal de recorte do portal foi alinhado ao fluxo do ColaboradorPerfil.vue e agora usa Cropper.js 2.1.1 com selecao circular e exportacao via `$toCanvas`.
 - Exibe avatar da loja na etapa de selecao da unidade e nos resumos de setup/login quando a loja possuir foto configurada.
 - Troca senha em /colaboradores/portal/password.
 - Usa Cropper.js para recorte antes do upload.

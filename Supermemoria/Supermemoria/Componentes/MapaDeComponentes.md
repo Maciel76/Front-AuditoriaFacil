@@ -30,6 +30,7 @@
 - Componente visual reutilizavel para representar colaboradores.
 - Renderiza a foto do colaborador quando houver avatarUrl e cai para iniciais somente como fallback.
 - Usa resolverUrlMidia para normalizar URLs relativas de uploads antes de renderizar a imagem.
+- E compartilhado entre o app principal e o portal do colaborador para manter exibicao consistente da mesma foto salva em `avatarUrl`.
 
 ### PeriodoSelector.vue
 
@@ -91,11 +92,13 @@
 - Funciona como diretorio de entrada para os perfis analiticos publicos das lojas.
 - Usa PeriodoSelector para filtrar o resumo operacional dos cards por periodo.
 - Cada card resume auditorias por tipo, itens lidos, conformidade, pontuacao do periodo, ultima auditoria e custo de ruptura quando houver.
+- Para SUPER_ADMIN, o card tambem oferece a acao de cancelar a ultima auditoria ativa do periodo.
 
 ### LojaPerfil.vue
 
 - Drill-down analitico de uma loja especifica.
 - Reaproveita AppChart, KpiCard e PeriodoSelector para unir leitura executiva do dashboard com recortes operacionais de relatorios.
+- Mantem badges e alerta de auditorias canceladas, sem concentrar a acao de cancelamento.
 
 ### Colaboradores.vue
 
@@ -129,6 +132,7 @@
 
 - Fluxo publico e independente do app principal.
 - Centraliza autenticacao por matricula, selecao de loja, setup/login, visualizacao de metricas e configuracoes pessoais.
+- Usa o mesmo campo `avatarUrl` do colaborador e o mesmo padrao de crop do perfil administrativo para upload e exibicao da foto.
 - E o ponto de contato principal do colaborador final com o sistema.
 
 ## Relacoes entre componentes

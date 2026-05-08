@@ -125,6 +125,15 @@ function rotaAuditoria(auditoriaId) {
   return { path: `/auditorias/${auditoriaId}` };
 }
 
+function statusAuditoria(auditoria) {
+  if (auditoria?.status === "CANCELADA")
+    return { label: "Cancelada", classe: "bad" };
+  if (auditoria?.status === "ERRO") return { label: "Erro", classe: "bad" };
+  if (auditoria?.status === "PROCESSANDO")
+    return { label: "Processando", classe: "warn" };
+  return { label: "Concluída", classe: "ok" };
+}
+
 async function carregar() {
   carregando.value = true;
   erro.value = "";
@@ -181,7 +190,7 @@ const tipoAtivoLabel = computed(() =>
 const kpis = computed(() => {
   if (!dados.value) return [];
 
-  return [
+  const lista = [
     {
       label: "Itens auditados",
       value: formatarInteiro(dados.value.totalGeral.totalLidos),
@@ -214,6 +223,14 @@ const kpis = computed(() => {
       icon: "calendar",
     },
   ];
+  if (Number(dados.value.auditoriasCanceladasNoPeriodo || 0) > 0) {
+    lista.push({
+      label: "Auditorias canceladas",
+      value: formatarInteiro(dados.value.auditoriasCanceladasNoPeriodo || 0),
+      icon: "triangle-exclamation",
+    });
+  }
+  return lista;
 });
 
 const panoramaOperacional = computed(() => {
@@ -499,6 +516,18 @@ const topCorredores = computed(() =>
       </div>
 
       <template v-else>
+        <div
+          v-if="Number(dados.auditoriasCanceladasNoPeriodo || 0) > 0"
+          class="store-cancel-alert"
+        >
+          <fa icon="triangle-exclamation" />
+          <span>
+            {{ formatarInteiro(dados.auditoriasCanceladasNoPeriodo) }}
+            auditoria(s) cancelada(s) neste período. Os dados desses envios
+            estão zerados nos cálculos da loja.
+          </span>
+        </div>
+
         <div class="kpi-grid">
           <KpiCard v-for="(item, index) in kpis" :key="index" v-bind="item" />
         </div>
@@ -791,6 +820,12 @@ const topCorredores = computed(() =>
                     <span class="badge" :class="'tipo-' + auditoria.tipo">{{
                       auditoria.tipo
                     }}</span>
+                    <span
+                      class="badge audit-status-badge"
+                      :class="statusAuditoria(auditoria).classe"
+                    >
+                      {{ statusAuditoria(auditoria).label }}
+                    </span>
                   </td>
                   <td>{{ formatarData(auditoria.data) }}</td>
                   <td>
@@ -807,6 +842,7 @@ const topCorredores = computed(() =>
                     <RouterLink
                       :to="rotaAuditoria(auditoria._id)"
                       class="btn ghost"
+                      title="Ver auditoria"
                       ><fa icon="eye"
                     /></RouterLink>
                   </td>
@@ -887,6 +923,24 @@ const topCorredores = computed(() =>
 
 .store-empty-state {
   padding: 72px 20px;
+}
+
+.store-cancel-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(239, 68, 68, 0.32);
+  border-radius: 12px;
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.11);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+[data-theme="light"] .store-cancel-alert {
+  color: #991b1b;
+  background: rgba(254, 226, 226, 0.9);
 }
 
 .store-analytics-grid,
@@ -975,6 +1029,10 @@ const topCorredores = computed(() =>
 
 .store-insight-metric strong {
   font-size: 20px;
+}
+
+.audit-status-badge {
+  margin-left: 6px;
 }
 
 @media (max-width: 1100px) {

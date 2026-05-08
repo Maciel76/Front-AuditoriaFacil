@@ -25,15 +25,15 @@
 
 ## Grupo Lojas
 
-| Metodo | Rota                  | Auth               | Escopo             | Corpo ou query principal                  | Funcao                                                             |
-| ------ | --------------------- | ------------------ | ------------------ | ----------------------------------------- | ------------------------------------------------------------------ |
-| GET    | /api/lojas            | Usuario            | Role-dependente    | -                                         | SUPER_ADMIN recebe todas; demais recebem a propria                 |
-| GET    | /api/lojas/me         | Usuario            | Loja obrigatoria   | lojaId opcional para super admin          | Retorna loja do escopo                                             |
-| GET    | /api/lojas/catalogo   | Usuario            | Global autenticado | periodo, dataInicio, dataFim             | Lista lojas ativas com campos publicos e resumo operacional por periodo |
-| POST   | /api/lojas/:id/avatar | Usuario autorizado | Role/tenant        | multipart avatar                          | Atualiza a foto publica da loja                                    |
-| POST   | /api/lojas            | SUPER_ADMIN        | Nenhum             | nome, slug, codigo, cidade, estado, metas | Cria loja                                                          |
-| PUT    | /api/lojas/:id        | Usuario autorizado | Role/tenant        | campos parciais de loja                   | Atualiza loja; nao super admin so pode a propria                   |
-| DELETE | /api/lojas/:id        | SUPER_ADMIN        | Nenhum             | -                                         | Desativa loja                                                      |
+| Metodo | Rota                  | Auth               | Escopo             | Corpo ou query principal                  | Funcao                                                                  |
+| ------ | --------------------- | ------------------ | ------------------ | ----------------------------------------- | ----------------------------------------------------------------------- |
+| GET    | /api/lojas            | Usuario            | Role-dependente    | -                                         | SUPER_ADMIN recebe todas; demais recebem a propria                      |
+| GET    | /api/lojas/me         | Usuario            | Loja obrigatoria   | lojaId opcional para super admin          | Retorna loja do escopo                                                  |
+| GET    | /api/lojas/catalogo   | Usuario            | Global autenticado | periodo, dataInicio, dataFim              | Lista lojas ativas com campos publicos e resumo operacional por periodo |
+| POST   | /api/lojas/:id/avatar | Usuario autorizado | Role/tenant        | multipart avatar                          | Atualiza a foto publica da loja                                         |
+| POST   | /api/lojas            | SUPER_ADMIN        | Nenhum             | nome, slug, codigo, cidade, estado, metas | Cria loja                                                               |
+| PUT    | /api/lojas/:id        | Usuario autorizado | Role/tenant        | campos parciais de loja                   | Atualiza loja; nao super admin so pode a propria                        |
+| DELETE | /api/lojas/:id        | SUPER_ADMIN        | Nenhum             | -                                         | Desativa loja                                                           |
 
 ## Grupo Usuarios
 
@@ -46,40 +46,53 @@
 
 ## Grupo Colaboradores
 
-| Metodo | Rota                               | Auth                       | Escopo           | Corpo ou query principal          | Funcao                                                |
-| ------ | ---------------------------------- | -------------------------- | ---------------- | --------------------------------- | ----------------------------------------------------- |
-| GET    | /api/colaboradores/portal/me       | Token colaborador          | Propria loja     | -                                 | Retorna o proprio colaborador do portal               |
-| POST   | /api/colaboradores/portal/password | Token colaborador          | Propria loja     | senhaAtual, novaSenha             | Troca senha do portal                                 |
+| Metodo | Rota                               | Auth                       | Escopo           | Corpo ou query principal                                             | Funcao                                                                                |
+| ------ | ---------------------------------- | -------------------------- | ---------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| GET    | /api/colaboradores/portal/me       | Token colaborador          | Propria loja     | -                                                                    | Retorna o proprio colaborador do portal                                               |
+| POST   | /api/colaboradores/portal/password | Token colaborador          | Propria loja     | senhaAtual, novaSenha                                                | Troca senha do portal                                                                 |
 | POST   | /api/colaboradores/:id/avatar      | Usuario ou colaborador     | Proprio recurso  | multipart avatar (imagem ate 5 MB, lojaId opcional para SUPER_ADMIN) | Atualiza avatar; colaborador so altera a propria foto e admin respeita escopo da loja |
-| GET    | /api/colaboradores                 | Usuario                    | Loja ou global   | q, page, limit, lojaId opcional   | Lista colaboradores; SUPER_ADMIN pode consultar tudo ou filtrar uma loja |
-| POST   | /api/colaboradores                 | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | nome, codigoExterno, cargo, setor | Cria colaborador                                      |
-| PUT    | /api/colaboradores/:id             | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | nome, codigoExterno, cargo, setor | Atualiza colaborador sem alterar ativo                |
-| DELETE | /api/colaboradores/:id             | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | -                                 | Retorna 403; exclusao de colaborador desabilitada     |
-| POST   | /api/colaboradores/:id/usuario     | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | email, senha, nome                | Vincula conta de Usuario a um colaborador             |
+| GET    | /api/colaboradores                 | Usuario                    | Loja ou global   | q, page, limit, lojaId opcional                                      | Lista colaboradores; SUPER_ADMIN pode consultar tudo ou filtrar uma loja              |
+| POST   | /api/colaboradores                 | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | nome, codigoExterno, cargo, setor                                    | Cria colaborador                                                                      |
+| PUT    | /api/colaboradores/:id             | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | nome, codigoExterno, cargo, setor                                    | Atualiza colaborador sem alterar ativo                                                |
+| DELETE | /api/colaboradores/:id             | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | -                                                                    | Retorna 403; exclusao de colaborador desabilitada                                     |
+| POST   | /api/colaboradores/:id/usuario     | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | email, senha, nome                                                   | Vincula conta de Usuario a um colaborador                                             |
+
+## Grupo Conquistas
+
+| Metodo | Rota                           | Auth                         | Escopo              | Corpo ou query principal                                                                | Funcao                                                              |
+| ------ | ------------------------------ | ---------------------------- | ------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| GET    | /api/conquistas/meta           | Usuario ou token colaborador | Nenhum              | -                                                                                       | Retorna tiers, categorias e metricas suportadas                     |
+| GET    | /api/conquistas/portal/me      | Token colaborador            | Proprio colaborador | -                                                                                       | Resolve conquistas do colaborador em endpoint dedicado              |
+| GET    | /api/conquistas                | Usuario                      | Global autenticado  | ativa, categoria                                                                        | Lista definicoes de conquistas                                      |
+| POST   | /api/conquistas                | SUPER_ADMIN                  | Nenhum              | codigo, nome, descricao, icone, categoria, metricaBase, recorrente, tiers, ativa, ordem | Cria uma nova conquista configuravel                                |
+| PUT    | /api/conquistas/:id            | SUPER_ADMIN                  | Nenhum              | campos parciais da conquista                                                            | Atualiza conquista existente e invalida cache                       |
+| DELETE | /api/conquistas/:id            | SUPER_ADMIN                  | Nenhum              | -                                                                                       | Remove conquista                                                    |
+| POST   | /api/conquistas/:id/recalcular | SUPER_ADMIN                  | Nenhum              | -                                                                                       | Invalida cache das definicoes; nao faz recalculo historico em massa |
 
 ## Grupo Auditorias
 
-| Metodo | Rota                                 | Auth                       | Escopo               | Corpo ou query principal               | Funcao                                                       |
-| ------ | ------------------------------------ | -------------------------- | -------------------- | -------------------------------------- | ------------------------------------------------------------ |
-| GET    | /api/auditorias/regras               | Usuario                    | Nenhum               | -                                      | Retorna matriz REGRAS                                        |
-| POST   | /api/auditorias/upload               | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | multipart arquivo, opcional tipo       | Cria job de processamento de auditoria e devolve jobId       |
-| GET    | /api/auditorias/upload/:jobId/status | Usuario autenticado        | Mesmo usuario do job | jobId                                  | Consulta progresso, etapa, resultado final ou erro do upload |
-| GET    | /api/auditorias                      | Usuario                    | Loja obrigatoria     | tipo, dataInicio, dataFim, page, limit | Lista auditorias                                             |
-| GET    | /api/auditorias/:id                  | Usuario                    | Loja obrigatoria     | -                                      | Retorna cabecalho da auditoria                               |
-| GET    | /api/auditorias/:id/itens            | Usuario                    | Loja obrigatoria     | situacao, conforme, q, page, limit     | Pagina itens detalhados                                      |
-| DELETE | /api/auditorias/:id                  | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | -                                      | Remove auditoria e seus itens                                |
+| Metodo | Rota                                 | Auth                       | Escopo               | Corpo ou query principal                 | Funcao                                                                 |
+| ------ | ------------------------------------ | -------------------------- | -------------------- | ---------------------------------------- | ---------------------------------------------------------------------- |
+| GET    | /api/auditorias/regras               | Usuario                    | Nenhum               | -                                        | Retorna matriz REGRAS                                                  |
+| POST   | /api/auditorias/upload               | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | multipart arquivo, opcional tipo         | Cria job de processamento de auditoria e devolve jobId                 |
+| GET    | /api/auditorias/upload/:jobId/status | Usuario autenticado        | Mesmo usuario do job | jobId                                    | Consulta progresso, etapa, resultado final ou erro do upload           |
+| GET    | /api/auditorias                      | Usuario                    | Loja obrigatoria     | tipo, dataInicio, dataFim, page, limit   | Lista auditorias                                                       |
+| GET    | /api/auditorias/:id                  | Usuario                    | Loja obrigatoria     | -                                        | Retorna cabecalho da auditoria                                         |
+| GET    | /api/auditorias/:id/itens            | Usuario                    | Loja obrigatoria     | situacao, conforme, q, page, limit       | Pagina itens detalhados                                                |
+| POST   | /api/auditorias/:id/cancelar         | SUPER_ADMIN                | Loja obrigatoria     | motivo opcional, lojaId para SUPER_ADMIN | Cancela auditoria da loja, zera metricas do dia e recalcula acumulados |
+| DELETE | /api/auditorias/:id                  | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | -                                        | Remove auditoria e seus itens                                          |
 
 ## Grupo Metricas
 
-| Metodo | Rota                                   | Auth              | Escopo                         | Corpo ou query principal           | Funcao                                        |
-| ------ | -------------------------------------- | ----------------- | ------------------------------ | ---------------------------------- | --------------------------------------------- |
-| GET    | /api/metricas/portal/me                | Token colaborador | Proprio colaborador            | periodo, dataInicio, dataFim       | Perfil analitico do portal                    |
-| GET    | /api/metricas/dashboard                | Usuario           | Loja ou global                 | periodo, dataInicio, dataFim       | Dashboard consolidado                         |
-| GET    | /api/metricas/ultima-data              | Usuario           | Loja ou global                 | lojaId opcional                    | Ultima data com dados em MetricaDiaria        |
-| GET    | /api/metricas/ranking/colaboradores    | Usuario           | Loja ou global conforme escopo | periodo, tipo, dataInicio, dataFim | Ranking de colaboradores                      |
-| GET    | /api/metricas/ranking/lojas            | Usuario           | Global                         | periodo, tipo, dataInicio, dataFim | Ranking de lojas                              |
-| GET    | /api/metricas/lojas/:id/perfil         | Usuario           | Loja explicita por id          | periodo, tipo, dataInicio, dataFim | Perfil analitico publico de uma loja          |
-| GET    | /api/metricas/colaboradores/:id/perfil | Usuario           | Loja opcional                  | periodo, tipo, dataInicio, dataFim | Perfil analitico do colaborador               |
+| Metodo | Rota                                   | Auth              | Escopo                         | Corpo ou query principal                            | Funcao                                        |
+| ------ | -------------------------------------- | ----------------- | ------------------------------ | --------------------------------------------------- | --------------------------------------------- |
+| GET    | /api/metricas/portal/me                | Token colaborador | Proprio colaborador            | periodo, dataInicio, dataFim                        | Perfil analitico do portal                    |
+| GET    | /api/metricas/dashboard                | Usuario           | Loja ou global                 | periodo, dataInicio, dataFim                        | Dashboard consolidado                         |
+| GET    | /api/metricas/ultima-data              | Usuario           | Loja ou global                 | lojaId opcional                                     | Ultima data com dados em MetricaDiaria        |
+| GET    | /api/metricas/ranking/colaboradores    | Usuario           | Loja ou global conforme escopo | periodo, tipo, dataInicio, dataFim                  | Ranking de colaboradores                      |
+| GET    | /api/metricas/ranking/lojas            | Usuario           | Global                         | periodo, tipo, dataInicio, dataFim                  | Ranking de lojas                              |
+| GET    | /api/metricas/lojas/:id/perfil         | Usuario           | Loja explicita por id          | periodo, tipo, dataInicio, dataFim                  | Perfil analitico publico de uma loja          |
+| GET    | /api/metricas/colaboradores/:id/perfil | Usuario           | Loja opcional                  | periodo, tipo, dataInicio, dataFim                  | Perfil analitico do colaborador               |
 | GET    | /api/metricas/relatorios/situacoes     | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio por situacao                        |
 | GET    | /api/metricas/relatorios/classes       | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio agregado por classe                 |
 | GET    | /api/metricas/relatorios/corredores    | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio agregado por corredor/local         |
@@ -103,6 +116,8 @@
 - A ancora temporal usa a ultima data existente na base para evitar telas vazias quando nao ha dados do dia atual.
 - GET /api/metricas/dashboard retorna `cardsResumo` para os cinco KPIs do topo. `cardsResumo.mediaConclusao` e media simples de `Auditoria.taxaConformidade` no periodo filtrado; `cardsResumo.custoRupturaRuptura` sempre soma apenas auditorias do tipo RUPTURA no periodo; `cardsResumo.totalColaboradores` ignora o filtro de tipo e conta colaboradores distintos com leitura no periodo.
 - GET /api/lojas/catalogo retorna `periodo` e `items`; cada loja ativa recebe `resumoPeriodo` com total de auditorias, auditorias por tipo, itens lidos, conformidade, pontuacao, custo ruptura e ultima auditoria dentro do periodo filtrado.
+- Auditorias canceladas permanecem no historico com `status=CANCELADA`, mas ficam fora das metricas. `GET /api/metricas/ranking/lojas` retorna `auditoriasCanceladas` para a UI destacar lojas com cancelamento no periodo.
+- O frontend atual do portal consome `GET /api/metricas/portal/me`, que ja retorna `conquistas` resolvidas; `GET /api/conquistas/portal/me` existe como rota dedicada, mas nao e a fonte primaria da UI hoje.
 - /api/metricas/ranking/lojas permanece sem exigirRole explicito na rota, mas o retorno agora e global para SUPER_ADMIN e STORE_ADMIN; perfis fora desse escopo continuam restritos a propria loja.
 - /api/metricas/lojas/:id/perfil nao depende de escopoLoja; ele recebe a loja por id, mas continua exigindo autenticacao no app principal.
 - As rotas do portal em colaboradores.routes.js estao posicionadas antes de router.use(autenticar) para aceitar o token proprio do colaborador.

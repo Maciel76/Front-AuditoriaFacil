@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Componentes/MapaDeComponentes.md",
+                "file": "Gamificacao/VisaoGeral.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "MapaDeComponentes"
+              "title": "VisaoGeral"
             }
           }
         ]
@@ -185,11 +185,23 @@
   },
   "active": "80997cf1227b33b2",
   "lastOpenFiles": [
-    "HistoricoDeAlteracoes/2026-05-13.md",
+    "Auditorias/CancelamentoDeAuditorias.md",
+    "Auditorias",
+    "Gamificacao/Bem-vindo.md",
+    "Gamificacao/AdministracaoDeConquistas.md",
+    "HistoricoDeAlteracoes/2026-05-05.md",
+    "Gamificacao/FluxoDoColaborador.md",
+    "Gamificacao/VisaoGeral.md",
+    "Gamificacao",
     "HistoricoDeAlteracoes/2026-05-06.md",
+    "Integracoes/DependenciasEIntegracoes.md",
+    "PadroesEArquitetura/PadroesDoProjeto.md",
+    "RegrasDeNegocio/RegrasOperacionais.md",
+    "HistoricoDeAlteracoes/2026-05-17.md",
+    "Componentes/MapaDeComponentes.md",
+    "HistoricoDeAlteracoes/2026-05-13.md",
     "BancoDeDados/ModelosESchemas.md",
     "Backend/ArquiteturaBackend.md",
-    "Integracoes/DependenciasEIntegracoes.md",
     "Bem-vindo.md"
   ]
 }
