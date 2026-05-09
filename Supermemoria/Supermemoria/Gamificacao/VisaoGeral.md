@@ -21,16 +21,20 @@
 ### Definicao mestre da conquista
 
 - Model: `backend/src/models/Conquista.js`
-- Guarda `codigo`, `nome`, `descricao`, `icone`, `cor`, `categoria`, `metricaBase`, `recorrente`, `tiers`, `ativa` e `ordem`.
+- Guarda `codigo`, `nome`, `descricao`, `icone`, `cor`, `categoria`, `metricaBase`, `tipoAuditoria`, `recorrente`, `tiers`, `ativa` e `ordem`.
 
-### Estado da conquista no colaborador
+### Estado do colaborador usado pela gamificacao
 
 - Model: `backend/src/models/Colaborador.js`
-- Campo: `conquistas[]`
-- Cada item guarda:
+- Campos principais:
+  - acumulados globais (`totalItensLidos`, `totalItensConformes`, `totalAuditorias`, `totalItensParticipacaoLoja`, `pontuacao`, `nivel`)
+  - `metricasPorTipo.ETIQUETA|PRESENCA|RUPTURA`
+  - `conquistas[]`
+- Cada item de `conquistas[]` guarda:
   - `codigo`
   - `tierAtual`
   - `tiersDesbloqueados[]`
+  - `historicoDesbloqueios[]`
   - `progresso`
   - `desbloqueadaEm`
   - `ultimaAtualizacao`
@@ -41,20 +45,29 @@
 - Responsavel por:
   - carregar conquistas ativas
   - mapear metricas base do colaborador
+  - usar o recorte `metricasPorTipo` quando a conquista define `tipoAuditoria`
   - descobrir tiers alcancados
   - somar bonus de XP apenas para tiers novos
   - preparar a resposta enriquecida para o portal
 
+### Normalizacao dos acumulados por tipo
+
+- Service: `backend/src/services/colaboradorMetricas.js`
+- Garante a estrutura minima de `metricasPorTipo` para ETIQUETA, PRESENCA e RUPTURA.
+
 ### Aplicacao no fluxo real
 
 - Service: `backend/src/services/auditoriaProcessor.js`
-- O colaborador sobe de nivel no mesmo processamento do upload, porque o nivel e recalculado antes e depois de `avaliarConquistas(colab)`.
+- Atualiza acumulados globais e por tipo durante upload e reupload.
+- Recalcula o nivel antes e depois de `avaliarConquistas(colab)`.
+- Reavalia conquistas tambem quando um colaborador some do reupload.
 
 ## Metricas base suportadas hoje
 
 - `totalItensLidos`
 - `totalItensConformes`
 - `totalAuditorias`
+- `totalItensParticipacaoLoja`
 - `taxaConformidadeAcumulada`
 - `pontuacao`
 - `nivel`
@@ -63,15 +76,17 @@
 
 1. O sistema carrega apenas conquistas `ativas`.
 2. Para cada conquista, ele le a `metricaBase` atual do colaborador.
-3. Os tiers sao ordenados por `meta`.
-4. Todo tier com `valor >= meta` entra como desbloqueado.
-5. O motor compara os tiers calculados com `tiersDesbloqueados` ja persistidos.
-6. Cada tier novo soma seu `xpBonus` em `colab.pontuacao`.
-7. O estado consolidado substitui `colab.conquistas` e depois o colaborador e salvo pelo processador.
+3. Se a definicao possui `tipoAuditoria`, a leitura e feita no recorte correspondente de `metricasPorTipo`.
+4. Se a metrica for `totalItensParticipacaoLoja`, o valor usado e o total lido da loja somado apenas nas auditorias em que o colaborador participou.
+5. Os tiers sao ordenados por `meta`.
+6. Todo tier com `valor >= meta` entra como desbloqueado.
+7. O motor compara os tiers calculados com `tiersDesbloqueados` ja persistidos.
+8. Cada tier novo soma seu `xpBonus` em `colab.pontuacao`.
+9. O estado consolidado substitui `colab.conquistas` e depois o colaborador e salvo pelo processador.
 
-## Seeds padrao confirmados no bootstrap
+## Seeds padrao confirmados no sistema atual
 
-Se a colecao `Conquista` estiver vazia ao subir o backend, o sistema cria 6 conquistas padrao:
+Se a colecao `Conquista` estiver vazia ao subir o backend, o sistema cria 7 conquistas globais padrao:
 
 - `ITENS_LIDOS`
 - `AUDITORIAS`
@@ -79,23 +94,29 @@ Se a colecao `Conquista` estiver vazia ao subir o backend, o sistema cria 6 conq
 - `PONTUACAO`
 - `NIVEL`
 - `ITENS_CONFORMES`
+- `PARTICIPACAO_LOJA`
+
+O conjunto default atual inclui tambem 6 conquistas por tipo, sincronizaveis em bases antigas com `node --env-file=.env scripts/sync-conquistas-padrao.js`:
+
+- `ETIQUETA_ITENS`
+- `ETIQUETA_AUDITORIAS`
+- `PRESENCA_ITENS`
+- `PRESENCA_AUDITORIAS`
+- `RUPTURA_ITENS`
+- `RUPTURA_AUDITORIAS`
+
+## Limitacoes confirmadas no modelo atual
+
+- O schema aceita apenas 5 tiers fixos: `comum`, `raro`, `epico`, `lendario` e `mitico`.
+- O campo `recorrente` existe no cadastro e na UI, mas hoje nao altera a logica de avaliacao.
+- O campo `cor` e salvo em `Conquista`, mas o portal usa as cores fixas de `TIER_INFO` por tier na renderizacao principal.
+- O motor interpreta apenas `valor >= meta`; regras extras descritas em texto nao sao executadas sozinhas.
+- Criar ou editar uma conquista nao dispara recalculo historico automatico em todos os colaboradores.
+- `totalItensParticipacaoLoja` nao retroage para colaboradores que nao participaram das auditorias antigas; o acumulado nasce da participacao diaria registrada.
 
 ## O que a UI do portal realmente consome
 
 - O backend expoe `GET /api/conquistas/portal/me`.
 - O frontend atual, porem, usa `GET /api/metricas/portal/me`, que ja devolve `conquistas` resolvidas junto com metricas e corredores.
+- Cada conquista resolvida inclui progresso, proximo tier e historico por tier para alimentar o modal de detalhes do portal sem round-trip adicional.
 - A exibicao principal fica em `frontend/src/views/ColaboradorPortal.vue`.
-
-## Limitacoes e cuidados confirmados no codigo atual
-
-- O campo `recorrente` existe no cadastro e na UI, mas hoje nao altera a logica de avaliacao. Ele e semantico/descritivo.
-- O campo `cor` e salvo em `Conquista`, mas o portal usa as cores fixas de `TIER_INFO` por tier na renderizacao principal.
-- O motor atual interpreta apenas `valor >= meta`. Regras extras descritas somente em texto nao sao executadas.
-- Criar ou editar uma conquista nao dispara recalculo historico automatico em todos os colaboradores.
-- `POST /api/conquistas/:id/recalcular` atualmente apenas invalida o cache das definicoes.
-- O runtime oficial da gamificacao esta em `conquistasService.js` e `auditoriaProcessor.js`; nao use scripts legados como fonte primaria de documentacao.
-
-## Documento relacionado
-
-- Fluxo ponta a ponta: [[Gamificacao/FluxoDoColaborador]]
-- Operacao administrativa: [[Gamificacao/AdministracaoDeConquistas]]

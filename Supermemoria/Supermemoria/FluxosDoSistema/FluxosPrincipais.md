@@ -28,11 +28,11 @@
 7. Frontend acompanha o progresso em duas fases: envio do arquivo e processamento do job.
 8. Frontend consulta GET /api/auditorias/upload/:jobId/status ate o status final.
 9. planilhaParser normaliza linhas e detecta tipo/data. A data e extraida da coluna auditadoEm (dia mais frequente) — nao da data do upload.
-10. auditoriaProcessor garante colaboradores, classifica linhas, persiste AuditItems, atualiza Auditoria, MetricaDiaria, Colaborador e Loja, emitindo progresso por etapa.
+10. auditoriaProcessor garante colaboradores, classifica linhas, persiste AuditItems, atualiza Auditoria, MetricaDiaria, Colaborador e Loja, mantem acumulados globais, por tipo e de participacao da loja, e emite progresso por etapa.
 11. Se a chave loja + tipo + data ja estiver cancelada, o processador substitui os itens, mantem a auditoria como `CANCELADA`, zera as metricas e devolve resultado com `cancelada: true`.
 12. Frontend recebe o resultado final do job, atualiza o historico filtrado pela loja escolhida e exibe o resumo do processamento ou o aviso de cancelamento.
 
-> **Carregamento de historico**: o sistema aceita planilhas de qualquer data passada. Basta enviar normalmente; cada planilha sera indexada pela data real da auditoria e alimentara todos os periodos (dia, semana, mes, ano, tudo) retroativamente. Apos carregar um lote de historico, executar `scripts/recompute-acumulados.js` garante consistencia dos acumulados.
+> **Carregamento de historico**: o sistema aceita planilhas de qualquer data passada. Basta enviar normalmente; cada planilha sera indexada pela data real da auditoria e alimentara todos os periodos (dia, semana, mes, ano, tudo) retroativamente. Apos carregar um lote de historico, executar `scripts/recompute-acumulados.js` garante consistencia dos acumulados globais, dos recortes por tipo, dos contadores de participacao da loja e das conquistas avaliadas pelo motor atual.
 
 ## Fluxo 4 - Dashboard e analytics
 
@@ -95,6 +95,7 @@
 2. Frontend carrega /api/metricas/portal/me?periodo=tudo.
 3. Backend resolve corredores e conquistas do colaborador com base no estado atual e nas definicoes ativas.
 4. Colaborador visualiza dados pessoais, metricas, progresso de gamificacao e configuracoes.
+5. Ao tocar em uma conquista, o portal abre um modal com descricao completa, data de obtencao, requisitos por tier e historico de desbloqueio.
 
 ## Fluxo 9 - Avatar do colaborador
 
@@ -124,15 +125,15 @@
 ## Fluxo 12 - Gamificacao, XP e niveis do colaborador
 
 1. Um upload em /api/auditorias/upload passa pelo auditoriaProcessor.
-2. O processador classifica os itens, soma a pontuacao operacional do colaborador e atualiza seus acumulados (`totalItensLidos`, `totalItensConformes`, `totalAuditorias`, `pontuacao`).
+2. O processador classifica os itens, soma a pontuacao operacional do colaborador e atualiza seus acumulados globais (`totalItensLidos`, `totalItensConformes`, `totalAuditorias`, `pontuacao`), por tipo (`metricasPorTipo`) e de participacao (`totalItensParticipacaoLoja`).
 3. O nivel e recalculado pela formula `max(1, floor(pontuacao / 500) + 1)`.
-4. Em seguida, `avaliarConquistas(colab)` percorre todas as conquistas ativas e compara a `metricaBase` atual do colaborador com as metas de cada tier.
+4. Em seguida, `avaliarConquistas(colab)` percorre todas as conquistas ativas e compara a `metricaBase` atual do colaborador com as metas de cada tier, usando o recorte por tipo quando a definicao pedir `tipoAuditoria` e usando o acumulado de participacao quando a conquista acompanhar o volume lido da loja com presenca do colaborador.
 5. Tiers recem-desbloqueados concedem `xpBonus`, que e somado em `colab.pontuacao` uma unica vez por tier novo.
 6. O nivel e recalculado novamente depois do bonus de XP, garantindo que uma conquista tambem possa subir o nivel no mesmo ciclo.
-7. O estado persistido em `colab.conquistas` guarda codigo, tier atual, tiers desbloqueados, progresso e timestamps.
-8. No portal, `GET /api/metricas/portal/me` chama `resolverConquistasPortal` e devolve a lista pronta para UI com progresso, proximo tier, labels e cores.
-9. A aba Inicio mostra nivel, barra de XP e conquistas em destaque; a aba Conquistas mostra a lista completa com filtros por categoria e status.
-10. A manutencao das definicoes fica no painel `/admin/conquistas`, exclusivo de SUPER_ADMIN.
+7. O estado persistido em `colab.conquistas` guarda codigo, tier atual, tiers desbloqueados, historico por tier, progresso e timestamps.
+8. No portal, `GET /api/metricas/portal/me` chama `resolverConquistasPortal` e devolve a lista pronta para UI com progresso, proximo tier, labels, cores e historico de desbloqueio.
+9. A aba Inicio mostra nivel, barra de XP e conquistas em destaque; a aba Conquistas mostra a lista completa com filtros por categoria e status, e cada card abre um modal detalhado.
+10. A manutencao das definicoes fica no painel `/admin/conquistas`, exclusivo de SUPER_ADMIN, com suporte a conquistas globais ou restritas a ETIQUETA, PRESENCA ou RUPTURA.
 
 > Documentacao detalhada: [[Gamificacao/Bem-vindo]]
 
@@ -142,7 +143,7 @@
 2. No card da loja, clica para cancelar a ultima auditoria ativa do periodo.
 3. Frontend chama `POST /api/auditorias/:id/cancelar` com `lojaId` por query string.
 4. Backend valida role, escopo e existencia da auditoria.
-5. Backend marca a Auditoria como `CANCELADA`, marca AuditItems como `cancelada: true`, zera MetricaDiaria da loja/tipo/data e recalcula acumulados da loja e dos colaboradores.
+5. Backend marca a Auditoria como `CANCELADA`, marca AuditItems como `cancelada: true`, zera MetricaDiaria da loja/tipo/data e recalcula acumulados da loja e dos colaboradores, inclusive o recorte `metricasPorTipo` e o acumulado `totalItensParticipacaoLoja` usado pela conquista de participacao.
 6. Catalogo e perfil da loja passam a refletir a ausencia da auditoria ativa e o alerta de cancelamentos no periodo.
 7. Ranking de lojas recebe `auditoriasCanceladas` e destaca a loja com alerta, sem somar itens, pontos ou conformidade da auditoria cancelada.
 

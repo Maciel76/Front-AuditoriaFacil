@@ -20,9 +20,12 @@ Esta pasta centraliza a documentacao do sistema de conquistas, XP e niveis do co
 
 - `backend/src/models/Conquista.js`
 - `backend/src/models/Colaborador.js`
+- `backend/src/services/colaboradorMetricas.js`
 - `backend/src/services/conquistasService.js`
 - `backend/src/services/conquistasSeed.js`
 - `backend/src/services/auditoriaProcessor.js`
+- `backend/scripts/sync-conquistas-padrao.js`
+- `backend/scripts/recompute-acumulados.js`
 - `backend/src/routes/conquistas.routes.js`
 - `backend/src/routes/metricas.routes.js`
 - `frontend/src/views/AdminConquistas.vue`

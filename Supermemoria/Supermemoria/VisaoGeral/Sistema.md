@@ -60,7 +60,8 @@ NovaAuditoria e um sistema SaaS multi-tenant para gestao de auditorias operacion
 - Rankings de colaboradores e de lojas por periodo e tipo.
 - Relatorios de situacoes e classes/setores.
 - Perfil detalhado do colaborador no app administrativo.
-- Portal do colaborador com fluxo matricula -> selecao de loja -> setup/login -> portal.
+- Portal do colaborador com fluxo matricula -> selecao de loja -> setup/login -> portal, incluindo detalhes clicaveis das conquistas com requisitos, historico de desbloqueio e conquistas especificas por tipo de auditoria.
+- Conquista recorrente de participacao que soma o volume lido pela loja apenas nas auditorias em que o colaborador efetivamente participou.
 - Alteracao de avatar com recorte previo e troca de senha no portal.
 
 ## Fluxo principal do usuario
@@ -80,7 +81,7 @@ NovaAuditoria e um sistema SaaS multi-tenant para gestao de auditorias operacion
 3. Sistema lista as lojas em que aquela matricula existe.
 4. Se for primeiro acesso, define senha. Caso contrario, faz login com senha.
 5. O portal carrega dados do proprio colaborador e suas metricas historicas.
-6. O colaborador pode alterar foto, alternar tema do portal e trocar a senha.
+6. O colaborador pode abrir detalhes de cada conquista, alterar foto, alternar tema do portal e trocar a senha.
 
 ## Pontos criticos do sistema
 
@@ -89,6 +90,8 @@ NovaAuditoria e um sistema SaaS multi-tenant para gestao de auditorias operacion
 - Periodos historicos devem ser ancorados na ultima data com dados, nao no relogio atual, para evitar dashboards vazios quando a base nao esta sincronizada com hoje.
 - O cliente Axios principal nao pode sobrescrever Authorization de chamadas do portal.
 - Uploads de auditoria alteram metricas acumuladas; qualquer mudanca no processador afeta dashboards, rankings e perfis.
+- Upload, reupload, cancelamento e recompute tambem afetam `metricasPorTipo`, que hoje alimentam conquistas de ETIQUETA, PRESENCA e RUPTURA.
+- Esses mesmos fluxos agora afetam `totalItensParticipacaoLoja`, que depende do total lido da loja combinado com a presenca real do colaborador na auditoria.
 - A entidade Colaborador e usada tanto como participante das planilhas quanto como conta do portal.
 
 ## Fontes de verdade no repositorio

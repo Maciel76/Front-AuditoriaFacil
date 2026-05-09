@@ -93,13 +93,23 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 
 - Mantem cache curto das conquistas ativas para evitar leitura repetida em massa durante uploads.
 - Avalia tiers por metricaBase e meta, atualizando `colab.conquistas` in place.
+- Quando a definicao possui `tipoAuditoria`, le `metricasPorTipo` do colaborador em vez do acumulado global correspondente.
+- Tambem consegue avaliar a metrica `totalItensParticipacaoLoja`, que soma o volume lido pela loja apenas nas auditorias em que o colaborador participou.
 - Soma `xpBonus` apenas para tiers recem-desbloqueados.
+- Persiste `historicoDesbloqueios` por tier no estado do colaborador, incluindo data, meta, bonus e titulo do marco atingido.
+- Faz fallback do historico do portal a partir de `desbloqueadaEm` ou `ultimaAtualizacao` quando encontra estados legados sem historico granular salvo.
 - Resolve conquistas enriquecidas para exibicao no portal do colaborador.
 
 ### services/conquistasSeed.js
 
 - Cria as conquistas padrao do sistema quando a colecao ainda esta vazia.
+- Exporta tambem uma rotina de sincronizacao para inserir conquistas padrao faltantes em bases que ja estavam povoadas.
 - O seed e executado no bootstrap do servidor e deixa a manutencao futura para o painel administrativo de conquistas.
+
+### services/colaboradorMetricas.js
+
+- Centraliza a estrutura zerada e a normalizacao de `metricasPorTipo`.
+- Garante as chaves `ETIQUETA`, `PRESENCA` e `RUPTURA` com `totalAuditorias`, `totalItensLidos` e `totalItensConformes`.
 
 ### services/auditoriaProcessor.js
 
@@ -110,6 +120,8 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 - Gera AuditItems em massa.
 - Calcula totais da auditoria e top colaboradores do upload.
 - Gera ou atualiza MetricaDiaria consolidada por loja e por colaborador.
+- Mantem acumulados globais e `metricasPorTipo` por colaborador, inclusive quando o reupload remove pessoas do arquivo atual.
+- Mantem tambem `totalItensParticipacaoLoja`, usando o `totalLidos` consolidado da loja apenas para quem participou daquele upload.
 - Atualiza pontuacao, nivel e conquistas de colaboradores.
 - Recalcula o nivel antes e depois de avaliar conquistas, para absorver bonus de XP no mesmo ciclo de upload.
 - Atualiza pontuacao e nivel da loja.
@@ -119,7 +131,14 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 
 - Centraliza o cancelamento de auditorias de loja.
 - Marca Auditoria como `CANCELADA`, marca AuditItems como cancelados, zera MetricaDiaria do dia/tipo/loja e recalcula acumulados da loja e dos colaboradores a partir de metricas nao canceladas.
+- Reconstroi tambem `metricasPorTipo` antes de limpar e reavaliar as conquistas do colaborador.
+- Reconstroi tambem `totalItensParticipacaoLoja` combinando participacao diaria do colaborador com o total lido consolidado da loja em cada auditoria valida.
 - Mantem uma MetricaDiaria consolidada zerada e cancelada para permitir alerta no ranking de lojas.
+
+### scripts/sync-conquistas-padrao.js
+
+- Conecta no banco e chama a sincronizacao idempotente das conquistas padrao.
+- Serve para inserir novas conquistas default em ambientes que ja tinham a colecao `Conquista` populada.
 
 ## Rotas backend por responsabilidade
 
@@ -144,9 +163,9 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 
 ### conquistas.routes.js
 
-- Exponibiliza metadados de tiers, categorias e metricas suportadas.
-- Lista definicoes de conquistas e oferece CRUD restrito a SUPER_ADMIN.
-- Exponibiliza uma rota dedicada para resolver conquistas do proprio colaborador do portal.
+- Exponibiliza metadados de tiers, categorias, metricas e tipos de auditoria suportados.
+- Lista definicoes de conquistas e oferece CRUD restrito a SUPER_ADMIN, incluindo filtro por `tipoAuditoria`.
+- Exponibiliza uma rota dedicada para resolver conquistas do proprio colaborador do portal, incluindo progresso, proximo tier e historico por tier.
 - Invalida o cache das conquistas apos mutacoes administrativas.
 
 ### lojas.routes.js

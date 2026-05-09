@@ -78,6 +78,7 @@
   ```
   node --env-file=.env scripts/recompute-acumulados.js
   ```
+- O recompute oficial tambem recompõe `metricasPorTipo` e reavalia conquistas usando o motor atual de `conquistasService.js`.
 - O script e idempotente: pode ser rodado multiplas vezes sem risco de duplicar dados.
 
 ## Regra de idempotencia de upload
@@ -95,7 +96,7 @@
 - Cancelar nao apaga a Auditoria; o status passa para `CANCELADA` e o historico continua visivel.
 - Os `AuditItem` da auditoria ficam com `cancelada: true` e sao ignorados por relatorios e agregacoes analiticas.
 - Os registros `MetricaDiaria` da mesma loja, tipo e data sao zerados e marcados como `cancelada: true`.
-- A loja e os colaboradores da loja sao recomputados a partir de `MetricaDiaria` nao cancelada.
+- A loja e os colaboradores da loja sao recomputados a partir de `MetricaDiaria` nao cancelada, incluindo os acumulados por tipo do colaborador.
 - O ranking de lojas ainda recebe a informacao de cancelamento para mostrar alerta, mas sem somar pontos, itens ou conformidade do dia cancelado.
 
 ## Regra de pontuacao e nivel
@@ -109,18 +110,26 @@
 
 - As conquistas nao sao mais hardcoded no runtime principal; elas vivem na colecao `Conquista` e sao geridas por SUPER_ADMIN via `/api/conquistas`.
 - O motor de avaliacao percorre apenas conquistas `ativas` e compara a `metricaBase` atual do colaborador com cada `meta` de tier.
+- Quando a conquista define `tipoAuditoria`, a metrica e lida do recorte `metricasPorTipo` correspondente em vez do acumulado global.
+- Quando a conquista usa `totalItensParticipacaoLoja`, o sistema soma o `totalLidos` consolidado da loja somente nas auditorias em que o colaborador teve participacao registrada naquele dia e tipo.
 - Um tier e considerado desbloqueado quando `valor >= meta`.
 - O bonus de XP (`xpBonus`) e concedido apenas para tiers recem-desbloqueados, nunca para tiers que ja estavam em `tiersDesbloqueados`.
-- O estado persistido do colaborador guarda `codigo`, `tierAtual`, `tiersDesbloqueados[]`, `progresso`, `desbloqueadaEm` e `ultimaAtualizacao`.
-- O bootstrap do servidor cria um conjunto padrao de 6 conquistas somente quando a colecao ainda esta vazia.
+- Cada tier novo tambem registra historico proprio com `nivel`, `desbloqueadoEm`, `meta`, `xpBonus` e `titulo`.
+- O estado persistido do colaborador guarda `codigo`, `tierAtual`, `tiersDesbloqueados[]`, `historicoDesbloqueios[]`, `progresso`, `desbloqueadaEm` e `ultimaAtualizacao`.
+- O bootstrap do servidor cria um conjunto padrao de 6 conquistas globais somente quando a colecao ainda esta vazia.
+- Bases antigas podem receber conquistas padrao novas de forma idempotente com `node --env-file=.env scripts/sync-conquistas-padrao.js`.
+- O conjunto default atual inclui tambem 6 conquistas por tipo de auditoria: itens e auditorias para ETIQUETA, PRESENCA e RUPTURA.
+- O conjunto default atual inclui tambem a conquista `PARTICIPACAO_LOJA`, que nao herda historico antigo da loja para novos colaboradores: ela avanca apenas quando ha participacao efetiva do colaborador na auditoria correspondente.
 
 ### Observacoes importantes da implementacao atual
 
 - O campo `recorrente` existe no cadastro e na UI administrativa, mas hoje nao altera o algoritmo de avaliacao; ele funciona como semantica de configuracao e exibicao.
 - O campo `cor` e salvo na definicao da conquista, mas o portal usa as cores fixas de tier (`TIER_INFO`) para renderizacao principal.
 - O motor atual nao interpreta regras extras descritas apenas no texto da conquista; a avaliacao real usa somente a metrica base e as metas dos tiers.
+- O modelo atual trabalha com 5 tiers fixos (`comum`, `raro`, `epico`, `lendario`, `mitico`); qualquer expansao para mais degraus exige mudar schema, validacao e estado persistido.
 - Nao existe recalculo historico automatico em massa quando uma conquista e criada ou alterada.
 - `POST /api/conquistas/:id/recalcular` atualmente invalida cache, mas nao reavalia todos os colaboradores.
+- A metrica `totalItensParticipacaoLoja` depende do cruzamento entre a linha diaria do colaborador e a linha consolidada da loja no mesmo `loja + tipo + data`; por isso recompute e cancelamento precisam recalcular esse acumulado junto com as demais metricas.
 
 > Documentacao detalhada: [[Gamificacao/Bem-vindo]]
 

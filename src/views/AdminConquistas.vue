@@ -13,7 +13,12 @@ import Loader from "@/components/Loader.vue";
 const carregando = ref(false);
 const salvando = ref(false);
 const items = ref([]);
-const meta = ref({ tiers: [], categorias: [], metricas: [] });
+const meta = ref({
+  tiers: [],
+  categorias: [],
+  metricas: [],
+  tiposAuditoria: [],
+});
 const erro = ref("");
 const sucesso = ref("");
 const filtroCategoria = ref("");
@@ -33,6 +38,7 @@ const METRICA_LABELS = {
   totalItensLidos: "Itens lidos",
   totalItensConformes: "Itens conformes",
   totalAuditorias: "Auditorias realizadas",
+  totalItensParticipacaoLoja: "Itens lidos da loja com participação",
   taxaConformidadeAcumulada: "Taxa de conformidade (%)",
   pontuacao: "Pontuação (XP)",
   nivel: "Nível atingido",
@@ -45,6 +51,12 @@ const CATEGORIA_LABELS = {
   PONTUACAO: "Pontuação",
   NIVEL: "Nível",
   ESPECIAL: "Especial",
+};
+
+const TIPO_AUDITORIA_LABELS = {
+  ETIQUETA: "Etiqueta",
+  PRESENCA: "Presença",
+  RUPTURA: "Ruptura",
 };
 
 const itemsFiltrados = computed(() => {
@@ -62,6 +74,7 @@ function formularioVazio() {
     cor: "",
     categoria: "ITENS",
     metricaBase: "totalItensLidos",
+    tipoAuditoria: "",
     recorrente: true,
     ativa: true,
     ordem: 100,
@@ -94,6 +107,7 @@ function abrirEdicao(c) {
     cor: c.cor || "",
     categoria: c.categoria,
     metricaBase: c.metricaBase,
+    tipoAuditoria: c.tipoAuditoria || "",
     recorrente: !!c.recorrente,
     ativa: c.ativa !== false,
     ordem: c.ordem ?? 100,
@@ -164,6 +178,7 @@ async function salvar() {
       icone: form.value.icone || "🏆",
       categoria: form.value.categoria,
       metricaBase: form.value.metricaBase,
+      tipoAuditoria: form.value.tipoAuditoria || null,
       recorrente: !!form.value.recorrente,
       ativa: !!form.value.ativa,
       ordem: Number(form.value.ordem) || 100,
@@ -268,6 +283,9 @@ onMounted(carregar);
               <span class="badge dim">{{ c.codigo }}</span>
               <span class="badge info">{{
                 CATEGORIA_LABELS[c.categoria] || c.categoria
+              }}</span>
+              <span v-if="c.tipoAuditoria" class="badge dim">{{
+                TIPO_AUDITORIA_LABELS[c.tipoAuditoria] || c.tipoAuditoria
               }}</span>
               <span v-if="c.recorrente" class="badge warn">recorrente</span>
               <span v-if="!c.ativa" class="badge bad">inativa</span>
@@ -388,6 +406,19 @@ onMounted(carregar);
               <select v-model="form.metricaBase">
                 <option v-for="m in meta.metricas" :key="m" :value="m">
                   {{ METRICA_LABELS[m] || m }}
+                </option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Tipo de auditoria</label>
+              <select v-model="form.tipoAuditoria">
+                <option value="">Todos os tipos</option>
+                <option
+                  v-for="tipo in meta.tiposAuditoria || []"
+                  :key="tipo"
+                  :value="tipo"
+                >
+                  {{ TIPO_AUDITORIA_LABELS[tipo] || tipo }}
                 </option>
               </select>
             </div>

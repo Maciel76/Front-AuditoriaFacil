@@ -59,15 +59,15 @@
 
 ## Grupo Conquistas
 
-| Metodo | Rota                           | Auth                         | Escopo              | Corpo ou query principal                                                                | Funcao                                                              |
-| ------ | ------------------------------ | ---------------------------- | ------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| GET    | /api/conquistas/meta           | Usuario ou token colaborador | Nenhum              | -                                                                                       | Retorna tiers, categorias e metricas suportadas                     |
-| GET    | /api/conquistas/portal/me      | Token colaborador            | Proprio colaborador | -                                                                                       | Resolve conquistas do colaborador em endpoint dedicado              |
-| GET    | /api/conquistas                | Usuario                      | Global autenticado  | ativa, categoria                                                                        | Lista definicoes de conquistas                                      |
-| POST   | /api/conquistas                | SUPER_ADMIN                  | Nenhum              | codigo, nome, descricao, icone, categoria, metricaBase, recorrente, tiers, ativa, ordem | Cria uma nova conquista configuravel                                |
-| PUT    | /api/conquistas/:id            | SUPER_ADMIN                  | Nenhum              | campos parciais da conquista                                                            | Atualiza conquista existente e invalida cache                       |
-| DELETE | /api/conquistas/:id            | SUPER_ADMIN                  | Nenhum              | -                                                                                       | Remove conquista                                                    |
-| POST   | /api/conquistas/:id/recalcular | SUPER_ADMIN                  | Nenhum              | -                                                                                       | Invalida cache das definicoes; nao faz recalculo historico em massa |
+| Metodo | Rota                           | Auth                         | Escopo              | Corpo ou query principal                                                                               | Funcao                                                                           |
+| ------ | ------------------------------ | ---------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| GET    | /api/conquistas/meta           | Usuario ou token colaborador | Nenhum              | -                                                                                                      | Retorna tiers, categorias, metricas e tipos de auditoria suportados              |
+| GET    | /api/conquistas/portal/me      | Token colaborador            | Proprio colaborador | -                                                                                                      | Resolve conquistas do colaborador com progresso, requisitos e historico por tier |
+| GET    | /api/conquistas                | Usuario                      | Global autenticado  | ativa, categoria, tipoAuditoria                                                                        | Lista definicoes de conquistas                                                   |
+| POST   | /api/conquistas                | SUPER_ADMIN                  | Nenhum              | codigo, nome, descricao, icone, categoria, metricaBase, tipoAuditoria, recorrente, tiers, ativa, ordem | Cria uma nova conquista configuravel                                             |
+| PUT    | /api/conquistas/:id            | SUPER_ADMIN                  | Nenhum              | campos parciais da conquista, incluindo tipoAuditoria                                                  | Atualiza conquista existente e invalida cache                                    |
+| DELETE | /api/conquistas/:id            | SUPER_ADMIN                  | Nenhum              | -                                                                                                      | Remove conquista                                                                 |
+| POST   | /api/conquistas/:id/recalcular | SUPER_ADMIN                  | Nenhum              | -                                                                                                      | Invalida cache das definicoes; nao faz recalculo historico em massa              |
 
 ## Grupo Auditorias
 
@@ -118,6 +118,9 @@
 - GET /api/lojas/catalogo retorna `periodo` e `items`; cada loja ativa recebe `resumoPeriodo` com total de auditorias, auditorias por tipo, itens lidos, conformidade, pontuacao, custo ruptura e ultima auditoria dentro do periodo filtrado.
 - Auditorias canceladas permanecem no historico com `status=CANCELADA`, mas ficam fora das metricas. `GET /api/metricas/ranking/lojas` retorna `auditoriasCanceladas` para a UI destacar lojas com cancelamento no periodo.
 - O frontend atual do portal consome `GET /api/metricas/portal/me`, que ja retorna `conquistas` resolvidas; `GET /api/conquistas/portal/me` existe como rota dedicada, mas nao e a fonte primaria da UI hoje.
+- `GET /api/conquistas/meta` entrega `tiposAuditoria` para a tela administrativa montar conquistas globais ou restritas a um tipo.
+- O mesmo `GET /api/conquistas/meta` tambem passa a refletir a metrica `totalItensParticipacaoLoja`, usada pela conquista recorrente de participacao na leitura total da loja.
+- O array `conquistas` retornado ao portal inclui `desbloqueadaEm`, `proximoTier` e `historicoDesbloqueios[]`; cada item do historico traz `nivel`, `label`, `cor`, `meta`, `xpBonus`, `titulo` e `desbloqueadoEm` para a UI abrir o detalhe da conquista sem nova chamada.
 - /api/metricas/ranking/lojas permanece sem exigirRole explicito na rota, mas o retorno agora e global para SUPER_ADMIN e STORE_ADMIN; perfis fora desse escopo continuam restritos a propria loja.
 - /api/metricas/lojas/:id/perfil nao depende de escopoLoja; ele recebe a loja por id, mas continua exigindo autenticacao no app principal.
 - As rotas do portal em colaboradores.routes.js estao posicionadas antes de router.use(autenticar) para aceitar o token proprio do colaborador.

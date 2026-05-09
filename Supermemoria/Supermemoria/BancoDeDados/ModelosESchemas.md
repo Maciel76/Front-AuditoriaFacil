@@ -63,7 +63,9 @@ Arquivo: backend/src/models/Colaborador.js
 - senhaHash com select false.
 - primeiroAcesso.
 - pontuacao, nivel, totalAuditorias, totalItensLidos, totalItensConformes.
-- conquistas: array com estado da gamificacao por codigo (`codigo`, `tierAtual`, `tiersDesbloqueados[]`, `progresso`, `desbloqueadaEm`, `ultimaAtualizacao`).
+- totalItensParticipacaoLoja: soma do `totalLidos` da loja apenas nas auditorias em que o colaborador teve participacao registrada.
+- metricasPorTipo com tres recortes fixos (`ETIQUETA`, `PRESENCA`, `RUPTURA`), cada um contendo `totalAuditorias`, `totalItensLidos` e `totalItensConformes`.
+- conquistas: array com estado da gamificacao por codigo (`codigo`, `tierAtual`, `tiersDesbloqueados[]`, `historicoDesbloqueios[]`, `progresso`, `desbloqueadaEm`, `ultimaAtualizacao`).
 
 ### Comportamentos
 
@@ -82,6 +84,7 @@ Representa a definicao mestre de uma conquista configuravel do sistema de gamifi
 - codigo unico em formato A-Z, 0-9 e \_.
 - nome, descricao, icone, cor.
 - categoria e metricaBase.
+- tipoAuditoria opcional para restringir a conquista a ETIQUETA, PRESENCA ou RUPTURA.
 - operador (atualmente apenas `gte`).
 - recorrente.
 - tiers[] com `nivel`, `meta`, `xpBonus` e `titulo`.
@@ -91,7 +94,7 @@ Representa a definicao mestre de uma conquista configuravel do sistema de gamifi
 
 - Mantem tiers ordenados por meta no pre-save.
 - Define os tiers aceitos do sistema (`comum`, `raro`, `epico`, `lendario`, `mitico`).
-- Define tambem as metricas base suportadas para avaliacao de conquistas.
+- Define tambem as metricas base suportadas para avaliacao de conquistas e os tipos aceitos para escopo opcional.
 
 ## Auditoria
 

@@ -239,6 +239,8 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Exibe avatar da loja na etapa de selecao da unidade e nos resumos de setup/login quando a loja possuir foto configurada.
 - Troca senha em /colaboradores/portal/password.
 - Usa Cropper.js para recorte antes do upload.
+- As conquistas agora abrem um modal de detalhes ao clique/toque, com descricao completa, data de obtencao, requisitos por tier e historico de desbloqueio.
+- O overlay de detalhes da conquista usa ajustes locais no tema claro para manter contraste sobre backdrop blur.
 - O grafico historico do portal alterna automaticamente entre colunas e linha conforme a quantidade de pontos no periodo.
 
 ## Componentes reutilizados

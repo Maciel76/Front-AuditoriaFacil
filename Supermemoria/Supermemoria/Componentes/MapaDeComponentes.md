@@ -133,6 +133,7 @@
 - Fluxo publico e independente do app principal.
 - Centraliza autenticacao por matricula, selecao de loja, setup/login, visualizacao de metricas e configuracoes pessoais.
 - Usa o mesmo campo `avatarUrl` do colaborador e o mesmo padrao de crop do perfil administrativo para upload e exibicao da foto.
+- Mantem `ConquistaCard` como componente local via render function e cada card abre um modal com descricao, requisitos e historico de desbloqueio da conquista.
 - E o ponto de contato principal do colaborador final com o sistema.
 
 ## Relacoes entre componentes
