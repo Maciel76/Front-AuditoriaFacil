@@ -23,6 +23,7 @@ import {
 import { useRoute } from "vue-router";
 import api from "@/services/api";
 import AppChart from "@/components/AppChart.vue";
+import AuditoriaDodia from "@/components/AuditoriaDodia.vue";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
 import StoreAvatar from "@/components/StoreAvatar.vue";
 
@@ -49,7 +50,6 @@ const perfil = ref(null);
 const metricas = ref(null);
 const conquistasResolvidas = ref([]);
 const conquistaSelecionada = ref(null);
-const corredores = ref([]);
 const filtroCategoriaConq = ref("todas");
 const filtroStatusConq = ref("todas");
 
@@ -325,7 +325,6 @@ function voltarParaBusca() {
   metricas.value = null;
   conquistasResolvidas.value = [];
   conquistaSelecionada.value = null;
-  corredores.value = [];
   limparFormularioSenha();
   etapa.value = "buscar";
 }
@@ -453,7 +452,6 @@ async function carregarPerfil() {
   const { data } = await apiPortal().get("/metricas/portal/me?periodo=tudo");
   metricas.value = data;
   conquistasResolvidas.value = data.conquistas || [];
-  corredores.value = data.corredores || [];
 }
 
 function sair() {
@@ -746,8 +744,6 @@ const serieChartOptions = computed(() => ({
   },
   scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
 }));
-
-const corredoresTop = computed(() => corredores.value.slice(0, 30));
 
 function formatNum(n) {
   return Number(n || 0).toLocaleString("pt-BR");
@@ -1245,39 +1241,7 @@ onBeforeUnmount(() => {
 
       <!-- ABA CORREDORES -->
       <main v-else-if="abaAtiva === 'corredores'" class="app-content">
-        <section class="card">
-          <h3 class="section-title">
-            <fa icon="boxes-stacked" /> Seus corredores
-          </h3>
-          <p class="muted" style="font-size: 13px; margin: 4px 0 12px">
-            Onde você atuou nas auditorias. As cores indicam o tipo de auditoria
-            realizado.
-          </p>
-          <div v-if="!corredoresTop.length" class="empty mini">
-            Nenhum corredor registrado ainda.
-          </div>
-          <div v-else class="corredores-list">
-            <div v-for="c in corredoresTop" :key="c.local" class="corredor-row">
-              <div class="corredor-info">
-                <strong>{{ c.local }}</strong>
-                <div class="corredor-tipos">
-                  <span
-                    v-for="(qtd, tipo) in c.porTipo"
-                    :key="tipo"
-                    class="badge"
-                    :class="'tipo-' + tipo"
-                  >
-                    {{ tipo }} · {{ formatNum(qtd) }}
-                  </span>
-                </div>
-              </div>
-              <div class="corredor-stats">
-                <strong>{{ formatNum(c.totalLidos) }}</strong>
-                <small class="muted">{{ c.taxaConformidade }}% conf.</small>
-              </div>
-            </div>
-          </div>
-        </section>
+        <AuditoriaDodia :token="token" />
       </main>
 
       <!-- ABA CONFIGURAÇÕES -->
@@ -2138,37 +2102,6 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 12px;
   grid-template-columns: 1fr;
-}
-
-.corredores-list {
-  display: grid;
-  gap: 8px;
-}
-.corredor-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-}
-.corredor-info {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-.corredor-tipos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.corredor-stats {
-  text-align: right;
-}
-.corredor-stats strong {
-  display: block;
-  font-size: 16px;
 }
 
 .config-account {

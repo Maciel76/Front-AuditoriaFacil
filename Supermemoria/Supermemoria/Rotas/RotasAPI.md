@@ -84,19 +84,21 @@
 
 ## Grupo Metricas
 
-| Metodo | Rota                                   | Auth              | Escopo                         | Corpo ou query principal                            | Funcao                                        |
-| ------ | -------------------------------------- | ----------------- | ------------------------------ | --------------------------------------------------- | --------------------------------------------- |
-| GET    | /api/metricas/portal/me                | Token colaborador | Proprio colaborador            | periodo, dataInicio, dataFim                        | Perfil analitico do portal                    |
-| GET    | /api/metricas/dashboard                | Usuario           | Loja ou global                 | periodo, dataInicio, dataFim                        | Dashboard consolidado                         |
-| GET    | /api/metricas/ultima-data              | Usuario           | Loja ou global                 | lojaId opcional                                     | Ultima data com dados em MetricaDiaria        |
-| GET    | /api/metricas/ranking/colaboradores    | Usuario           | Loja ou global conforme escopo | periodo, tipo, dataInicio, dataFim                  | Ranking de colaboradores                      |
-| GET    | /api/metricas/ranking/lojas            | Usuario           | Global                         | periodo, tipo, dataInicio, dataFim                  | Ranking de lojas                              |
-| GET    | /api/metricas/lojas/:id/perfil         | Usuario           | Loja explicita por id          | periodo, tipo, dataInicio, dataFim                  | Perfil analitico publico de uma loja          |
-| GET    | /api/metricas/colaboradores/:id/perfil | Usuario           | Loja opcional                  | periodo, tipo, dataInicio, dataFim                  | Perfil analitico do colaborador               |
-| GET    | /api/metricas/relatorios/situacoes     | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio por situacao                        |
-| GET    | /api/metricas/relatorios/classes       | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio agregado por classe                 |
-| GET    | /api/metricas/relatorios/corredores    | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio agregado por corredor/local         |
-| GET    | /api/metricas/relatorios/setores       | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Alias legado do relatorio agregado por classe |
+| Metodo | Rota                                              | Auth              | Escopo                         | Corpo ou query principal                            | Funcao                                                                  |
+| ------ | ------------------------------------------------- | ----------------- | ------------------------------ | --------------------------------------------------- | ----------------------------------------------------------------------- |
+| GET    | /api/metricas/portal/me                           | Token colaborador | Proprio colaborador            | periodo, dataInicio, dataFim                        | Perfil analitico do portal                                              |
+| GET    | /api/metricas/portal/me/auditoria-do-dia          | Token colaborador | Propria loja                   | origem opcional = hoje ou anterior                  | Resumo da auditoria atual do portal; a anterior so e aberta sob demanda |
+| GET    | /api/metricas/portal/me/auditoria-do-dia/corredor | Token colaborador | Propria loja                   | auditoriaId, local                                  | Detalhe de um corredor especifico da auditoria exibida no portal        |
+| GET    | /api/metricas/dashboard                           | Usuario           | Loja ou global                 | periodo, dataInicio, dataFim                        | Dashboard consolidado                                                   |
+| GET    | /api/metricas/ultima-data                         | Usuario           | Loja ou global                 | lojaId opcional                                     | Ultima data com dados em MetricaDiaria                                  |
+| GET    | /api/metricas/ranking/colaboradores               | Usuario           | Loja ou global conforme escopo | periodo, tipo, dataInicio, dataFim                  | Ranking de colaboradores                                                |
+| GET    | /api/metricas/ranking/lojas                       | Usuario           | Global                         | periodo, tipo, dataInicio, dataFim                  | Ranking de lojas                                                        |
+| GET    | /api/metricas/lojas/:id/perfil                    | Usuario           | Loja explicita por id          | periodo, tipo, dataInicio, dataFim                  | Perfil analitico publico de uma loja                                    |
+| GET    | /api/metricas/colaboradores/:id/perfil            | Usuario           | Loja opcional                  | periodo, tipo, dataInicio, dataFim                  | Perfil analitico do colaborador                                         |
+| GET    | /api/metricas/relatorios/situacoes                | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio por situacao                                                  |
+| GET    | /api/metricas/relatorios/classes                  | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio agregado por classe                                           |
+| GET    | /api/metricas/relatorios/corredores               | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio agregado por corredor/local                                   |
+| GET    | /api/metricas/relatorios/setores                  | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Alias legado do relatorio agregado por classe                           |
 
 ## Periodos suportados no backend
 
@@ -117,7 +119,8 @@
 - GET /api/metricas/dashboard retorna `cardsResumo` para os cinco KPIs do topo. Em geral, `cardsResumo.mediaConclusao` e media simples de `Auditoria.taxaConformidade` no periodo filtrado; quando `tipo=PRESENCA`, `cardsResumo.produtosAuditados` passa a ser a soma das situacoes `Com Presenca e com Estoque` + `Sem Presenca e Com Estoque` e `cardsResumo.mediaConclusao` passa a usar `Com Presenca e com Estoque / total * 100`. `cardsResumo.custoRupturaRuptura` sempre soma apenas auditorias do tipo RUPTURA no periodo; `cardsResumo.totalColaboradores` ignora o filtro de tipo e conta colaboradores distintos com leitura no periodo.
 - GET /api/lojas/catalogo retorna `periodo` e `items`; cada loja ativa recebe `resumoPeriodo` com total de auditorias, auditorias por tipo, itens lidos, conformidade, pontuacao, custo ruptura e ultima auditoria dentro do periodo filtrado.
 - Auditorias canceladas permanecem no historico com `status=CANCELADA`, mas ficam fora das metricas. `GET /api/metricas/ranking/lojas` retorna `auditoriasCanceladas` para a UI destacar lojas com cancelamento no periodo.
-- O frontend atual do portal consome `GET /api/metricas/portal/me`, que ja retorna `conquistas` resolvidas; `GET /api/conquistas/portal/me` existe como rota dedicada, mas nao e a fonte primaria da UI hoje.
+- O frontend atual do portal consome `GET /api/metricas/portal/me` para metricas e conquistas resolvidas; a aba `Corredores` passou a usar `GET /api/metricas/portal/me/auditoria-do-dia` e o detalhe `GET /api/metricas/portal/me/auditoria-do-dia/corredor` para evitar carregar historico completo de corredores no payload principal.
+- Em `GET /api/metricas/portal/me/auditoria-do-dia`, a query `origem=anterior` e a unica forma de consultar a auditoria anterior; sem a query, a resposta fica restrita ao contexto do dia atual.
 - `GET /api/conquistas/meta` entrega `tiposAuditoria` para a tela administrativa montar conquistas globais ou restritas a um tipo.
 - O mesmo `GET /api/conquistas/meta` tambem passa a refletir a metrica `totalItensParticipacaoLoja`, usada pela conquista recorrente de participacao na leitura total da loja.
 - O array `conquistas` retornado ao portal inclui `desbloqueadaEm`, `proximoTier` e `historicoDesbloqueios[]`; cada item do historico traz `nivel`, `label`, `cor`, `meta`, `xpBonus`, `titulo` e `desbloqueadoEm` para a UI abrir o detalhe da conquista sem nova chamada.

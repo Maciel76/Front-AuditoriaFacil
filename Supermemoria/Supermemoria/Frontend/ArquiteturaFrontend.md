@@ -242,6 +242,15 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - As conquistas agora abrem um modal de detalhes ao clique/toque, com descricao completa, data de obtencao, requisitos por tier e historico de desbloqueio.
 - O overlay de detalhes da conquista usa ajustes locais no tema claro para manter contraste sobre backdrop blur.
 - O grafico historico do portal alterna automaticamente entre colunas e linha conforme a quantidade de pontos no periodo.
+- A aba `Corredores` deixou de depender do payload historico de `GET /metricas/portal/me` e passou a delegar essa experiencia ao componente `AuditoriaDodia.vue`.
+
+### AuditoriaDodia.vue
+
+- Componente dedicado da aba `Corredores` do portal.
+- Consulta `GET /metricas/portal/me/auditoria-do-dia` para mostrar somente a auditoria em andamento hoje e exibe a auditoria anterior apenas quando o colaborador aciona o botao de consulta manual.
+- Quando precisa abrir a anterior, chama a mesma rota com `origem=anterior`, mantendo a auditoria do dia como comportamento padrao.
+- Divide a tela entre `Meus corredores` e `Demais corredores`, destacando o corredor mais recentemente movimentado pelo colaborador.
+- Ao abrir um corredor, consulta `GET /metricas/portal/me/auditoria-do-dia/corredor` para montar o modal com participantes, progresso e itens.
 
 ## Componentes reutilizados
 

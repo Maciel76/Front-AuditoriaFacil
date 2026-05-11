@@ -188,6 +188,9 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 - Usa uma funcao de periodo ancorada na ultima data existente na base.
 - Os relatorios operacionais usam AuditItem para agregar dimensoes como situacao, classeRaiz e local, permitindo leituras por classe e por corredor sem depender de MetricaDiaria.
 - Nas agregacoes por classe/corredor, o backend tambem devolve colaboradores por dimensao (total lido, conformes e nao conformes) para alimentar o drill-down da tela de relatorios.
+- O portal agora expoe uma rota resumida da auditoria do dia e uma rota de detalhe por corredor, evitando carregar historico completo de corredores em `GET /metricas/portal/me`.
+- A rota resumida da auditoria do dia responde somente a auditoria atual por padrao; a auditoria anterior so e carregada quando o frontend envia `origem=anterior`.
+- O calculo de progresso por corredor reaplica a mesma regra de classificacao usada no `auditoriaProcessor`, mantendo coerencia entre itens auditaveis, itens lidos e conformidade no modal do portal.
 
 ## Seguranca e validacoes
 

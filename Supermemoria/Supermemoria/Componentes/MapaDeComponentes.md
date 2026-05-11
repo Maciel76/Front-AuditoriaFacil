@@ -136,12 +136,19 @@
 - Mantem `ConquistaCard` como componente local via render function e cada card abre um modal com descricao, requisitos e historico de desbloqueio da conquista.
 - E o ponto de contato principal do colaborador final com o sistema.
 
+### AuditoriaDodia.vue
+
+- Componente isolado da aba `Corredores` do portal.
+- Carrega a auditoria do dia em endpoint proprio e deixa a auditoria anterior atras de um botao explicito, evitando misturar a operacao atual com historico.
+- Exibe `Meus corredores` e `Demais corredores`, destaca o corredor atual do colaborador e abre modal sob demanda com equipe e itens do corredor.
+
 ## Relacoes entre componentes
 
 - App.vue envolve o router e o sistema de toast.
 - AppLayout.vue envolve todas as views autenticadas.
 - PeriodoSelector.vue alimenta Dashboard, Relatorios, RankingColaboradores, RankingLojas, ColaboradorPerfil e portal do colaborador.
 - AppChart.vue aparece em todas as views analiticas.
+- AuditoriaDodia.vue depende das rotas exclusivas do portal e e renderizado dentro de ColaboradorPortal.vue apenas quando a aba `Corredores` esta ativa.
 
 ## Dependencias funcionais importantes
 
