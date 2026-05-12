@@ -65,7 +65,7 @@ const titulo = computed(() => {
     "admin-lojas": "Administração de lojas",
     "admin-conquistas": "Conquistas e gamificação",
   };
-  return m[route.name] || "NovaAuditoria";
+  return m[route.name] || "Flashrub";
 });
 
 const iniciais = computed(() => {
@@ -144,7 +144,7 @@ onBeforeUnmount(() => {
         />
         <div v-else class="brand-mark"><fa icon="bolt" /></div>
         <div class="brand-name">
-          NovaAuditoria
+          Flashrub
           <small>{{
             auth.loja?.nome ||
             (auth.isSuperAdmin ? "Administração" : "Sem loja")

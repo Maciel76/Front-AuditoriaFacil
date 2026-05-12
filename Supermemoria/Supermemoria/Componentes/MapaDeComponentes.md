@@ -60,7 +60,14 @@
 - Painel sintetico da operacao.
 - Usa KpiCard, AppChart e PeriodoSelector.
 - Dependencia central: GET /metricas/dashboard.
+- No periodo `1d`, substitui o grafico de conformidade do card principal por `DashboardDesempenhoHoje.vue`.
 - Tambem implementa exportacao visual da tela atual via html2canvas usando clone offscreen da captureArea, com sincronizacao de filtros e copia manual dos canvases de Chart.js para preservar a aparencia real da tela.
+
+### DashboardDesempenhoHoje.vue
+
+- Componente dedicado ao recorte diario de desempenho no Dashboard.
+- Consulta GET /metricas/ranking/colaboradores com os filtros atuais de tipo e loja do Dashboard.
+- Renderiza barras verticais por quantidade de itens lidos no dia, com eixo X reduzido ao primeiro nome de cada colaborador, e um resumo textual do lider atual.
 
 ### Auditorias.vue
 

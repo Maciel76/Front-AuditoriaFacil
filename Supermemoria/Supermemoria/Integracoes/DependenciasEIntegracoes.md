@@ -18,7 +18,9 @@
 ### Frontend -> Backend
 
 - HTTP REST via Axios.
-- Base padrao: http://localhost:4000/api.
+- Base padrao: VITE_API_URL ou, por compatibilidade, VITE_API_BASE.
+- No deploy atual, o frontend aponta para https://flashub.mywire.org e acrescenta /api automaticamente quando a variavel informa apenas a origem do reverse proxy.
+- Em desenvolvimento local, o frontend usa `frontend/.env` com `http://localhost:4000`; em producao, o build usa `frontend/.env.production` com `https://flashub.mywire.org`.
 - Consumo autenticado por Bearer token.
 
 ### Backend -> Parser
@@ -78,7 +80,8 @@
 
 ### Frontend
 
-- VITE_API_BASE
+- VITE_API_URL
+- VITE_API_BASE (legado e opcional)
 
 ## Integracoes ausentes ou nao encontradas
 

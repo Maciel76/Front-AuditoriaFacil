@@ -43,8 +43,12 @@ async function cadastrar() {
       <div class="row" style="margin-bottom: 8px;">
         <div class="brand-mark"><fa icon="bolt" /></div>
         <div>
-          <h1 style="margin:0">NovaAuditoria</h1>
-          <p style="margin:0">Inteligência de auditoria para o varejo</p>
+          <h1 style="margin:0">Flashrub</h1>
+          <p style="margin:0">
+            Flashrub e um sistema de gerenciamento de tarefas rapido e eficiente,
+            projetado para ajudar voce a organizar suas atividades diarias com
+            facilidade.
+          </p>
         </div>
       </div>
 
@@ -67,8 +71,7 @@ async function cadastrar() {
           <span>Entrar</span>
         </button>
         <p class="muted text-center" style="font-size: 12px;">
-          Primeiro uso? O super-admin padrão é
-          <strong>admin@novaauditoria.local / admin123</strong>.
+          Primeiro uso? Utilize as credenciais iniciais configuradas no backend.
         </p>
         <div class="text-center" style="border-top: 1px solid var(--border); padding-top: 16px; margin-top: 4px;">
           <RouterLink to="/portal" class="btn ghost" style="width:100%; justify-content:center;">

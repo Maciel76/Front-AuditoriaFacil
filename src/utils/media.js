@@ -1,19 +1,7 @@
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000/api";
+import { getApiOrigin } from "@/utils/apiBase";
 
 function origemApi() {
-  try {
-    const base = new URL(
-      API_BASE,
-      typeof window !== "undefined"
-        ? window.location.origin
-        : "http://localhost:4000",
-    );
-    return base.origin;
-  } catch {
-    return typeof window !== "undefined"
-      ? window.location.origin
-      : "http://localhost:4000";
-  }
+  return getApiOrigin();
 }
 
 export function resolverUrlMidia(url) {

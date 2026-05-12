@@ -1,8 +1,10 @@
-# Sistema NovaAuditoria
+# Sistema Flashrub
 
 ## O que e o sistema
 
-NovaAuditoria e um sistema SaaS multi-tenant para gestao de auditorias operacionais de loja, com foco em tres frentes de verificacao: Etiqueta, Presenca e Ruptura. O sistema recebe planilhas operacionais, processa as linhas, classifica conformidade por regra, calcula pontuacao e consolida metricas por loja, por colaborador e por periodo.
+Flashrub e a marca publica do sistema SaaS multi-tenant deste repositorio, focado na gestao de auditorias operacionais de loja nas frentes Etiqueta, Presenca e Ruptura. O sistema recebe planilhas operacionais, processa as linhas, classifica conformidade por regra, calcula pontuacao e consolida metricas por loja, por colaborador e por periodo.
+
+Referencias internas legadas ao nome NovaAuditoria ainda podem aparecer no codigo, em arquivos antigos e na documentacao historica, sem alterar a identidade exibida ao usuario final.
 
 ## Objetivo principal
 

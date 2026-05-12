@@ -1,6 +1,8 @@
-# Super Memoria NovaAuditoria
+# Super Memoria Flashrub
 
-Este cofre e a memoria viva do sistema NovaAuditoria. A documentacao abaixo foi organizada para servir como referencia tecnica persistente do frontend, backend, banco de dados, fluxos e regras de negocio.
+Este cofre e a memoria viva do sistema Flashrub. O repositorio ainda preserva referencias internas legadas a NovaAuditoria em nomes tecnicos, arquivos historicos e identificadores que nao afetam a marca publica.
+
+A documentacao abaixo foi organizada para servir como referencia tecnica persistente do frontend, backend, banco de dados, fluxos e regras de negocio.
 
 ## Navegacao principal
 

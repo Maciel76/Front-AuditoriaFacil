@@ -854,7 +854,7 @@ onBeforeUnmount(() => {
       <div class="portal-brand">
         <div class="brand-mark"><fa icon="bolt" /></div>
         <span class="brand-name"
-          >NovaAuditoria <small>Portal do Colaborador</small></span
+          >Flashrub <small>Portal do Colaborador</small></span
         >
       </div>
     </header>

@@ -13,6 +13,8 @@
 
 O bootstrap acontece em frontend/src/main.js. O arquivo registra FontAwesome, cria a app Vue, injeta Pinia e router e carrega os estilos globais. O alias @ aponta para frontend/src via vite.config.js.
 
+O HTML base em frontend/index.html define a marca publica Flashrub, o favicon em forma de raio e a descricao institucional usada no deploy web.
+
 ## Estrutura de pastas
 
 ### frontend/src
@@ -58,7 +60,9 @@ O bootstrap acontece em frontend/src/main.js. O arquivo registra FontAwesome, cr
 
 frontend/src/services/api.js concentra a configuracao HTTP:
 
-- baseURL: VITE_API_BASE ou http://localhost:4000/api.
+- baseURL: VITE_API_URL ou, por compatibilidade, VITE_API_BASE; na ausencia de ambas, cai para http://localhost:4000/api.
+- Quando a variavel aponta apenas para a origem do backend, o frontend acrescenta /api automaticamente para manter compatibilidade com o backend Express exposto por reverse proxy.
+- Convencao atual de ambientes: `frontend/.env` usa `http://localhost:4000` no desenvolvimento local e `frontend/.env.production` usa `https://flashub.mywire.org` no build de producao.
 - timeout: 60 segundos.
 - interceptor de request injeta Bearer do app somente quando o header Authorization ainda nao existe.
 - interceptor de response desloga apenas quando uma resposta 401 ocorreu usando o token principal do app, evitando derrubar a sessao do portal do colaborador por engano.
@@ -83,6 +87,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 ### Login.vue
 
 - Abas para Entrar e Cadastrar Loja.
+- Exibe a marca Flashrub com icone de raio, descricao institucional e atalho para o portal do colaborador.
 - Entrar usa POST /auth/login.
 - Cadastro de loja usa POST /auth/register-loja.
 - Exibe atalho para /portal.
@@ -95,6 +100,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - O contexto de loja escolhido no Dashboard tambem e preservado na navegacao para a listagem e para o detalhe das ultimas auditorias via query string `lojaId`.
 - Usa PeriodoSelector com suporte a custom.
 - Renderiza cinco KPIs principais, grafico de conformidade com colunas para series esparsas e linha para periodos mais densos, alem da distribuicao por tipo.
+- Quando o periodo ativo e `1d`, o card esquerdo troca a serie temporal por `DashboardDesempenhoHoje.vue`, que consulta `GET /metricas/ranking/colaboradores` no mesmo contexto de `tipo` e `lojaId` do dashboard e exibe o desempenho dos colaboradores do dia em barras verticais ordenadas do maior para o menor volume de itens lidos, com desempate por pontuacao.
 - Exibe cards detalhados por tipo de auditoria e ultimas auditorias.
 - O botao Compartilhar exporta um PNG da area funcional atual do dashboard com os filtros ja aplicados.
 - Para manter fidelidade visual no light/dark, a exportacao nao deve capturar o DOM vivo diretamente: o padrao confirmado e clonar a area alvo fora da tela, sincronizar os campos de formulario, copiar os canvases dos graficos, remover estados transitorios de animacao e aplicar explicitamente o data-theme e as CSS vars do tema atual antes de chamar html2canvas.

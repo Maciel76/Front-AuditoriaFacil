@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth';
 import AnimatedNumber from '@/components/AnimatedNumber.vue';
 import KpiCard from '@/components/KpiCard.vue';
 import AppChart from '@/components/AppChart.vue';
+import DashboardDesempenhoHoje from '@/components/DashboardDesempenhoHoje.vue';
 import Loader from '@/components/Loader.vue';
 import PeriodoSelector from '@/components/PeriodoSelector.vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
@@ -255,6 +256,8 @@ const kpis = computed(() => {
     },
   ];
 });
+
+const exibeDesempenhoHoje = computed(() => periodo.value === '1d');
 
 const conformidadeComoColunas = computed(() => (dados.value?.serie?.length || 0) <= 12);
 
@@ -609,10 +612,15 @@ const taxaCentro = computed(() => {
       <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 16px;">
         <div class="card">
           <div class="row mb-2">
-            <h3 class="mt-0 mb-0">Conformidade ao longo do período</h3>
-            <span class="spacer" /><fa :icon="conformidadeComoColunas ? 'chart-bar' : 'chart-line'" class="muted" />
+            <h3 class="mt-0 mb-0">{{ exibeDesempenhoHoje ? 'Desempenho dos usuários hoje' : 'Conformidade ao longo do período' }}</h3>
+            <span class="spacer" /><fa :icon="exibeDesempenhoHoje ? 'chart-bar' : (conformidadeComoColunas ? 'chart-bar' : 'chart-line')" class="muted" />
           </div>
-          <AppChart :type="conformidadeComoColunas ? 'bar' : 'line'" :data="serieChart" :height="300"
+          <DashboardDesempenhoHoje
+            v-if="exibeDesempenhoHoje"
+            :tipo="tipo"
+            :loja-id="lojaSelecionadaId"
+          />
+          <AppChart v-else :type="conformidadeComoColunas ? 'bar' : 'line'" :data="serieChart" :height="300"
             :options="conformidadeChartOptions" />
         </div>
         <div class="card">
