@@ -13,6 +13,8 @@
 
 O bootstrap acontece em frontend/src/main.js. O arquivo registra FontAwesome, cria a app Vue, injeta Pinia e router e carrega os estilos globais. O alias @ aponta para frontend/src via vite.config.js.
 
+Em producao, o bootstrap tambem registra frontend/public/sw.js para habilitar instalacao PWA. O HTML base em frontend/index.html publica o manifest.webmanifest e o icone touch usado pelo prompt de instalacao.
+
 O HTML base em frontend/index.html define a marca publica Flashrub, o favicon em forma de raio e a descricao institucional usada no deploy web.
 
 ## Estrutura de pastas
@@ -235,6 +237,9 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 
 - Tela mais complexa do frontend.
 - Controla etapas buscar, selecionar, setup, login e portal.
+- Renderiza InstallPWA.vue apenas nas etapas publicas do portal, nunca dentro do estado autenticado.
+- O banner de instalacao captura beforeinstallprompt, segura a exibicao por 3 segundos, nao aparece em standalone e grava a primeira exibicao em localStorage para nao insistir novamente no mesmo navegador/usuario.
+- No iPhone, quando o navegador nao fornece prompt nativo, o mesmo banner troca o CTA por instrucoes curtas para usar Compartilhar -> Adicionar a Tela de Inicio.
 - Busca lojas por matricula em /auth/portal/verificar.
 - Define senha em /auth/portal/setup.
 - Faz login em /auth/portal/login.
@@ -278,6 +283,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - na_tema
 - na_portal_token
 - na_portal_tema
+- na_portal_pwa_install_prompt_seen (com sufixo opcional da matricula quando o usuario ja foi identificado)
 - na_auditorias_superadmin_loja
 - na_ranking_colaboradores_superadmin_loja
 

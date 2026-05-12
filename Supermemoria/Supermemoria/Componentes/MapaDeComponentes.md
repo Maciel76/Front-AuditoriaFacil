@@ -32,6 +32,14 @@
 - Usa resolverUrlMidia para normalizar URLs relativas de uploads antes de renderizar a imagem.
 - E compartilhado entre o app principal e o portal do colaborador para manter exibicao consistente da mesma foto salva em `avatarUrl`.
 
+### InstallPWA.vue
+
+- Componente isolado do prompt de instalacao do app.
+- Escuta beforeinstallprompt, posterga o banner por 3 segundos e so exibe CTA quando o navegador liberou a instalacao.
+- Quando detecta iPhone fora de standalone, exibe instrucoes de instalacao manual pela opcao Adicionar a Tela de Inicio.
+- Bloqueia reexibicao via localStorage e se esconde automaticamente quando o app ja esta em standalone.
+- E usado apenas nas etapas publicas de ColaboradorPortal.vue.
+
 ### PeriodoSelector.vue
 
 - Controla v-model de periodo.
@@ -139,6 +147,7 @@
 
 - Fluxo publico e independente do app principal.
 - Centraliza autenticacao por matricula, selecao de loja, setup/login, visualizacao de metricas e configuracoes pessoais.
+- Renderiza InstallPWA.vue apenas antes do login, mantendo o prompt de instalacao restrito a rota /portal e fora da experiencia autenticada.
 - Usa o mesmo campo `avatarUrl` do colaborador e o mesmo padrao de crop do perfil administrativo para upload e exibicao da foto.
 - Mantem `ConquistaCard` como componente local via render function e cada card abre um modal com descricao, requisitos e historico de desbloqueio da conquista.
 - E o ponto de contato principal do colaborador final com o sistema.
@@ -155,6 +164,8 @@
 - AppLayout.vue envolve todas as views autenticadas.
 - PeriodoSelector.vue alimenta Dashboard, Relatorios, RankingColaboradores, RankingLojas, ColaboradorPerfil e portal do colaborador.
 - AppChart.vue aparece em todas as views analiticas.
+- InstallPWA.vue depende do evento beforeinstallprompt do navegador e e renderizado dentro de ColaboradorPortal.vue apenas enquanto o fluxo esta fora do estado autenticado.
+- Em iPhone, InstallPWA.vue usa deteccao local de iOS para substituir o CTA nativo por instrucoes manuais de instalacao no banner.
 - AuditoriaDodia.vue depende das rotas exclusivas do portal e e renderizado dentro de ColaboradorPortal.vue apenas quando a aba `Corredores` esta ativa.
 
 ## Dependencias funcionais importantes

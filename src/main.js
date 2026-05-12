@@ -110,6 +110,14 @@ library.add(
   faShareNodes,
 );
 
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((error) => {
+      console.error("Falha ao registrar o service worker do PWA", error);
+    });
+  });
+}
+
 const app = createApp(App);
 app.component("fa", FontAwesomeIcon);
 app.use(createPinia());

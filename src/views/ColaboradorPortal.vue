@@ -25,6 +25,7 @@ import api from "@/services/api";
 import AppChart from "@/components/AppChart.vue";
 import AuditoriaDodia from "@/components/AuditoriaDodia.vue";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
+import InstallPWA from "@/components/InstallPWA.vue";
 import StoreAvatar from "@/components/StoreAvatar.vue";
 
 const route = useRoute();
@@ -858,6 +859,12 @@ onBeforeUnmount(() => {
         >
       </div>
     </header>
+
+    <InstallPWA
+      v-if="etapa !== 'portal'"
+      :user-key="matricula"
+      icon-src="/pwa-192.png"
+    />
 
     <!-- Buscar matrícula -->
     <div v-if="etapa === 'buscar'" class="portal-card">
