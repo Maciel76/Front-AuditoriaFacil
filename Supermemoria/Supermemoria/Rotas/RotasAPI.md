@@ -37,13 +37,13 @@
 
 ## Grupo Usuarios
 
-| Metodo | Rota              | Auth               | Escopo          | Corpo ou query principal         | Funcao                                                   |
-| ------ | ----------------- | ------------------ | --------------- | -------------------------------- | -------------------------------------------------------- |
-| GET    | /api/usuarios     | Usuario            | Loja ou global  | lojaId opcional para super admin | Lista usuarios do escopo                                 |
-| POST   | /api/usuarios     | Usuario            | Role-dependente | nome, email, senha, role, lojaId | Cria usuario; nao super admin nao pode criar SUPER_ADMIN |
-| PUT    | /api/usuarios/me/senha | Usuario       | Propria conta   | senhaAtual, senhaNova            | Troca a senha do usuario autenticado com validacao da senha atual |
-| PUT    | /api/usuarios/:id | Usuario autorizado | Tenant          | nome, senha, ativo, role         | Atualiza usuario                                         |
-| DELETE | /api/usuarios/:id | Usuario autorizado | Tenant          | -                                | Desativa usuario                                         |
+| Metodo | Rota                   | Auth               | Escopo          | Corpo ou query principal         | Funcao                                                            |
+| ------ | ---------------------- | ------------------ | --------------- | -------------------------------- | ----------------------------------------------------------------- |
+| GET    | /api/usuarios          | Usuario            | Loja ou global  | lojaId opcional para super admin | Lista usuarios do escopo                                          |
+| POST   | /api/usuarios          | Usuario            | Role-dependente | nome, email, senha, role, lojaId | Cria usuario; nao super admin nao pode criar SUPER_ADMIN          |
+| PUT    | /api/usuarios/me/senha | Usuario            | Propria conta   | senhaAtual, senhaNova            | Troca a senha do usuario autenticado com validacao da senha atual |
+| PUT    | /api/usuarios/:id      | Usuario autorizado | Tenant          | nome, senha, ativo, role         | Atualiza usuario                                                  |
+| DELETE | /api/usuarios/:id      | Usuario autorizado | Tenant          | -                                | Desativa usuario                                                  |
 
 ## Grupo Colaboradores
 
@@ -88,6 +88,8 @@
 | Metodo | Rota                                              | Auth              | Escopo                         | Corpo ou query principal                            | Funcao                                                                  |
 | ------ | ------------------------------------------------- | ----------------- | ------------------------------ | --------------------------------------------------- | ----------------------------------------------------------------------- |
 | GET    | /api/metricas/portal/me                           | Token colaborador | Proprio colaborador            | periodo, dataInicio, dataFim                        | Perfil analitico do portal                                              |
+| GET    | /api/metricas/portal/me/colegas                   | Token colaborador | Propria loja                   | -                                                   | Lista colegas ativos da mesma loja para o portal                        |
+| GET    | /api/metricas/portal/me/colegas/:id/perfil        | Token colaborador | Propria loja                   | periodo, tipo, dataInicio, dataFim                  | Perfil publico resumido de um colega da mesma loja                      |
 | GET    | /api/metricas/portal/me/auditoria-do-dia          | Token colaborador | Propria loja                   | origem opcional = hoje ou anterior                  | Resumo da auditoria atual do portal; a anterior so e aberta sob demanda |
 | GET    | /api/metricas/portal/me/auditoria-do-dia/corredor | Token colaborador | Propria loja                   | auditoriaId, local                                  | Detalhe de um corredor especifico da auditoria exibida no portal        |
 | GET    | /api/metricas/dashboard                           | Usuario           | Loja ou global                 | periodo, dataInicio, dataFim                        | Dashboard consolidado                                                   |
@@ -120,7 +122,7 @@
 - GET /api/metricas/dashboard retorna `cardsResumo` para os cinco KPIs do topo. Em geral, `cardsResumo.mediaConclusao` e media simples de `Auditoria.taxaConformidade` no periodo filtrado; quando `tipo=PRESENCA`, `cardsResumo.produtosAuditados` passa a ser a soma das situacoes `Com Presenca e com Estoque` + `Sem Presenca e Com Estoque` e `cardsResumo.mediaConclusao` passa a usar `Com Presenca e com Estoque / total * 100`. `cardsResumo.custoRupturaRuptura` sempre soma apenas auditorias do tipo RUPTURA no periodo; `cardsResumo.totalColaboradores` ignora o filtro de tipo e conta colaboradores distintos com leitura no periodo.
 - GET /api/lojas/catalogo retorna `periodo` e `items`; cada loja ativa recebe `resumoPeriodo` com total de auditorias, auditorias por tipo, itens lidos, conformidade, pontuacao, custo ruptura e ultima auditoria dentro do periodo filtrado.
 - Auditorias canceladas permanecem no historico com `status=CANCELADA`, mas ficam fora das metricas. `GET /api/metricas/ranking/lojas` retorna `auditoriasCanceladas` para a UI destacar lojas com cancelamento no periodo.
-- O frontend atual do portal consome `GET /api/metricas/portal/me` para metricas e conquistas resolvidas; a aba `Corredores` passou a usar `GET /api/metricas/portal/me/auditoria-do-dia` e o detalhe `GET /api/metricas/portal/me/auditoria-do-dia/corredor` para evitar carregar historico completo de corredores no payload principal.
+- O frontend atual do portal consome `GET /api/metricas/portal/me` para metricas e conquistas resolvidas, `GET /api/metricas/portal/me/colegas` para a lista de equipe e `GET /api/metricas/portal/me/colegas/:id/perfil` para montar a pagina `/portal/colegas/:colegaId`; a aba `Corredores` continua usando `GET /api/metricas/portal/me/auditoria-do-dia` e `GET /api/metricas/portal/me/auditoria-do-dia/corredor` para evitar carregar historico completo de corredores no payload principal.
 - Em `GET /api/metricas/portal/me/auditoria-do-dia`, a query `origem=anterior` e a unica forma de consultar a auditoria anterior; sem a query, a resposta fica restrita ao contexto do dia atual.
 - `GET /api/conquistas/meta` entrega `tiposAuditoria` para a tela administrativa montar conquistas globais ou restritas a um tipo.
 - O mesmo `GET /api/conquistas/meta` tambem passa a refletir a metrica `totalItensParticipacaoLoja`, usada pela conquista recorrente de participacao na leitura total da loja.

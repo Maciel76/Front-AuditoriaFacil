@@ -93,13 +93,15 @@
 
 1. Frontend carrega /api/colaboradores/portal/me.
 2. Frontend carrega /api/metricas/portal/me?periodo=tudo.
-3. Backend resolve conquistas do colaborador com base no estado atual e nas definicoes ativas.
-4. Quando a aba `Corredores` e aberta, o componente `AuditoriaDodia.vue` consulta `GET /api/metricas/portal/me/auditoria-do-dia` para carregar apenas a auditoria mais recente da loja.
-5. Se nao houver auditoria hoje, o backend devolve apenas o aviso e a informacao de que existe uma auditoria anterior disponivel.
-6. Quando o colaborador toca em `Ver auditoria anterior`, o frontend chama `GET /api/metricas/portal/me/auditoria-do-dia?origem=anterior` para abrir essa consulta manualmente.
-7. O componente separa `Meus corredores` dos `Demais corredores` e destaca o corredor mais recentemente movimentado pelo colaborador.
-8. Ao tocar em um corredor, o portal chama `GET /api/metricas/portal/me/auditoria-do-dia/corredor` para abrir um modal com progresso, participantes e itens daquele corredor.
-9. Ao tocar em uma conquista, o portal abre um modal com descricao completa, data de obtencao, requisitos por tier e historico de desbloqueio.
+3. Frontend carrega `GET /api/metricas/portal/me/colegas` para listar os colegas ativos da mesma loja logo no topo da aba `Inicio`.
+4. Backend resolve conquistas do colaborador com base no estado atual e nas definicoes ativas.
+5. Ao tocar em um colega, o portal navega para `/portal/colegas/:colegaId` e chama `GET /api/metricas/portal/me/colegas/:id/perfil` para montar uma pagina dedicada com foto, conquistas desbloqueadas, KPIs e historico de leituras do colaborador selecionado.
+6. Quando a aba `Corredores` e aberta, o componente `AuditoriaDodia.vue` consulta `GET /api/metricas/portal/me/auditoria-do-dia` para carregar apenas a auditoria mais recente da loja.
+7. Se nao houver auditoria hoje, o backend devolve apenas o aviso e a informacao de que existe uma auditoria anterior disponivel.
+8. Quando o colaborador toca em `Ver auditoria anterior`, o frontend chama `GET /api/metricas/portal/me/auditoria-do-dia?origem=anterior` para abrir essa consulta manualmente.
+9. O componente separa `Meus corredores` dos `Demais corredores` e destaca o corredor mais recentemente movimentado pelo colaborador.
+10. Ao tocar em um corredor, o portal chama `GET /api/metricas/portal/me/auditoria-do-dia/corredor` para abrir um modal com progresso, participantes e itens daquele corredor.
+11. Ao tocar em uma conquista, o portal abre um modal com descricao completa, data de obtencao, requisitos por tier e historico de desbloqueio.
 
 ## Fluxo 9 - Avatar do colaborador
 

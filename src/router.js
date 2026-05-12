@@ -9,6 +9,12 @@ const routes = [
     meta: { publica: true },
   },
   {
+    path: "/portal/colegas/:colegaId",
+    name: "portal-colega-perfil",
+    component: () => import("@/views/ColaboradorPortal.vue"),
+    meta: { publica: true },
+  },
+  {
     path: "/portal",
     name: "portal",
     component: () => import("@/views/ColaboradorPortal.vue"),

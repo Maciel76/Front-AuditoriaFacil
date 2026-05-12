@@ -245,12 +245,14 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Faz login em /auth/portal/login.
 - Carrega perfil em /colaboradores/portal/me.
 - Carrega metricas em /metricas/portal/me.
+- Carrega a lista de colegas em /metricas/portal/me/colegas e abre o perfil publico de cada colega em uma pagina dedicada do portal, resolvida por /metricas/portal/me/colegas/:id/perfil.
 - Faz upload de avatar em /colaboradores/:id/avatar.
 - Passou a renderizar a foto do colaborador pelo mesmo componente ColaboradorAvatar.vue usado no app principal, garantindo resolucao correta de `avatarUrl` relativo a uploads.
 - O modal de recorte do portal foi alinhado ao fluxo do ColaboradorPerfil.vue e agora usa Cropper.js 2.1.1 com selecao circular e exportacao via `$toCanvas`.
 - Exibe avatar da loja na etapa de selecao da unidade e nos resumos de setup/login quando a loja possuir foto configurada.
 - Troca senha em /colaboradores/portal/password.
 - Usa Cropper.js para recorte antes do upload.
+- A aba `Inicio` exibe no topo os colegas ativos da mesma loja, com cards redesenhados que mostram nome curto, cargo e KPIs resumidos e navegam para `/portal/colegas/:colegaId` ao abrir o perfil publico com foto, conquistas desbloqueadas e resultados analiticos resumidos.
 - As conquistas agora abrem um modal de detalhes ao clique/toque, com descricao completa, data de obtencao, requisitos por tier e historico de desbloqueio.
 - O overlay de detalhes da conquista usa ajustes locais no tema claro para manter contraste sobre backdrop blur.
 - O grafico historico do portal alterna automaticamente entre colunas e linha conforme a quantidade de pontos no periodo.

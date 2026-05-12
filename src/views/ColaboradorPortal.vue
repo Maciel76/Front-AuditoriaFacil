@@ -17,18 +17,21 @@ import {
   nextTick,
   onBeforeUnmount,
   onMounted,
+  watch,
   defineComponent,
   h,
 } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import api from "@/services/api";
 import AppChart from "@/components/AppChart.vue";
 import AuditoriaDodia from "@/components/AuditoriaDodia.vue";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
 import InstallPWA from "@/components/InstallPWA.vue";
+import PerfilPublicoColaborador from "@/components/PerfilPublicoColaborador.vue";
 import StoreAvatar from "@/components/StoreAvatar.vue";
 
 const route = useRoute();
+const router = useRouter();
 
 // ---- Estado de autenticação ----
 const lojaPreferencial = ref(String(route.query.loja || "").trim());
@@ -50,6 +53,13 @@ const abaAtiva = ref("inicio"); // inicio | conquistas | corredores | configurac
 const perfil = ref(null);
 const metricas = ref(null);
 const conquistasResolvidas = ref([]);
+const colegasEquipe = ref([]);
+const carregandoColegas = ref(false);
+const erroColegas = ref("");
+const colegaSelecionado = ref(null);
+const perfilPublicoColega = ref(null);
+const carregandoPerfilPublico = ref(false);
+const erroPerfilPublico = ref("");
 const conquistaSelecionada = ref(null);
 const filtroCategoriaConq = ref("todas");
 const filtroStatusConq = ref("todas");
@@ -133,6 +143,22 @@ const corPorTipo = {
   PRESENCA: "#22d3ee",
   RUPTURA: "#f59e0b",
 };
+
+const colegaIdRota = computed(() => String(route.params.colegaId || "").trim());
+const colegaIdQuery = computed(() => String(route.query.colegaId || "").trim());
+const colegaIdAtivo = computed(() => colegaIdRota.value || colegaIdQuery.value);
+const estaNaRotaColega = computed(
+  () => route.path.startsWith("/portal/colegas/") || !!colegaIdQuery.value,
+);
+const exibindoPerfilPublico = computed(
+  () => etapa.value === "portal" && !!colegaIdAtivo.value,
+);
+const tituloPerfilPublico = computed(
+  () =>
+    perfilPublicoColega.value?.colaborador?.nome ||
+    colegaSelecionado.value?.nome ||
+    "Perfil público",
+);
 
 // ConquistaCard como componente local definido via render function (sem template parser em runtime).
 const ConquistaCard = defineComponent({
@@ -317,6 +343,9 @@ function selecionarLoja(loja) {
 }
 
 function voltarParaBusca() {
+  if (estaNaRotaColega.value) {
+    void router.replace({ path: "/portal", query: route.query });
+  }
   lojaSlug.value = "";
   lojaSelecionada.value = null;
   lojasDisponiveis.value = [];
@@ -325,6 +354,9 @@ function voltarParaBusca() {
   perfil.value = null;
   metricas.value = null;
   conquistasResolvidas.value = [];
+  colegasEquipe.value = [];
+  erroColegas.value = "";
+  limparPerfilPublicoColega();
   conquistaSelecionada.value = null;
   limparFormularioSenha();
   etapa.value = "buscar";
@@ -429,9 +461,12 @@ async function login() {
 }
 
 async function carregarPerfil() {
-  const { data: perfilData } = await apiPortal().get(
-    "/colaboradores/portal/me",
-  );
+  const [perfilResponse, metricasResponse] = await Promise.all([
+    apiPortal().get("/colaboradores/portal/me"),
+    apiPortal().get("/metricas/portal/me?periodo=tudo"),
+  ]);
+
+  const perfilData = perfilResponse.data;
   perfil.value = perfilData;
   primeiroNome.value = perfilData.nome?.split(" ")[0] || "";
 
@@ -450,14 +485,151 @@ async function carregarPerfil() {
     lojaSlug.value = perfilData.loja.slug;
   }
 
-  const { data } = await apiPortal().get("/metricas/portal/me?periodo=tudo");
-  metricas.value = data;
-  conquistasResolvidas.value = data.conquistas || [];
+  metricas.value = metricasResponse.data;
+  conquistasResolvidas.value = metricasResponse.data.conquistas || [];
+  await carregarColegas();
+}
+
+async function carregarColegas() {
+  carregandoColegas.value = true;
+  erroColegas.value = "";
+  try {
+    const { data } = await apiPortal().get("/metricas/portal/me/colegas");
+    colegasEquipe.value = data.items || [];
+    if (colegaIdAtivo.value) {
+      colegaSelecionado.value =
+        colegasEquipe.value.find(
+          (colega) => String(colega._id) === colegaIdAtivo.value,
+        ) || colegaSelecionado.value;
+    }
+  } catch (e) {
+    colegasEquipe.value = [];
+    erroColegas.value =
+      e?.response?.data?.error || "Não foi possível carregar os colegas agora.";
+  } finally {
+    carregandoColegas.value = false;
+  }
+}
+
+function serializarQueryPortal(query) {
+  const params = new URLSearchParams();
+
+  for (const [chave, valor] of Object.entries(query || {})) {
+    if (Array.isArray(valor)) {
+      for (const item of valor) {
+        if (item != null && item !== "") params.append(chave, String(item));
+      }
+      continue;
+    }
+
+    if (valor != null && valor !== "") params.append(chave, String(valor));
+  }
+
+  const queryString = params.toString();
+  return queryString ? `?${queryString}` : "";
+}
+
+function urlPerfilPublicoColega(colegaId) {
+  return `/portal${serializarQueryPortal({
+    ...route.query,
+    colegaId,
+  })}`;
+}
+
+function abrirPerfilPublicoColega(colegaId, event) {
+  if (
+    event?.defaultPrevented ||
+    event?.button > 0 ||
+    event?.metaKey ||
+    event?.ctrlKey ||
+    event?.shiftKey ||
+    event?.altKey
+  ) {
+    return;
+  }
+
+  event?.preventDefault();
+  void router.push({
+    path: "/portal",
+    query: {
+      ...route.query,
+      colegaId,
+    },
+  });
+}
+
+function queryPortalSemColega() {
+  const query = { ...route.query };
+  delete query.colegaId;
+  return query;
+}
+
+function nomeColegaLista(nome) {
+  const primeiroNome = String(nome || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)[0];
+
+  if (!primeiroNome) return "Colega";
+  return primeiroNome.length > 12
+    ? `${primeiroNome.slice(0, 12)}…`
+    : primeiroNome;
+}
+
+function limparPerfilPublicoColega() {
+  colegaSelecionado.value = null;
+  perfilPublicoColega.value = null;
+  carregandoPerfilPublico.value = false;
+  erroPerfilPublico.value = "";
+}
+
+async function carregarPerfilPublicoColega(colegaId) {
+  colegaSelecionado.value =
+    colegasEquipe.value.find(
+      (colega) => String(colega._id) === String(colegaId),
+    ) || null;
+  perfilPublicoColega.value = null;
+  erroPerfilPublico.value = "";
+  carregandoPerfilPublico.value = true;
+  try {
+    const { data } = await apiPortal().get(
+      `/metricas/portal/me/colegas/${colegaId}/perfil?periodo=tudo`,
+    );
+    perfilPublicoColega.value = data;
+
+    if (!colegaSelecionado.value && data?.colaborador) {
+      colegaSelecionado.value = {
+        _id: data.colaborador._id,
+        nome: data.colaborador.nome,
+        cargo: data.colaborador.cargo,
+        avatarUrl: data.colaborador.avatarUrl,
+        nivel: data.colaborador.nivel,
+        pontuacao: data.colaborador.pontuacao,
+        totalAuditorias: data.colaborador.totalAuditorias,
+        totalItensLidos: data.colaborador.totalItensLidos,
+        taxaConformidade: data.colaborador.taxaConformidade,
+      };
+    }
+  } catch (e) {
+    erroPerfilPublico.value =
+      e?.response?.data?.error ||
+      "Não foi possível abrir o perfil público deste colega.";
+  } finally {
+    carregandoPerfilPublico.value = false;
+  }
+}
+
+function voltarParaInicioPortal() {
+  limparPerfilPublicoColega();
+  void router.push({ path: "/portal", query: queryPortalSemColega() });
 }
 
 function sair() {
   token.value = "";
   localStorage.removeItem("na_portal_token");
+  if (estaNaRotaColega.value) {
+    void router.replace({ path: "/portal", query: queryPortalSemColega() });
+  }
   voltarParaBusca();
 }
 
@@ -822,6 +994,15 @@ function tratarTeclaPortal(event) {
   if (cropperAberto.value) fecharCropper();
 }
 
+watch([() => etapa.value, colegaIdAtivo], async ([etapaAtual, colegaId]) => {
+  if (etapaAtual !== "portal") return;
+  if (!colegaId) {
+    limparPerfilPublicoColega();
+    return;
+  }
+  await carregarPerfilPublicoColega(colegaId);
+});
+
 onMounted(async () => {
   document.addEventListener("keydown", tratarTeclaPortal);
   temaAnterior =
@@ -1036,8 +1217,11 @@ onBeforeUnmount(() => {
 
     <!-- ============== PORTAL AUTENTICADO ============== -->
     <div v-else-if="etapa === 'portal' && perfil" class="portal-app">
-      <header class="app-topbar">
-        <div class="topbar-left">
+      <header
+        class="app-topbar"
+        :class="{ 'app-topbar-profile': exibindoPerfilPublico }"
+      >
+        <div v-if="!exibindoPerfilPublico" class="topbar-left">
           <div class="topbar-avatar" @click="abrirAvatar">
             <ColaboradorAvatar
               :nome="perfil.nome"
@@ -1059,13 +1243,115 @@ onBeforeUnmount(() => {
             <strong>{{ primeiroNome }}</strong>
           </div>
         </div>
+        <div v-else class="topbar-left topbar-left-profile">
+          <button
+            class="btn ghost small portal-back-btn"
+            @click="voltarParaInicioPortal"
+          >
+            <fa icon="arrow-right" class="portal-back-icon" /> Equipe
+          </button>
+          <div class="topbar-greet topbar-profile-copy">
+            <small class="muted">Perfil público</small>
+            <strong>{{ tituloPerfilPublico }}</strong>
+          </div>
+        </div>
         <button class="btn ghost icon-btn" @click="sair" title="Sair">
           <fa icon="right-from-bracket" />
         </button>
       </header>
 
+      <main
+        v-if="exibindoPerfilPublico"
+        class="app-content app-content-profile"
+      >
+        <PerfilPublicoColaborador
+          :carregando="carregandoPerfilPublico"
+          :erro="erroPerfilPublico"
+          :perfil="perfilPublicoColega"
+          :colega-resumo="colegaSelecionado"
+        />
+      </main>
+
       <!-- ABA INÍCIO -->
-      <main v-if="abaAtiva === 'inicio'" class="app-content">
+      <main v-else-if="abaAtiva === 'inicio'" class="app-content">
+        <section class="card colegas-card">
+          <div class="colegas-head">
+            <div>
+              <h3 class="section-title">
+                <fa icon="users" /> Colegas da equipe
+              </h3>
+              <p class="muted colegas-help">
+                Abra o perfil público do seu time para acompanhar fotos,
+                conquistas e resultados.
+              </p>
+            </div>
+            <span v-if="colegasEquipe.length" class="colega-count">
+              {{ colegasEquipe.length }}
+            </span>
+          </div>
+
+          <div v-if="carregandoColegas" class="colegas-state muted">
+            <fa icon="spinner" spin />
+            <span>Carregando equipe...</span>
+          </div>
+
+          <div v-else-if="erroColegas" class="badge bad full-w">
+            {{ erroColegas }}
+          </div>
+
+          <div v-else-if="!colegasEquipe.length" class="empty mini">
+            Sua loja ainda não tem outros colegas ativos no portal.
+          </div>
+
+          <div v-else class="colegas-list">
+            <a
+              v-for="colega in colegasEquipe"
+              :key="colega._id"
+              class="colega-card"
+              :href="urlPerfilPublicoColega(colega._id)"
+              :title="colega.nome"
+              @click="abrirPerfilPublicoColega(colega._id, $event)"
+            >
+              <div class="colega-main">
+                <ColaboradorAvatar
+                  :nome="colega.nome"
+                  :avatar-url="colega.avatarUrl"
+                  :size="54"
+                  :font-size="18"
+                />
+                <div class="colega-body">
+                  <strong>{{ nomeColegaLista(colega.nome) }}</strong>
+                  <small class="muted">{{
+                    colega.cargo || "Equipe da loja"
+                  }}</small>
+                </div>
+              </div>
+              <div class="colega-stats">
+                <div class="colega-stat">
+                  <span class="colega-stat-label">Nível</span>
+                  <strong>{{ colega.nivel }}</strong>
+                </div>
+                <div class="colega-stat">
+                  <span class="colega-stat-label">Itens</span>
+                  <strong>{{ formatNum(colega.totalItensLidos) }}</strong>
+                </div>
+                <div class="colega-stat">
+                  <span class="colega-stat-label">Conform.</span>
+                  <strong
+                    >{{
+                      Number(colega.taxaConformidade || 0).toFixed(1)
+                    }}%</strong
+                  >
+                </div>
+              </div>
+              <div class="colega-link">
+                <span>Abrir perfil</span>
+                <fa icon="chevron-right" />
+              </div>
+            </a>
+          </div>
+        </section>
+
         <section class="card glow nivel-card">
           <div class="nivel-card-head">
             <div class="nivel-emblema">
@@ -1353,7 +1639,7 @@ onBeforeUnmount(() => {
         </button>
       </main>
 
-      <nav class="bottom-nav">
+      <nav v-if="!exibindoPerfilPublico" class="bottom-nav">
         <button
           class="nav-btn"
           :class="{ active: abaAtiva === 'inicio' }"
@@ -1877,6 +2163,181 @@ onBeforeUnmount(() => {
   z-index: 5;
   background: linear-gradient(180deg, var(--bg-0) 70%, transparent);
   backdrop-filter: blur(8px);
+}
+
+.app-topbar-profile {
+  gap: 12px;
+}
+
+.topbar-left-profile {
+  min-width: 0;
+}
+
+.topbar-profile-copy {
+  min-width: 0;
+}
+
+.topbar-profile-copy strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.portal-back-btn {
+  flex-shrink: 0;
+}
+
+.portal-back-icon {
+  transform: rotate(180deg);
+}
+
+.app-content-profile {
+  padding-top: 8px;
+}
+
+.colegas-card {
+  display: grid;
+  gap: 16px;
+}
+
+.colegas-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.colegas-help {
+  margin: 6px 0 0;
+  max-width: 48ch;
+}
+
+.colega-count {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  font-weight: 700;
+  color: #7c5cff;
+  background: rgba(124, 92, 255, 0.14);
+}
+
+.colegas-state {
+  min-height: 110px;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.colegas-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.colega-card {
+  border: 1px solid color-mix(in srgb, var(--border) 88%, #7c5cff 12%);
+  border-radius: 22px;
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+  text-align: left;
+  text-decoration: none;
+  background:
+    radial-gradient(
+      180px 120px at 0% 0%,
+      rgba(124, 92, 255, 0.16),
+      transparent 72%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface-strong) 92%, transparent),
+      color-mix(in srgb, var(--surface) 94%, transparent)
+    );
+  color: var(--text);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.colega-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, #7c5cff 52%, var(--border));
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.14);
+}
+
+.colega-card:focus-visible {
+  outline: 2px solid #7c5cff;
+  outline-offset: 3px;
+}
+
+.colega-main {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.colega-body {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.colega-body strong {
+  font-size: 1rem;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.colega-body small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.colega-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.colega-stat {
+  padding: 10px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  display: grid;
+  gap: 4px;
+}
+
+.colega-stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.colega-stat strong {
+  font-size: 14px;
+}
+
+.colega-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #7c5cff;
 }
 .topbar-left {
   display: flex;
@@ -2646,6 +3107,32 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 720px) {
+  .app-topbar-profile {
+    align-items: flex-start;
+  }
+
+  .topbar-left-profile {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .topbar-profile-copy strong {
+    white-space: normal;
+  }
+
+  .colegas-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .colegas-list {
+    grid-template-columns: 1fr;
+  }
+
+  .colega-stats {
+    grid-template-columns: 1fr;
+  }
+
   .conq-modal {
     padding: 18px;
   }

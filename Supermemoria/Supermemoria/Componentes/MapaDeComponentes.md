@@ -32,6 +32,12 @@
 - Usa resolverUrlMidia para normalizar URLs relativas de uploads antes de renderizar a imagem.
 - E compartilhado entre o app principal e o portal do colaborador para manter exibicao consistente da mesma foto salva em `avatarUrl`.
 
+### PerfilPublicoColaborador.vue
+
+- Componente de conteudo da pagina publica do portal para exibir um colega da mesma loja.
+- Recebe resumo do colega para abrir rapidamente e carrega foto, KPIs, conquistas desbloqueadas e historico de leituras por tipo.
+- Usa ColaboradorAvatar.vue e AppChart.vue para manter a mesma linguagem visual do restante do sistema.
+
 ### InstallPWA.vue
 
 - Componente isolado do prompt de instalacao do app.
@@ -150,6 +156,7 @@
 - Renderiza InstallPWA.vue apenas antes do login, mantendo o prompt de instalacao restrito a rota /portal e fora da experiencia autenticada.
 - Usa o mesmo campo `avatarUrl` do colaborador e o mesmo padrao de crop do perfil administrativo para upload e exibicao da foto.
 - Mantem `ConquistaCard` como componente local via render function e cada card abre um modal com descricao, requisitos e historico de desbloqueio da conquista.
+- A aba `Inicio` passou a abrir com uma lista de colegas ativos da mesma loja e cada card navega para a pagina `/portal/colegas/:colegaId`, onde `PerfilPublicoColaborador.vue` renderiza o perfil publico do colega.
 - E o ponto de contato principal do colaborador final com o sistema.
 
 ### AuditoriaDodia.vue
@@ -167,6 +174,7 @@
 - InstallPWA.vue depende do evento beforeinstallprompt do navegador e e renderizado dentro de ColaboradorPortal.vue apenas enquanto o fluxo esta fora do estado autenticado.
 - Em iPhone, InstallPWA.vue usa deteccao local de iOS para substituir o CTA nativo por instrucoes manuais de instalacao no banner.
 - AuditoriaDodia.vue depende das rotas exclusivas do portal e e renderizado dentro de ColaboradorPortal.vue apenas quando a aba `Corredores` esta ativa.
+- PerfilPublicoColaborador.vue depende das rotas exclusivas do portal para listar colegas e resolver o perfil publico de um colaborador da mesma loja dentro de uma rota dedicada do proprio portal.
 
 ## Dependencias funcionais importantes
 
