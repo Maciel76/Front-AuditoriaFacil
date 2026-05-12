@@ -13,8 +13,10 @@ const carregando = ref(true);
 const loja = ref(null);
 const usuarios = ref([]);
 const novoUsuario = ref(null);
+const senhaForm = ref({ atual: "", nova: "", confirmar: "" });
 const avatarInput = ref(null);
 const enviandoAvatar = ref(false);
+const alterandoSenha = ref(false);
 const cropperImage = ref("");
 const cropperAberto = ref(false);
 const cropperImageRef = ref(null);
@@ -85,6 +87,34 @@ async function salvarLoja() {
     ui.sucesso("Loja atualizada");
   } catch (e) {
     ui.erro(e?.response?.data?.error || "Falha");
+  }
+}
+
+function resetarSenhaForm() {
+  senhaForm.value = { atual: "", nova: "", confirmar: "" };
+}
+
+async function alterarMinhaSenha() {
+  if (!auth.usuario?._id) return;
+
+  if (senhaForm.value.nova !== senhaForm.value.confirmar) {
+    ui.erro("A confirmação da nova senha não confere");
+    return;
+  }
+
+  alterandoSenha.value = true;
+
+  try {
+    await api.put("/usuarios/me/senha", {
+      senhaAtual: senhaForm.value.atual,
+      senhaNova: senhaForm.value.nova,
+    });
+    resetarSenhaForm();
+    ui.sucesso("Senha atualizada com sucesso");
+  } catch (e) {
+    ui.erro(e?.response?.data?.error || "Falha ao atualizar senha");
+  } finally {
+    alterandoSenha.value = false;
   }
 }
 
@@ -232,6 +262,64 @@ async function desativarUsuario(u) {
 <template>
   <Loader v-if="carregando" />
   <div v-else class="grid gap-3">
+    <div v-if="auth.isSuperAdmin" class="card">
+      <div class="row mb-2">
+        <div>
+          <h3 class="mt-0 mb-0">Segurança da conta</h3>
+          <p class="muted config-password-helper">
+            Atualize a senha do seu acesso de super admin sem depender da lista
+            de usuários.
+          </p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Senha atual</label>
+          <input
+            v-model="senhaForm.atual"
+            type="password"
+            autocomplete="current-password"
+            minlength="6"
+          />
+        </div>
+        <div class="field">
+          <label>Nova senha</label>
+          <input
+            v-model="senhaForm.nova"
+            type="password"
+            autocomplete="new-password"
+            minlength="6"
+          />
+        </div>
+        <div class="field">
+          <label>Confirmar nova senha</label>
+          <input
+            v-model="senhaForm.confirmar"
+            type="password"
+            autocomplete="new-password"
+            minlength="6"
+            @keyup.enter="alterarMinhaSenha"
+          />
+        </div>
+      </div>
+
+      <div class="row mt-2">
+        <span class="spacer" />
+        <button class="btn ghost" :disabled="alterandoSenha" @click="resetarSenhaForm">
+          Limpar
+        </button>
+        <button
+          class="btn primary"
+          :disabled="alterandoSenha"
+          @click="alterarMinhaSenha"
+        >
+          <fa :icon="alterandoSenha ? 'spinner' : 'lock'" :spin="alterandoSenha" />
+          {{ alterandoSenha ? "Atualizando..." : "Atualizar senha" }}
+        </button>
+      </div>
+    </div>
+
     <div v-if="loja" class="card">
       <div class="config-loja-hero">
         <StoreAvatar
@@ -468,6 +556,11 @@ async function desativarUsuario(u) {
 </template>
 
 <style scoped>
+.config-password-helper {
+  margin: 6px 0 0;
+  max-width: 560px;
+}
+
 .config-loja-hero {
   display: flex;
   align-items: center;

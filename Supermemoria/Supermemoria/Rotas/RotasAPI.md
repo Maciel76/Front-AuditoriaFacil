@@ -41,6 +41,7 @@
 | ------ | ----------------- | ------------------ | --------------- | -------------------------------- | -------------------------------------------------------- |
 | GET    | /api/usuarios     | Usuario            | Loja ou global  | lojaId opcional para super admin | Lista usuarios do escopo                                 |
 | POST   | /api/usuarios     | Usuario            | Role-dependente | nome, email, senha, role, lojaId | Cria usuario; nao super admin nao pode criar SUPER_ADMIN |
+| PUT    | /api/usuarios/me/senha | Usuario       | Propria conta   | senhaAtual, senhaNova            | Troca a senha do usuario autenticado com validacao da senha atual |
 | PUT    | /api/usuarios/:id | Usuario autorizado | Tenant          | nome, senha, ativo, role         | Atualiza usuario                                         |
 | DELETE | /api/usuarios/:id | Usuario autorizado | Tenant          | -                                | Desativa usuario                                         |
 

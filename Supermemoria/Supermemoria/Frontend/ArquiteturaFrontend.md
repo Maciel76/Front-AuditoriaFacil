@@ -208,6 +208,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 ### Configuracoes.vue
 
 - Consulta dados da loja atual em /lojas/me.
+- Para SUPER_ADMIN, exibe um card de seguranca da conta com troca da propria senha usando senha atual + nova senha + confirmacao.
 - Permite editar dados cadastrais e metas da loja via PUT /lojas/:id.
 - Permite enviar avatar da loja via POST /lojas/:id/avatar, sincronizando a foto no estado autenticado do app.
 - O upload do avatar da loja usa recorte previo com Cropper para ajustar enquadramento e posicao antes do envio final.

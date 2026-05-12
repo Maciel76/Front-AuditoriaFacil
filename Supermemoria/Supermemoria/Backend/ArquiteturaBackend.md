@@ -178,6 +178,7 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 
 - Lista usuarios no escopo.
 - Cria usuario respeitando role do solicitante.
+- Exponibiliza PUT /api/usuarios/me/senha para troca da propria senha com validacao da senha atual e bloqueio de reutilizacao da senha vigente.
 - Atualiza nome, senha, role e ativo.
 - Remove logicamente por ativo=false.
 
