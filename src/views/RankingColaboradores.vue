@@ -5,39 +5,45 @@ import api from "@/services/api";
 import Loader from "@/components/Loader.vue";
 import PeriodoSelector from "@/components/PeriodoSelector.vue";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
+import RankingModeSelector from "@/components/RankingModeSelector.vue";
+import RankingMediaCard from "@/components/RankingMediaCard.vue";
+import MetaBadge from "@/components/MetaBadge.vue";
 import { useAuthStore } from "@/stores/auth";
 import { exportarAreaComoImagem, slugArquivo } from "@/utils/captureExport";
+import {
+  LABELS_PERIODO,
+  LABELS_TIPO,
+  MODOS_RANKING_COLABORADORES,
+  obterModo,
+  ordenarItens,
+  metaBatida,
+} from "@/utils/rankingModes";
 
 const auth = useAuthStore();
 
 const RANKING_COLABORADORES_LOJA_STORAGE_KEY =
   "na_ranking_colaboradores_superadmin_loja";
+const RANKING_COLABORADORES_MODO_STORAGE_KEY = "na_ranking_colaboradores_modo";
 
 const periodo = ref("1d");
 const dataInicio = ref("");
 const dataFim = ref("");
 const tipo = ref("");
+const modoId = ref(
+  localStorage.getItem(RANKING_COLABORADORES_MODO_STORAGE_KEY) || "pontuacao",
+);
 const carregando = ref(true);
 const items = ref([]);
 const lojas = ref([]);
 const lojaSelecionada = ref("");
 const captureArea = ref(null);
 const exportando = ref(false);
+const metaPercentualRestante = ref(2);
 
-const labelsPeriodo = {
-  "1d": "Hoje",
-  semana: "Semana",
-  mes: "Mês",
-  ano: "Ano",
-  tudo: "Histórico",
-  custom: "Período personalizado",
-};
-
-const labelsTipo = {
-  ETIQUETA: "Etiqueta",
-  PRESENCA: "Presença",
-  RUPTURA: "Ruptura",
-};
+const labelsPeriodo = LABELS_PERIODO;
+const labelsTipo = LABELS_TIPO;
+const modos = MODOS_RANKING_COLABORADORES;
+const modoAtivo = computed(() => obterModo(modos, modoId.value));
 
 const podeEscolherLoja = computed(() => auth.isSuperAdmin);
 
@@ -110,6 +116,7 @@ async function carregar() {
 
 onMounted(async () => {
   tipo.value = tipoSugeridoHoje();
+  carregarConfig();
   if (podeEscolherLoja.value) {
     lojaSelecionada.value =
       localStorage.getItem(RANKING_COLABORADORES_LOJA_STORAGE_KEY) || "";
@@ -127,6 +134,21 @@ onMounted(async () => {
   await carregar();
 });
 
+async function carregarConfig() {
+  try {
+    const { data } = await api.get("/config");
+    if (typeof data?.metaPercentualRestante === "number") {
+      metaPercentualRestante.value = data.metaPercentualRestante;
+    }
+  } catch {
+    // mantém default
+  }
+}
+
+watch(modoId, (v) => {
+  localStorage.setItem(RANKING_COLABORADORES_MODO_STORAGE_KEY, v);
+});
+
 watch([periodo, tipo, dataInicio, dataFim, lojaSelecionada], () => {
   if (podeEscolherLoja.value) {
     localStorage.setItem(
@@ -140,8 +162,9 @@ watch([periodo, tipo, dataInicio, dataFim, lojaSelecionada], () => {
   }
 });
 
-const topItems = computed(() => items.value.slice(0, 3));
-const itensRestantes = computed(() => items.value.slice(3));
+const itemsOrdenados = computed(() => ordenarItens(items.value, modoAtivo.value));
+const topItems = computed(() => itemsOrdenados.value.slice(0, 3));
+const itensRestantes = computed(() => itemsOrdenados.value.slice(3));
 
 const podiumCards = computed(() => {
   const cards = topItems.value.map((item, index) => ({
@@ -164,6 +187,17 @@ function formatarItens(total) {
 
 function formatarPontos(total) {
   return `${Math.round(total || 0).toLocaleString("pt-BR")} pts`;
+}
+
+// Valor do modo de ranking selecionado para o item — exibido no destaque.
+function valorPrincipal(item) {
+  const v = modoAtivo.value.accessor(item);
+  if (v == null) return "—";
+  return modoAtivo.value.format(v);
+}
+
+function bateuMeta(item) {
+  return metaBatida(item, metaPercentualRestante.value);
 }
 
 function periodoArquivoAtual() {
@@ -217,12 +251,12 @@ const subtituloPodio = computed(() => {
       : "Todas as lojas"
     : "Sua loja";
 
-  return `Loja: ${lojaLabel} · Tipo: ${tipoLabel} · Período: ${periodoLabel}`;
+  return `Loja: ${lojaLabel} · ${modoAtivo.value.label} · Tipo: ${tipoLabel} · Período: ${periodoLabel}`;
 });
 
 const visualizacaoKey = computed(() => {
-  const ids = items.value.map((item) => item._id).join("|");
-  return `${periodo.value}-${tipo.value}-${dataInicio.value}-${dataFim.value}-${lojaSelecionada.value}-${ids}`;
+  const ids = itemsOrdenados.value.map((item) => item._id).join("|");
+  return `${periodo.value}-${tipo.value}-${modoId.value}-${dataInicio.value}-${dataFim.value}-${lojaSelecionada.value}-${ids}`;
 });
 
 const queryPerfilColaborador = computed(() =>
@@ -260,6 +294,8 @@ const queryPerfilColaborador = computed(() =>
         </option>
       </select>
 
+      <RankingModeSelector v-model="modoId" :modos="modos" />
+
       <span class="spacer" />
       <button
         class="btn primary dash-share-btn ranking-share-btn"
@@ -275,11 +311,13 @@ const queryPerfilColaborador = computed(() =>
     <Transition name="ranking-stage" mode="out-in">
       <Loader v-if="carregando" key="loading" />
       <div v-else :key="visualizacaoKey" class="grid gap-3 rankings-stage">
-        <div v-if="!items.length" class="empty">
+        <div v-if="!itemsOrdenados.length" class="empty">
           Sem dados no período selecionado.
         </div>
 
         <template v-else>
+          
+
           <section v-if="podiumCards.length" class="podium-section">
             <div class="podium-header">
               <div class="podium-headline">
@@ -314,13 +352,21 @@ const queryPerfilColaborador = computed(() =>
                 <div class="podium-detail">
                   #{{ card.item.codigoExterno }} · Nível {{ card.item.nivel }}
                 </div>
+                <MetaBadge
+                  v-if="bateuMeta(card.item)"
+                  size="md"
+                  class="podium-meta-badge"
+                />
                 <div class="podium-chip">
                   <fa icon="chart-bar" />
-                  <span>{{ formatarItens(card.item.totalLidos) }}</span>
+                  <span>{{ valorPrincipal(card.item) }}</span>
                 </div>
                 <div class="podium-stats">
                   <strong>{{ card.item.taxaConformidade.toFixed(1) }}%</strong>
                   <span>{{ formatarPontos(card.item.pontuacao) }}</span>
+                  <span class="muted podium-stats-itens">
+                    · {{ formatarItens(card.item.totalLidos) }}
+                  </span>
                 </div>
               </article>
             </div>
@@ -360,11 +406,13 @@ const queryPerfilColaborador = computed(() =>
                     >
                       #{{ c.codigoExterno }}
                     </span>
+                    <MetaBadge v-if="bateuMeta(c)" size="sm" class="row-meta-badge" />
                   </div>
                   <div class="muted" style="font-size: 12px">
                     Nível {{ c.nivel }} ·
                     {{ c.totalLidos.toLocaleString("pt-BR") }} itens ·
-                    {{ c.dias }} dias
+                    {{ c.dias }} dias ·
+                    {{ c.totalAuditorias || 0 }} auditoria(s)
                   </div>
                 </div>
                 <div style="width: 130px">
@@ -379,15 +427,23 @@ const queryPerfilColaborador = computed(() =>
                     />
                   </div>
                 </div>
-                <div style="text-align: right; min-width: 80px">
-                  <div style="font-size: 22px; font-weight: 700">
-                    {{ Math.round(c.pontuacao) }}
+                <div style="text-align: right; min-width: 110px">
+                  <div style="font-size: 18px; font-weight: 700">
+                    {{ valorPrincipal(c) }}
                   </div>
-                  <div class="muted" style="font-size: 11px">pontos</div>
+                  <div class="muted" style="font-size: 11px">
+                    {{ modoAtivo.label }}
+                  </div>
                 </div>
               </div>
             </div>
           </section>
+          <RankingMediaCard
+            :items="itemsOrdenados"
+            :modo="modoAtivo"
+            :meta-percentual-restante="metaPercentualRestante"
+            :contexto-label="`${itemsOrdenados.length} colaborador(es) no ranking`"
+          />
         </template>
       </div>
     </Transition>
@@ -524,7 +580,7 @@ const queryPerfilColaborador = computed(() =>
 }
 
 .podium-card.rank-1 .podium-rank {
-  color: #b45309;
+  color: #ecb133;
 }
 
 .podium-card.rank-2 .podium-rank {
@@ -587,6 +643,19 @@ const queryPerfilColaborador = computed(() =>
   color: var(--text);
 }
 
+.podium-stats-itens {
+  font-size: 12px;
+}
+
+.podium-meta-badge {
+  margin-top: 8px;
+}
+
+.row-meta-badge {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
 .ranking-stage-enter-active,
 .ranking-stage-leave-active {
   transition:
@@ -619,7 +688,7 @@ const queryPerfilColaborador = computed(() =>
 }
 
 :global([data-theme="light"]) .rankings-list-section {
-  background: rgba(255, 255, 255, 0.58);
+  background: rgba(255, 255, 255, 0.82);
   border-color: rgba(89, 108, 165, 0.16);
 }
 
@@ -645,8 +714,8 @@ const queryPerfilColaborador = computed(() =>
 :global([data-theme="light"]) .podium-card.rank-1 {
   background: linear-gradient(
     180deg,
-    rgba(254, 240, 138, 0.72),
-    rgba(255, 255, 255, 0.9)
+    rgba(255, 255, 255, 0.96),
+    rgba(255, 255, 255, 0.88)
   );
 }
 
@@ -661,17 +730,14 @@ const queryPerfilColaborador = computed(() =>
 :global([data-theme="light"]) .podium-card.rank-3 {
   background: linear-gradient(
     180deg,
-    rgba(255, 237, 213, 0.92),
-    rgba(255, 255, 255, 0.92)
+    rgba(255, 255, 255, 0.96),
+    rgba(255, 255, 255, 0.88)
   );
+  border-color: rgba(148, 163, 184, 0.36);
 }
 
 :global([data-theme="light"]) .podium-card.rank-1 .podium-rank {
-  background: linear-gradient(
-    180deg,
-    rgba(255, 251, 235, 0.98),
-    rgba(254, 240, 138, 0.95)
-  );
+  background: rgba(255, 255, 255, 0.98);
   border-color: rgba(217, 119, 6, 0.28);
   color: #b45309;
 }
@@ -687,11 +753,7 @@ const queryPerfilColaborador = computed(() =>
 }
 
 :global([data-theme="light"]) .podium-card.rank-3 .podium-rank {
-  background: linear-gradient(
-    180deg,
-    rgba(255, 247, 237, 0.98),
-    rgba(254, 215, 170, 0.95)
-  );
+  background: rgba(255, 255, 255, 0.98);
   border-color: rgba(194, 65, 12, 0.22);
   color: #c2410c;
 }

@@ -66,8 +66,8 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Quando a variavel aponta apenas para a origem do backend, o frontend acrescenta /api automaticamente para manter compatibilidade com o backend Express exposto por reverse proxy.
 - Convencao atual de ambientes: `frontend/.env` usa `http://localhost:4000` no desenvolvimento local e `frontend/.env.production` usa `https://flashub.mywire.org` no build de producao.
 - timeout: 60 segundos.
-- interceptor de request injeta Bearer do app somente quando o header Authorization ainda nao existe.
-- interceptor de response desloga apenas quando uma resposta 401 ocorreu usando o token principal do app, evitando derrubar a sessao do portal do colaborador por engano.
+- interceptor de request injeta Bearer do app somente quando o header Authorization ainda nao existe e a rota nao pertence ao login publico do portal em /auth/portal/.
+- interceptor de response desloga apenas quando uma resposta 401 ocorreu usando o token principal do app fora das rotas publicas do portal, evitando redirecionar o colaborador para /login ao errar a senha em /portal.
 
 ## Tema e persistencia visual
 
@@ -243,6 +243,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Busca lojas por matricula em /auth/portal/verificar.
 - Define senha em /auth/portal/setup.
 - Faz login em /auth/portal/login.
+- As chamadas publicas /auth/portal/verificar, /auth/portal/setup e /auth/portal/login nao devem reutilizar o token administrativo salvo em na_token; erro de senha precisa permanecer na propria tela do portal com mensagem local.
 - Carrega perfil em /colaboradores/portal/me.
 - Carrega metricas em /metricas/portal/me.
 - Carrega a lista de colegas em /metricas/portal/me/colegas e abre o perfil publico de cada colega em uma pagina dedicada do portal, resolvida por /metricas/portal/me/colegas/:id/perfil.

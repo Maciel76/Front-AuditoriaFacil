@@ -157,6 +157,11 @@
 - Usa o mesmo campo `avatarUrl` do colaborador e o mesmo padrao de crop do perfil administrativo para upload e exibicao da foto.
 - Mantem `ConquistaCard` como componente local via render function e cada card abre um modal com descricao, requisitos e historico de desbloqueio da conquista.
 - A aba `Inicio` passou a abrir com uma lista de colegas ativos da mesma loja e cada card navega para a pagina `/portal/colegas/:colegaId`, onde `PerfilPublicoColaborador.vue` renderiza o perfil publico do colega.
+- `PerfilPublicoColaborador.vue` exibe no topo do perfil publico o nivel do colega, total de auditorias realizadas e total acumulado de itens lidos, alem das conquistas e do historico analitico.
+- No mobile, o hero de `PerfilPublicoColaborador.vue` preserva a foto do colega, compacta a tipografia e reorganiza os indicadores em grade responsiva para evitar quebra ruim e sobras de espaco em telas estreitas.
+- Ao abrir um perfil publico em `ColaboradorPortal.vue`, a topbar superior mostra apenas o contexto `Perfil público`; o nome do colega fica concentrado no card de apresentacao para evitar duplicidade visual.
+- Os indicadores do hero em `PerfilPublicoColaborador.vue` foram simplificados para um resumo menor, com fundo transparente, sem bordas e icones compactos.
+- No mobile, a grade de conquistas em `PerfilPublicoColaborador.vue` fecha em 2 cards por linha com icone e tipografia reduzidos, evitando cortes laterais e excesso de altura por card.
 - E o ponto de contato principal do colaborador final com o sistema.
 
 ### AuditoriaDodia.vue

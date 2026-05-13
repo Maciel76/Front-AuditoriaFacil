@@ -1252,7 +1252,6 @@ onBeforeUnmount(() => {
           </button>
           <div class="topbar-greet topbar-profile-copy">
             <small class="muted">Perfil público</small>
-            <strong>{{ tituloPerfilPublico }}</strong>
           </div>
         </div>
         <button class="btn ghost icon-btn" @click="sair" title="Sair">
@@ -1274,84 +1273,6 @@ onBeforeUnmount(() => {
 
       <!-- ABA INÍCIO -->
       <main v-else-if="abaAtiva === 'inicio'" class="app-content">
-        <section class="card colegas-card">
-          <div class="colegas-head">
-            <div>
-              <h3 class="section-title">
-                <fa icon="users" /> Colegas da equipe
-              </h3>
-              <p class="muted colegas-help">
-                Abra o perfil público do seu time para acompanhar fotos,
-                conquistas e resultados.
-              </p>
-            </div>
-            <span v-if="colegasEquipe.length" class="colega-count">
-              {{ colegasEquipe.length }}
-            </span>
-          </div>
-
-          <div v-if="carregandoColegas" class="colegas-state muted">
-            <fa icon="spinner" spin />
-            <span>Carregando equipe...</span>
-          </div>
-
-          <div v-else-if="erroColegas" class="badge bad full-w">
-            {{ erroColegas }}
-          </div>
-
-          <div v-else-if="!colegasEquipe.length" class="empty mini">
-            Sua loja ainda não tem outros colegas ativos no portal.
-          </div>
-
-          <div v-else class="colegas-list">
-            <a
-              v-for="colega in colegasEquipe"
-              :key="colega._id"
-              class="colega-card"
-              :href="urlPerfilPublicoColega(colega._id)"
-              :title="colega.nome"
-              @click="abrirPerfilPublicoColega(colega._id, $event)"
-            >
-              <div class="colega-main">
-                <ColaboradorAvatar
-                  :nome="colega.nome"
-                  :avatar-url="colega.avatarUrl"
-                  :size="54"
-                  :font-size="18"
-                />
-                <div class="colega-body">
-                  <strong>{{ nomeColegaLista(colega.nome) }}</strong>
-                  <small class="muted">{{
-                    colega.cargo || "Equipe da loja"
-                  }}</small>
-                </div>
-              </div>
-              <div class="colega-stats">
-                <div class="colega-stat">
-                  <span class="colega-stat-label">Nível</span>
-                  <strong>{{ colega.nivel }}</strong>
-                </div>
-                <div class="colega-stat">
-                  <span class="colega-stat-label">Itens</span>
-                  <strong>{{ formatNum(colega.totalItensLidos) }}</strong>
-                </div>
-                <div class="colega-stat">
-                  <span class="colega-stat-label">Conform.</span>
-                  <strong
-                    >{{
-                      Number(colega.taxaConformidade || 0).toFixed(1)
-                    }}%</strong
-                  >
-                </div>
-              </div>
-              <div class="colega-link">
-                <span>Abrir perfil</span>
-                <fa icon="chevron-right" />
-              </div>
-            </a>
-          </div>
-        </section>
-
         <section class="card glow nivel-card">
           <div class="nivel-card-head">
             <div class="nivel-emblema">
@@ -1461,6 +1382,84 @@ onBeforeUnmount(() => {
         <div v-if="!metricas?.serie?.length" class="empty card">
           Suas auditorias ainda não foram processadas. Volte aqui em breve!
         </div>
+
+        <section class="card colegas-card">
+          <div class="colegas-head">
+            <div>
+              <h3 class="section-title">
+                <fa icon="users" /> Colegas da equipe
+              </h3>
+              <p class="muted colegas-help">
+                Abra o perfil público do seu time para acompanhar fotos,
+                conquistas e resultados.
+              </p>
+            </div>
+            <span v-if="colegasEquipe.length" class="colega-count">
+              {{ colegasEquipe.length }}
+            </span>
+          </div>
+
+          <div v-if="carregandoColegas" class="colegas-state muted">
+            <fa icon="spinner" spin />
+            <span>Carregando equipe...</span>
+          </div>
+
+          <div v-else-if="erroColegas" class="badge bad full-w">
+            {{ erroColegas }}
+          </div>
+
+          <div v-else-if="!colegasEquipe.length" class="empty mini">
+            Sua loja ainda não tem outros colegas ativos no portal.
+          </div>
+
+          <div v-else class="colegas-list">
+            <a
+              v-for="colega in colegasEquipe"
+              :key="colega._id"
+              class="colega-card"
+              :href="urlPerfilPublicoColega(colega._id)"
+              :title="colega.nome"
+              @click="abrirPerfilPublicoColega(colega._id, $event)"
+            >
+              <div class="colega-main">
+                <ColaboradorAvatar
+                  :nome="colega.nome"
+                  :avatar-url="colega.avatarUrl"
+                  :size="54"
+                  :font-size="18"
+                />
+                <div class="colega-body">
+                  <strong>{{ nomeColegaLista(colega.nome) }}</strong>
+                  <small class="muted">{{
+                    colega.cargo || "Equipe da loja"
+                  }}</small>
+                </div>
+              </div>
+              <!-- <div class="colega-stats">
+                <div class="colega-stat">
+                  <span class="colega-stat-label">Nível</span>
+                  <strong>{{ colega.nivel }}</strong>
+                </div>
+                <div class="colega-stat">
+                  <span class="colega-stat-label">Itens</span>
+                  <strong>{{ formatNum(colega.totalItensLidos) }}</strong>
+                </div>
+                <div class="colega-stat">
+                  <span class="colega-stat-label">Conform.</span>
+                  <strong
+                    >{{
+                      Number(colega.taxaConformidade || 0).toFixed(1)
+                    }}%</strong
+                  >
+                </div>
+              </div> -->
+              <div class="colega-link">
+                <span>Abrir perfil</span>
+                <fa icon="chevron-right" />
+              </div>
+            </a>
+          </div>
+        </section>
       </main>
 
       <!-- ABA CONQUISTAS -->
@@ -2845,13 +2844,13 @@ onBeforeUnmount(() => {
 }
 
 .conq-status-badge.unlocked {
-  color: #d1fae5;
-  background: rgba(16, 185, 129, 0.22);
-  border-color: rgba(52, 211, 153, 0.4);
+  color: #ffffff;
+  background-color: #41976f;
+  border-color: rgba(124, 92, 255, 0.4);
 }
 
 .conq-status-badge.pending {
-  color: #e2e8f0;
+  color: #696969;
   background: rgba(100, 116, 139, 0.2);
   border-color: rgba(148, 163, 184, 0.26);
 }
@@ -3058,7 +3057,7 @@ onBeforeUnmount(() => {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 :global([data-theme="light"]) .conq-status-badge.unlocked {
-  color: #047857;
+  color: #fafafa;
   background: rgba(16, 185, 129, 0.16);
   border-color: rgba(16, 185, 129, 0.28);
 }

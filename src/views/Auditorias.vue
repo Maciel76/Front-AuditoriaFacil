@@ -372,6 +372,101 @@ async function excluir(a) {
   listar();
 }
 
+// --- Cancelamento e Reclassificação ---
+const auditoriaAlvo = ref(null); // auditoria selecionada nos modais
+const modalCancelar = ref(false);
+const motivoCancelamento = ref("");
+const enviandoCancelar = ref(false);
+const modalReclassificar = ref(false);
+const novoTipoReclassificacao = ref("");
+const enviandoReclassificar = ref(false);
+
+function semLeitura(a) {
+  if (!a) return false;
+  if (a.status === "CANCELADA" || a.status === "PROCESSANDO") return false;
+  return Number(a.totalLidos || 0) === 0;
+}
+
+function abrirCancelar(a) {
+  auditoriaAlvo.value = a;
+  motivoCancelamento.value = "";
+  modalCancelar.value = true;
+}
+
+function fecharCancelar() {
+  if (enviandoCancelar.value) return;
+  modalCancelar.value = false;
+  auditoriaAlvo.value = null;
+  motivoCancelamento.value = "";
+}
+
+async function confirmarCancelar() {
+  if (!auditoriaAlvo.value || enviandoCancelar.value) return;
+  enviandoCancelar.value = true;
+  try {
+    const { data } = await api.post(
+      `/auditorias/${auditoriaAlvo.value._id}/cancelar`,
+      { motivo: motivoCancelamento.value.trim() },
+      { params: paramsEscopoLoja() },
+    );
+    ui.sucesso(data?.mensagem || "Auditoria cancelada.");
+    modalCancelar.value = false;
+    auditoriaAlvo.value = null;
+    motivoCancelamento.value = "";
+    await listar();
+  } catch (e) {
+    ui.erro(
+      e?.response?.data?.error || e?.message || "Não foi possível cancelar a auditoria.",
+    );
+  } finally {
+    enviandoCancelar.value = false;
+  }
+}
+
+function abrirReclassificar(a) {
+  auditoriaAlvo.value = a;
+  novoTipoReclassificacao.value = "";
+  modalReclassificar.value = true;
+}
+
+function fecharReclassificar() {
+  if (enviandoReclassificar.value) return;
+  modalReclassificar.value = false;
+  auditoriaAlvo.value = null;
+  novoTipoReclassificacao.value = "";
+}
+
+async function confirmarReclassificar() {
+  if (!auditoriaAlvo.value || enviandoReclassificar.value) return;
+  if (!novoTipoReclassificacao.value) {
+    ui.erro("Selecione o novo tipo da auditoria.");
+    return;
+  }
+  if (novoTipoReclassificacao.value === auditoriaAlvo.value.tipo) {
+    ui.erro("Escolha um tipo diferente do atual.");
+    return;
+  }
+  enviandoReclassificar.value = true;
+  try {
+    const { data } = await api.patch(
+      `/auditorias/${auditoriaAlvo.value._id}/reclassificar`,
+      { tipo: novoTipoReclassificacao.value },
+      { params: paramsEscopoLoja() },
+    );
+    ui.sucesso(data?.mensagem || "Auditoria reclassificada.");
+    modalReclassificar.value = false;
+    auditoriaAlvo.value = null;
+    novoTipoReclassificacao.value = "";
+    await listar();
+  } catch (e) {
+    ui.erro(
+      e?.response?.data?.error || e?.message || "Não foi possível reclassificar.",
+    );
+  } finally {
+    enviandoReclassificar.value = false;
+  }
+}
+
 const nomeDiaSemana = [
   "Domingo",
   "Segunda",
@@ -986,6 +1081,13 @@ onBeforeUnmount(() => {
                 >
                   {{ statusAuditoria(a).text }}
                 </span>
+                <span
+                  v-if="semLeitura(a)"
+                  class="badge warn audit-status-badge"
+                  title="Nenhum colaborador realizou leituras nessa auditoria. Considere cancelá-la."
+                >
+                  <fa icon="triangle-exclamation" /> Sem leituras
+                </span>
               </td>
               <td>{{ new Date(a.data).toLocaleDateString("pt-BR") }}</td>
               <td>
@@ -1017,27 +1119,232 @@ onBeforeUnmount(() => {
                 <span v-else class="muted">—</span>
               </td>
               <td class="text-right">
-                <RouterLink :to="rotaAuditoria(a._id)" class="btn ghost"
-                  ><fa icon="eye"
-                /></RouterLink>
-                <button
-                  v-if="auth.podeGerenciar"
-                  class="btn ghost danger"
-                  @click="excluir(a)"
-                  title="Excluir"
-                >
-                  <fa icon="trash" />
-                </button>
+                <div class="row gap-1 audit-actions">
+                  <RouterLink
+                    :to="rotaAuditoria(a._id)"
+                    class="btn ghost"
+                    title="Ver detalhes"
+                  >
+                    <fa icon="eye" />
+                  </RouterLink>
+                  <button
+                    v-if="auth.podeGerenciar && a.status !== 'CANCELADA'"
+                    class="btn ghost"
+                    title="Reclassificar tipo"
+                    @click="abrirReclassificar(a)"
+                  >
+                    <fa icon="shuffle" />
+                  </button>
+                  <button
+                    v-if="auth.podeGerenciar && a.status !== 'CANCELADA'"
+                    class="btn ghost warn"
+                    title="Cancelar auditoria (não conta nas métricas)"
+                    @click="abrirCancelar(a)"
+                  >
+                    <fa icon="ban" />
+                  </button>
+                  <button
+                    v-if="auth.podeGerenciar"
+                    class="btn ghost danger"
+                    @click="excluir(a)"
+                    title="Excluir"
+                  >
+                    <fa icon="trash" />
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
+
+    <!-- Modal: Cancelar auditoria -->
+    <Transition name="fade">
+      <div
+        v-if="modalCancelar"
+        class="audit-modal-backdrop"
+        @click.self="fecharCancelar"
+      >
+        <div class="audit-modal card">
+          <h3 class="mt-0 mb-1">
+            <fa icon="ban" /> Cancelar auditoria
+          </h3>
+          <p class="muted mt-0">
+            A auditoria continuará registrada no histórico, mas será marcada
+            como
+            <strong>cancelada</strong> e <strong>não entrará</strong> em
+            métricas, ranking, pontuação ou conformidade.
+          </p>
+          <div v-if="auditoriaAlvo" class="audit-modal-target">
+            <span class="badge" :class="'tipo-' + auditoriaAlvo.tipo">{{
+              auditoriaAlvo.tipo
+            }}</span>
+            <span class="muted">·</span>
+            <strong>{{
+              new Date(auditoriaAlvo.data).toLocaleDateString("pt-BR")
+            }}</strong>
+          </div>
+          <div class="field mt-2">
+            <label>Motivo (opcional)</label>
+            <textarea
+              v-model="motivoCancelamento"
+              rows="3"
+              placeholder="Ex.: planilha de teste, dia sem leitura, duplicidade…"
+              :disabled="enviandoCancelar"
+            />
+          </div>
+          <div class="row mt-2 gap-2" style="justify-content: flex-end">
+            <button
+              class="btn ghost"
+              :disabled="enviandoCancelar"
+              @click="fecharCancelar"
+            >
+              Manter ativa
+            </button>
+            <button
+              class="btn warn"
+              :disabled="enviandoCancelar"
+              @click="confirmarCancelar"
+            >
+              <fa :icon="enviandoCancelar ? 'spinner' : 'ban'" :spin="enviandoCancelar" />
+              Cancelar auditoria
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Modal: Reclassificar auditoria -->
+    <Transition name="fade">
+      <div
+        v-if="modalReclassificar"
+        class="audit-modal-backdrop"
+        @click.self="fecharReclassificar"
+      >
+        <div class="audit-modal card">
+          <h3 class="mt-0 mb-1">
+            <fa icon="shuffle" /> Reclassificar auditoria
+          </h3>
+          <p class="muted mt-0">
+            Todos os itens desta auditoria serão reavaliados com as regras do
+            novo tipo. Pontuação, conformidade e ranking serão recalculados
+            automaticamente.
+          </p>
+          <div v-if="auditoriaAlvo" class="audit-modal-target">
+            <span class="muted">De</span>
+            <span class="badge" :class="'tipo-' + auditoriaAlvo.tipo">{{
+              tipoLabels[auditoriaAlvo.tipo] || auditoriaAlvo.tipo
+            }}</span>
+            <fa icon="arrow-right" class="muted" />
+            <span class="muted">para</span>
+            <select
+              v-model="novoTipoReclassificacao"
+              class="upload-type-select"
+              :disabled="enviandoReclassificar"
+              style="padding: 8px 14px; font-size: 14px"
+            >
+              <option value="">Escolha o novo tipo</option>
+              <option
+                v-for="t in ['ETIQUETA', 'PRESENCA', 'RUPTURA'].filter(
+                  (t) => t !== auditoriaAlvo.tipo,
+                )"
+                :key="t"
+                :value="t"
+              >
+                {{ tipoLabels[t] }}
+              </option>
+            </select>
+          </div>
+          <div class="audit-modal-warn mt-2">
+            <fa icon="triangle-exclamation" />
+            <span>
+              Se já existir uma auditoria do tipo escolhido na mesma loja e
+              data, a reclassificação será bloqueada. Exclua ou cancele a outra
+              antes.
+            </span>
+          </div>
+          <div class="row mt-2 gap-2" style="justify-content: flex-end">
+            <button
+              class="btn ghost"
+              :disabled="enviandoReclassificar"
+              @click="fecharReclassificar"
+            >
+              Voltar
+            </button>
+            <button
+              class="btn primary"
+              :disabled="enviandoReclassificar || !novoTipoReclassificacao"
+              @click="confirmarReclassificar"
+            >
+              <fa
+                :icon="enviandoReclassificar ? 'spinner' : 'shuffle'"
+                :spin="enviandoReclassificar"
+              />
+              Reclassificar
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
+.audit-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 13, 26, 0.62);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  z-index: 80;
+  padding: 16px;
+}
+.audit-modal {
+  width: min(100%, 480px);
+  padding: 22px;
+  display: grid;
+  gap: 4px;
+}
+.audit-modal-target {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  margin-top: 8px;
+}
+.audit-modal-warn {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.34);
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  font-size: 13px;
+}
+.audit-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.btn.ghost.warn {
+  color: #f59e0b;
+}
+.btn.warn {
+  background: rgba(245, 158, 11, 0.18);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+.btn.warn:hover {
+  background: rgba(245, 158, 11, 0.28);
+}
+
 .upload-shell {
   position: relative;
   overflow: hidden;

@@ -4,31 +4,38 @@ import api from "@/services/api";
 import Loader from "@/components/Loader.vue";
 import PeriodoSelector from "@/components/PeriodoSelector.vue";
 import StoreAvatar from "@/components/StoreAvatar.vue";
+import RankingModeSelector from "@/components/RankingModeSelector.vue";
+import RankingMediaCard from "@/components/RankingMediaCard.vue";
+import MetaBadge from "@/components/MetaBadge.vue";
 import { exportarAreaComoImagem } from "@/utils/captureExport";
+import {
+  LABELS_PERIODO,
+  LABELS_TIPO,
+  MODOS_RANKING_LOJAS,
+  obterModo,
+  ordenarItens,
+  metaBatida,
+} from "@/utils/rankingModes";
+
+const RANKING_LOJAS_MODO_STORAGE_KEY = "na_ranking_lojas_modo";
 
 const periodo = ref("1d");
 const dataInicio = ref("");
 const dataFim = ref("");
 const tipo = ref("");
+const modoId = ref(
+  localStorage.getItem(RANKING_LOJAS_MODO_STORAGE_KEY) || "pontuacao",
+);
 const carregando = ref(true);
 const items = ref([]);
 const captureArea = ref(null);
 const exportando = ref(false);
+const metaPercentualRestante = ref(2);
 
-const labelsPeriodo = {
-  "1d": "Hoje",
-  semana: "Semana",
-  mes: "Mês",
-  ano: "Ano",
-  tudo: "Histórico",
-  custom: "Período personalizado",
-};
-
-const labelsTipo = {
-  ETIQUETA: "Etiqueta",
-  PRESENCA: "Presença",
-  RUPTURA: "Ruptura",
-};
+const labelsPeriodo = LABELS_PERIODO;
+const labelsTipo = LABELS_TIPO;
+const modos = MODOS_RANKING_LOJAS;
+const modoAtivo = computed(() => obterModo(modos, modoId.value));
 
 function tipoSugeridoHoje() {
   const diaSemana = new Date().getDay();
@@ -77,7 +84,23 @@ async function carregar() {
 
 onMounted(async () => {
   tipo.value = tipoSugeridoHoje();
+  carregarConfig();
   await carregar();
+});
+
+async function carregarConfig() {
+  try {
+    const { data } = await api.get("/config");
+    if (typeof data?.metaPercentualRestante === "number") {
+      metaPercentualRestante.value = data.metaPercentualRestante;
+    }
+  } catch {
+    // mantém default
+  }
+}
+
+watch(modoId, (v) => {
+  localStorage.setItem(RANKING_LOJAS_MODO_STORAGE_KEY, v);
 });
 
 watch([periodo, tipo, dataInicio, dataFim], () => {
@@ -86,8 +109,12 @@ watch([periodo, tipo, dataInicio, dataFim], () => {
   }
 });
 
-const topItems = computed(() => items.value.slice(0, 3));
-const itensRestantes = computed(() => items.value.slice(3));
+// Itens ordenados conforme o modo selecionado. Resultado é compartilhado
+// pelo podium, lista, card de média e exportação de imagem.
+const itemsOrdenados = computed(() => ordenarItens(items.value, modoAtivo.value));
+
+const topItems = computed(() => itemsOrdenados.value.slice(0, 3));
+const itensRestantes = computed(() => itemsOrdenados.value.slice(3));
 
 const podiumCards = computed(() => {
   const cards = topItems.value.map((item, index) => ({
@@ -115,6 +142,18 @@ function formatarItens(total) {
 
 function formatarPontos(total) {
   return `${Math.round(total || 0).toLocaleString("pt-BR")} pts`;
+}
+
+// Valor primário em destaque no card do pódio, derivado do modo selecionado.
+function valorPrincipal(item) {
+  const v = modoAtivo.value.accessor(item);
+  if (v == null) return "—";
+  return modoAtivo.value.format(v);
+}
+
+// Marca se o item bateu a meta de auditoria (% restante <= limiar).
+function bateuMeta(item) {
+  return metaBatida(item, metaPercentualRestante.value);
 }
 
 function temCancelamento(item) {
@@ -168,12 +207,12 @@ const subtituloPodio = computed(() => {
       ? `${dataInicio.value || "--"} a ${dataFim.value || "--"}`
       : labelsPeriodo[periodo.value] || periodo.value;
 
-  return `Ranking geral de lojas · Tipo: ${tipoLabel} · Período: ${periodoLabel}`;
+  return `${modoAtivo.value.label} · Tipo: ${tipoLabel} · Período: ${periodoLabel}`;
 });
 
 const visualizacaoKey = computed(() => {
-  const ids = items.value.map((item) => item._id).join("|");
-  return `${periodo.value}-${tipo.value}-${dataInicio.value}-${dataFim.value}-${ids}`;
+  const ids = itemsOrdenados.value.map((item) => item._id).join("|");
+  return `${periodo.value}-${tipo.value}-${modoId.value}-${dataInicio.value}-${dataFim.value}-${ids}`;
 });
 </script>
 
@@ -193,6 +232,8 @@ const visualizacaoKey = computed(() => {
         <option value="RUPTURA">Ruptura</option>
       </select>
 
+      <RankingModeSelector v-model="modoId" :modos="modos" />
+
       <span class="spacer" />
       <button
         class="btn primary dash-share-btn ranking-share-btn"
@@ -208,11 +249,18 @@ const visualizacaoKey = computed(() => {
     <Transition name="ranking-stage" mode="out-in">
       <Loader v-if="carregando" key="loading" />
       <div v-else :key="visualizacaoKey" class="grid gap-3 rankings-stage">
-        <div v-if="!items.length" class="empty">
+        <div v-if="!itemsOrdenados.length" class="empty">
           Sem dados no período selecionado.
         </div>
 
         <template v-else>
+          <RankingMediaCard
+            :items="itemsOrdenados"
+            :modo="modoAtivo"
+            :meta-percentual-restante="metaPercentualRestante"
+            :contexto-label="`${itemsOrdenados.length} loja(s) no ranking`"
+          />
+
           <section v-if="podiumCards.length" class="podium-section">
             <div class="podium-header">
               <div class="podium-headline">
@@ -248,6 +296,11 @@ const visualizacaoKey = computed(() => {
                 />
                 <div class="podium-name">{{ card.item.nome }}</div>
                 <div class="podium-detail">{{ detalhePodio(card.item) }}</div>
+                <MetaBadge
+                  v-if="bateuMeta(card.item)"
+                  size="md"
+                  class="podium-meta-badge"
+                />
                 <div
                   v-if="temCancelamento(card.item)"
                   class="ranking-cancel-badge"
@@ -257,11 +310,14 @@ const visualizacaoKey = computed(() => {
                 </div>
                 <div class="podium-chip">
                   <fa icon="chart-bar" />
-                  <span>{{ formatarItens(card.item.totalLidos) }}</span>
+                  <span>{{ valorPrincipal(card.item) }}</span>
                 </div>
                 <div class="podium-stats">
                   <strong>{{ card.item.taxaConformidade.toFixed(1) }}%</strong>
                   <span>{{ formatarPontos(card.item.pontuacao) }}</span>
+                  <span class="muted podium-stats-itens">
+                    · {{ formatarItens(card.item.totalLidos) }}
+                  </span>
                 </div>
               </article>
             </div>
@@ -300,10 +356,12 @@ const visualizacaoKey = computed(() => {
                     >
                       {{ l.cidade }} {{ l.estado ? "/" + l.estado : "" }}
                     </span>
+                    <MetaBadge v-if="bateuMeta(l)" size="sm" class="row-meta-badge" />
                   </div>
                   <div class="muted" style="font-size: 12px">
                     Nível {{ l.nivel }} ·
-                    {{ l.totalLidos.toLocaleString("pt-BR") }} itens
+                    {{ l.totalLidos.toLocaleString("pt-BR") }} itens ·
+                    {{ l.totalAuditorias || 0 }} auditoria(s)
                   </div>
                   <div v-if="temCancelamento(l)" class="ranking-row-alert">
                     <fa icon="triangle-exclamation" />
@@ -320,11 +378,13 @@ const visualizacaoKey = computed(() => {
                     />
                   </div>
                 </div>
-                <div style="text-align: right; min-width: 100px">
-                  <div style="font-size: 22px; font-weight: 700">
-                    {{ Math.round(l.pontuacao) }}
+                <div style="text-align: right; min-width: 110px">
+                  <div style="font-size: 18px; font-weight: 700">
+                    {{ valorPrincipal(l) }}
                   </div>
-                  <div class="muted" style="font-size: 11px">pontos</div>
+                  <div class="muted" style="font-size: 11px">
+                    {{ modoAtivo.label }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -561,6 +621,19 @@ const visualizacaoKey = computed(() => {
   color: var(--text);
 }
 
+.podium-stats-itens {
+  font-size: 12px;
+}
+
+.podium-meta-badge {
+  margin-top: 8px;
+}
+
+.row-meta-badge {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
 .ranking-stage-enter-active,
 .ranking-stage-leave-active {
   transition:
@@ -593,7 +666,7 @@ const visualizacaoKey = computed(() => {
 }
 
 :global([data-theme="light"]) .rankings-list-section {
-  background: rgba(255, 255, 255, 0.58);
+  background: rgba(255, 255, 255, 0.82);
   border-color: rgba(89, 108, 165, 0.16);
 }
 
@@ -625,8 +698,8 @@ const visualizacaoKey = computed(() => {
 :global([data-theme="light"]) .podium-card.rank-1 {
   background: linear-gradient(
     180deg,
-    rgba(254, 240, 138, 0.72),
-    rgba(255, 255, 255, 0.9)
+    rgba(255, 255, 255, 0.96),
+    rgba(255, 255, 255, 0.88)
   );
 }
 
@@ -641,17 +714,14 @@ const visualizacaoKey = computed(() => {
 :global([data-theme="light"]) .podium-card.rank-3 {
   background: linear-gradient(
     180deg,
-    rgba(255, 237, 213, 0.92),
-    rgba(255, 255, 255, 0.92)
+    rgba(255, 255, 255, 0.96),
+    rgba(255, 255, 255, 0.88)
   );
+  border-color: rgba(148, 163, 184, 0.36);
 }
 
 :global([data-theme="light"]) .podium-card.rank-1 .podium-rank {
-  background: linear-gradient(
-    180deg,
-    rgba(255, 251, 235, 0.98),
-    rgba(254, 240, 138, 0.95)
-  );
+  background: rgba(255, 255, 255, 0.98);
   border-color: rgba(217, 119, 6, 0.28);
   color: #b45309;
 }
@@ -667,11 +737,7 @@ const visualizacaoKey = computed(() => {
 }
 
 :global([data-theme="light"]) .podium-card.rank-3 .podium-rank {
-  background: linear-gradient(
-    180deg,
-    rgba(255, 247, 237, 0.98),
-    rgba(254, 215, 170, 0.95)
-  );
+  background: rgba(255, 255, 255, 0.98);
   border-color: rgba(194, 65, 12, 0.22);
   color: #c2410c;
 }

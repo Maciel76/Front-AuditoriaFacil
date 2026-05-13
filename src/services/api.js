@@ -7,9 +7,19 @@ const api = axios.create({
   timeout: 60000,
 });
 
+function normalizarUrl(config) {
+  return String(config?.url || '').trim();
+}
+
+function isRotaPublicaPortal(config) {
+  return normalizarUrl(config).startsWith('/auth/portal/');
+}
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('na_token');
-  if (token && !config.headers?.Authorization) config.headers.Authorization = `Bearer ${token}`;
+  if (token && !config.headers?.Authorization && !isRotaPublicaPortal(config)) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
@@ -17,10 +27,11 @@ api.interceptors.response.use(
   (r) => r,
   (err) => {
     const appToken = localStorage.getItem('na_token');
+    const rotaPublicaPortal = isRotaPublicaPortal(err?.config);
     const authHeader = err?.config?.headers?.Authorization;
     const usaTokenApp = !!appToken && authHeader === `Bearer ${appToken}`;
 
-    if (err?.response?.status === 401 && usaTokenApp) {
+    if (err?.response?.status === 401 && usaTokenApp && !rotaPublicaPortal) {
       try {
         const auth = useAuthStore();
         auth.logout();

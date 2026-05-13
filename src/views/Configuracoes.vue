@@ -23,6 +23,12 @@ const cropperImageRef = ref(null);
 const cropperStageRef = ref(null);
 const cropperNomeArquivo = ref("");
 
+// Configurações globais (SUPER_ADMIN). Mantém o último valor salvo para
+// permitir cancelar edição/voltar ao default sem nova requisição.
+const systemConfig = ref({ metaPercentualRestante: 2 });
+const systemConfigEdit = ref({ metaPercentualRestante: 2 });
+const salvandoConfig = ref(false);
+
 let cropper;
 
 const CROP_TEMPLATE = `
@@ -72,12 +78,40 @@ async function carregar() {
     }
     const { data: u } = await api.get("/usuarios");
     usuarios.value = u.items;
+    if (auth.isSuperAdmin) {
+      try {
+        const { data: cfg } = await api.get("/config");
+        if (cfg && typeof cfg.metaPercentualRestante === "number") {
+          systemConfig.value = { ...cfg };
+          systemConfigEdit.value = { ...cfg };
+        }
+      } catch {
+        // mantém defaults
+      }
+    }
   } finally {
     carregando.value = false;
   }
 }
 onMounted(carregar);
 onBeforeUnmount(() => destruirCropper());
+
+async function salvarSystemConfig() {
+  salvandoConfig.value = true;
+  try {
+    const payload = {
+      metaPercentualRestante: Number(systemConfigEdit.value.metaPercentualRestante),
+    };
+    const { data } = await api.put("/config", payload);
+    systemConfig.value = { ...data };
+    systemConfigEdit.value = { ...data };
+    ui.sucesso("Configurações globais atualizadas");
+  } catch (e) {
+    ui.erro(e?.response?.data?.error || "Falha ao salvar configurações");
+  } finally {
+    salvandoConfig.value = false;
+  }
+}
 
 async function salvarLoja() {
   try {
@@ -316,6 +350,57 @@ async function desativarUsuario(u) {
         >
           <fa :icon="alterandoSenha ? 'spinner' : 'lock'" :spin="alterandoSenha" />
           {{ alterandoSenha ? "Atualizando..." : "Atualizar senha" }}
+        </button>
+      </div>
+    </div>
+
+    <div v-if="auth.isSuperAdmin" class="card" id="metas-globais">
+      <div class="row mb-2">
+        <div>
+          <h3 class="mt-0 mb-0">Metas e rankings</h3>
+          <p class="muted config-password-helper">
+            Configurações globais usadas pelos rankings de lojas e
+            colaboradores. Apenas super admin pode alterar.
+          </p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>
+            Limite de % restante para considerar meta batida
+          </label>
+          <input
+            v-model.number="systemConfigEdit.metaPercentualRestante"
+            type="number"
+            min="0"
+            max="100"
+            step="0.1"
+          />
+          <small class="muted">
+            Quando o % de itens restantes para concluir a auditoria fica
+            abaixo desse valor, o ranking exibe o selo de meta batida.
+            Padrão: 2%.
+          </small>
+        </div>
+      </div>
+
+      <div class="row mt-2">
+        <span class="spacer" />
+        <button
+          class="btn ghost"
+          :disabled="salvandoConfig"
+          @click="systemConfigEdit = { ...systemConfig }"
+        >
+          Cancelar
+        </button>
+        <button
+          class="btn primary"
+          :disabled="salvandoConfig"
+          @click="salvarSystemConfig"
+        >
+          <fa :icon="salvandoConfig ? 'spinner' : 'bullseye'" :spin="salvandoConfig" />
+          {{ salvandoConfig ? "Salvando..." : "Salvar configurações" }}
         </button>
       </div>
     </div>

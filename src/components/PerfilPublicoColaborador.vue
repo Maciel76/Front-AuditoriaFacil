@@ -35,6 +35,34 @@ const colaborador = computed(
   () => props.perfil?.colaborador || props.colegaResumo || null,
 );
 
+const resumoCabecalho = computed(() => {
+  if (!colaborador.value) return [];
+
+  return [
+    {
+      chave: "nivel",
+      label: "Nível",
+      valor: formatNum(colaborador.value.nivel || 1),
+      icone: "trophy",
+      accent: "#7c5cff",
+    },
+    {
+      chave: "auditorias",
+      label: "Auditorias",
+      valor: formatNum(colaborador.value.totalAuditorias || 0),
+      icone: "clipboard-check",
+      accent: "#22c55e",
+    },
+    {
+      chave: "itens",
+      label: "Itens lidos",
+      valor: formatNum(colaborador.value.totalItensLidos || 0),
+      icone: "boxes-stacked",
+      accent: "#f59e0b",
+    },
+  ];
+});
+
 const porTipo = computed(() => props.perfil?.porTipo || []);
 const serie = computed(() => props.perfil?.serie || []);
 
@@ -184,18 +212,36 @@ function normalizarTier(valor) {
 
         <div class="perfil-publico-hero-copy">
           <ColaboradorAvatar
+            class="perfil-publico-avatar"
             :nome="colaborador.nome"
             :avatar-url="colaborador.avatarUrl"
-            :size="96"
-            :font-size="30"
+            :size="80"
+            :font-size="26"
           />
 
-          <div>
+          <div class="perfil-publico-hero-identidade">
             <strong>{{ colaborador.nome }}</strong>
             <small class="muted">{{
               colaborador.cargo || "Equipe da loja"
             }}</small>
           </div>
+        </div>
+
+        <div class="perfil-publico-hero-stats">
+          <article
+            v-for="item in resumoCabecalho"
+            :key="item.chave"
+            class="perfil-publico-hero-stat"
+            :style="{ '--stat-accent': item.accent }"
+          >
+            <span class="perfil-publico-hero-stat-label">
+              <span class="perfil-publico-hero-stat-icon">
+                <fa :icon="item.icone" />
+              </span>
+              <span>{{ item.label }}</span>
+            </span>
+            <strong>{{ item.valor }}</strong>
+          </article>
         </div>
       </div>
     </header>
@@ -343,20 +389,76 @@ function normalizarTier(valor) {
 
 .perfil-publico-hero-main {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .perfil-publico-hero-copy {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
+  min-width: 0;
+}
+
+.perfil-publico-hero-identidade {
+  min-width: 0;
 }
 
 .perfil-publico-hero-copy strong {
   display: block;
   margin-bottom: 4px;
-  font-size: clamp(1.2rem, 2vw, 1.7rem);
+  font-size: clamp(1.05rem, 1.7vw, 1.5rem);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.perfil-publico-avatar {
+  flex: 0 0 auto;
+}
+
+.perfil-publico-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.perfil-publico-hero-stat {
+  --stat-accent: #7c5cff;
+  border-radius: 14px;
+  border: 0;
+  padding: 6px 4px 4px;
+  display: grid;
+  gap: 6px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.perfil-publico-hero-stat strong {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.perfil-publico-hero-stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  line-height: 1.15;
+}
+
+.perfil-publico-hero-stat-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--stat-accent);
+  background: color-mix(in srgb, var(--stat-accent) 10%, transparent);
+  box-shadow: none;
+  flex: 0 0 auto;
+  font-size: 9px;
 }
 
 .perfil-publico-state {
@@ -542,22 +644,122 @@ function normalizarTier(valor) {
 @media (max-width: 720px) {
   .perfil-publico-hero,
   .card-state {
-    padding: 16px;
+    padding: 14px;
   }
 
   .perfil-publico-hero {
-    border-radius: 24px;
+    border-radius: 22px;
   }
 
   .perfil-publico-hero-copy {
-    grid-template-columns: 1fr;
-    justify-items: start;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
   }
 
-  .perfil-publico-summary,
-  .perfil-publico-tipos,
+  .perfil-publico-avatar {
+    transform: scale(0.85);
+    transform-origin: left center;
+  }
+
+  .perfil-publico-hero-stats,
+  .perfil-publico-tipos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .perfil-publico-conquistas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .perfil-publico-conquista {
+    padding: 12px;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+  }
+
+  .perfil-publico-conquista-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+    font-size: 20px;
+  }
+
+  .perfil-publico-conquista-tier {
+    gap: 5px;
+    font-size: 10px;
+  }
+
+  .perfil-publico-conquista-copy {
+    gap: 3px;
+  }
+
+  .perfil-publico-conquista-copy strong {
+    font-size: 13px;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+
+  .perfil-publico-conquista-copy .muted {
+    font-size: 11px;
+  }
+
+  .perfil-publico-hero-stat {
+    padding: 4px 2px 2px;
+    gap: 5px;
+    border-radius: 12px;
+  }
+
+  .perfil-publico-hero-stat strong {
+    font-size: 1rem;
+  }
+
+  .perfil-publico-hero-stat-label {
+    gap: 5px;
+    font-size: 10px;
+  }
+
+  .perfil-publico-hero-stat-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 8px;
+  }
+}
+
+@media (max-width: 420px) {
+  .perfil-publico-hero-copy strong {
+    font-size: 1.25rem;
+  }
+
+  .perfil-publico-tag {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .perfil-publico-hero-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .perfil-publico-hero-stat:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .perfil-publico-conquistas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .perfil-publico-conquista {
+    padding: 10px;
     grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .perfil-publico-conquista-icon {
+    width: 38px;
+    height: 38px;
+    font-size: 18px;
   }
 }
 </style>
