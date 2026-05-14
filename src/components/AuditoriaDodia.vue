@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import api from "@/services/api";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
+import ProductBarcode from "@/components/ProductBarcode.vue";
 
 const props = defineProps({
   token: { type: String, default: "" },
@@ -199,10 +200,21 @@ const temAuditoriaAnterior = computed(() =>
   Boolean(resumo.value?.temAuditoriaAnterior),
 );
 const itensDetalhe = computed(() => detalheCorredor.value?.itens || []);
-const contagemItensDetalhe = computed(() => {
-  const totais = { todos: itensDetalhe.value.length, lidos: 0, naoLidos: 0 };
+function itemDetalheEhValido(item) {
+  return item?.conforme === true || item?.conforme === false;
+}
 
-  for (const item of itensDetalhe.value) {
+const itensDetalheValidos = computed(() =>
+  itensDetalhe.value.filter((item) => itemDetalheEhValido(item)),
+);
+const contagemItensDetalhe = computed(() => {
+  const totais = {
+    todos: itensDetalheValidos.value.length,
+    lidos: 0,
+    naoLidos: 0,
+  };
+
+  for (const item of itensDetalheValidos.value) {
     if (item?.foiLido) totais.lidos += 1;
     else totais.naoLidos += 1;
   }
@@ -210,15 +222,17 @@ const contagemItensDetalhe = computed(() => {
   return totais;
 });
 const itensDetalheFiltrados = computed(() => {
+  const itensBase = itensDetalheValidos.value;
+
   if (filtroItensModal.value === "lidos") {
-    return itensDetalhe.value.filter((item) => item?.foiLido);
+    return itensBase.filter((item) => item?.foiLido);
   }
 
   if (filtroItensModal.value === "nao-lidos") {
-    return itensDetalhe.value.filter((item) => !item?.foiLido);
+    return itensBase.filter((item) => !item?.foiLido);
   }
 
-  return itensDetalhe.value;
+  return itensBase;
 });
 const totalCorredoresResumo = computed(() =>
   Number(
@@ -589,7 +603,8 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
               <div class="modal-section-head">
                 <h4>Itens do corredor</h4>
                 <span class="muted"
-                  >{{ detalheCorredor.itens.length }} item(ns)</span
+                  >{{ formatNum(contagemItensDetalhe.todos) }} item(ns)
+                  válidos</span
                 >
               </div>
               <div
@@ -630,7 +645,7 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
                   v-if="!itensDetalheFiltrados.length"
                   class="empty mini itens-vazios"
                 >
-                  Nenhum item encontrado para esse filtro.
+                  Nenhum item válido encontrado para esse filtro.
                 </div>
                 <div
                   v-for="item in itensDetalheFiltrados"
@@ -639,6 +654,7 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
                 >
                   <div class="item-row-main">
                     <strong>{{ item.codigo }} · {{ item.produto }}</strong>
+                    <ProductBarcode v-if="item.codigo" :value="item.codigo" />
                     <div class="muted item-meta">
                       <span v-if="item.setor">{{ item.setor }}</span>
                       <span v-if="item.classeRaiz">{{ item.classeRaiz }}</span>
@@ -1158,6 +1174,11 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
 .item-row-main,
 .item-row-side {
   min-width: 0;
+}
+
+.item-row-main {
+  display: grid;
+  gap: 8px;
 }
 
 .item-meta {
