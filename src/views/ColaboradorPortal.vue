@@ -63,6 +63,7 @@ const erroPerfilPublico = ref("");
 const conquistaSelecionada = ref(null);
 const filtroCategoriaConq = ref("todas");
 const filtroStatusConq = ref("todas");
+const rankingGeral = ref({ posicao: null, totalColaboradores: 0, totalItensLidos: 0 });
 
 const avatarInput = ref(null);
 const enviandoAvatar = ref(false);
@@ -461,9 +462,10 @@ async function login() {
 }
 
 async function carregarPerfil() {
-  const [perfilResponse, metricasResponse] = await Promise.all([
+  const [perfilResponse, metricasResponse, rankingResponse] = await Promise.all([
     apiPortal().get("/colaboradores/portal/me"),
     apiPortal().get("/metricas/portal/me?periodo=tudo"),
+    apiPortal().get("/metricas/portal/me/ranking-geral").catch(() => ({ data: { posicao: null, totalColaboradores: 0 } })),
   ]);
 
   const perfilData = perfilResponse.data;
@@ -487,6 +489,7 @@ async function carregarPerfil() {
 
   metricas.value = metricasResponse.data;
   conquistasResolvidas.value = metricasResponse.data.conquistas || [];
+  rankingGeral.value = rankingResponse.data || { posicao: null, totalColaboradores: 0 };
   await carregarColegas();
 }
 
@@ -495,7 +498,28 @@ async function carregarColegas() {
   erroColegas.value = "";
   try {
     const { data } = await apiPortal().get("/metricas/portal/me/colegas");
-    colegasEquipe.value = data.items || [];
+    const lista = data.items || [];
+
+    // Injeta o próprio colaborador na lista
+    if (perfil.value?._id) {
+      lista.push({
+        _id: perfil.value._id,
+        nome: perfil.value.nome,
+        cargo: perfil.value.cargo,
+        avatarUrl: perfil.value.avatarUrl,
+        nivel: perfil.value.nivel,
+        pontuacao: perfil.value.pontuacao,
+        totalAuditorias: perfil.value.totalAuditorias,
+        totalItensLidos: perfil.value.totalItensLidos,
+        taxaConformidade: perfil.value.taxaConformidade,
+        euMesmo: true,
+      });
+    }
+
+    // Ordena por itens lidos decrescente para refletir o ranking real
+    lista.sort((a, b) => (b.totalItensLidos || 0) - (a.totalItensLidos || 0));
+
+    colegasEquipe.value = lista;
     if (colegaIdAtivo.value) {
       colegaSelecionado.value =
         colegasEquipe.value.find(
@@ -805,6 +829,37 @@ const pctNivel = computed(() => {
   const base = (nivel.value - 1) * 500;
   return Math.min(100, ((pts - base) / 500) * 100);
 });
+
+// Mapa de _id → posição no ranking de itens lidos (top 3 ganham destaque)
+const rankingColegas = computed(() => {
+  const sorted = [...colegasEquipe.value]
+    .sort((a, b) => (b.totalItensLidos || 0) - (a.totalItensLidos || 0));
+  const mapa = new Map();
+  sorted.forEach((c, i) => {
+    if (i < 3) mapa.set(String(c._id), i + 1);
+  });
+  return mapa;
+});
+
+function rankColega(id) {
+  return rankingColegas.value.get(String(id)) ?? null;
+}
+
+function rankColegaClass(id) {
+  const r = rankColega(id);
+  if (r === 1) return "colega-rank-ouro";
+  if (r === 2) return "colega-rank-prata";
+  if (r === 3) return "colega-rank-bronze";
+  return "";
+}
+
+function rankColegaTrophy(id) {
+  const r = rankColega(id);
+  if (r === 1) return "🏆";
+  if (r === 2) return "🥈";
+  if (r === 3) return "🥉";
+  return null;
+}
 
 const totaisConquistas = computed(() => {
   const desbl = conquistasResolvidas.value.filter((c) => c.desbloqueada).length;
@@ -1268,6 +1323,7 @@ onBeforeUnmount(() => {
           :erro="erroPerfilPublico"
           :perfil="perfilPublicoColega"
           :colega-resumo="colegaSelecionado"
+          :ranking-geral="perfilPublicoColega?.rankingGeral || null"
         />
       </main>
 
@@ -1305,13 +1361,22 @@ onBeforeUnmount(() => {
               <strong>{{ formatNum(perfil.totalAuditorias) }}</strong>
               <small class="muted">auditorias</small>
             </div>
-            <div>
-              <strong
-                >{{ totaisConquistas.tiersDesbl }}/{{
-                  totaisConquistas.totalTiers
-                }}</strong
-              >
-              <small class="muted">tiers</small>
+            <div
+              class="ranking-stat"
+              :class="{
+                'rank-ouro': rankingGeral.posicao === 1,
+                'rank-prata': rankingGeral.posicao === 2,
+                'rank-bronze': rankingGeral.posicao === 3,
+              }"
+            >
+              <strong v-if="rankingGeral.posicao" class="rank-pos">
+                <span v-if="rankingGeral.posicao === 1" class="rank-trophy">🏆</span>
+                <span v-else-if="rankingGeral.posicao === 2" class="rank-trophy">🥈</span>
+                <span v-else-if="rankingGeral.posicao === 3" class="rank-trophy">🥉</span>
+                <span v-else class="rank-num">#</span>{{ rankingGeral.posicao }}
+              </strong>
+              <strong v-else class="rank-pos rank-nd">—</strong>
+              <small class="muted">ranking geral</small>
             </div>
           </div>
         </section>
@@ -1417,10 +1482,25 @@ onBeforeUnmount(() => {
               v-for="colega in colegasEquipe"
               :key="colega._id"
               class="colega-card"
+              :class="rankColegaClass(colega._id)"
               :href="urlPerfilPublicoColega(colega._id)"
               :title="colega.nome"
               @click="abrirPerfilPublicoColega(colega._id, $event)"
             >
+              <!-- Varredura de brilho (top 3) -->
+              <div v-if="rankColega(colega._id)" class="colega-shine" aria-hidden="true" />
+
+              <!-- Partículas (top 3) -->
+              <div v-if="rankColega(colega._id)" class="colega-particles" aria-hidden="true">
+                <span class="cp p1" /><span class="cp p2" /><span class="cp p3" />
+                <span class="cp p4" /><span class="cp p5" />
+              </div>
+
+              <!-- Medalha de posição -->
+              <div v-if="rankColegaTrophy(colega._id)" class="colega-rank-badge">
+                {{ rankColegaTrophy(colega._id) }}
+              </div>
+
               <div class="colega-main">
                 <ColaboradorAvatar
                   :nome="colega.nome"
@@ -1430,29 +1510,11 @@ onBeforeUnmount(() => {
                 />
                 <div class="colega-body">
                   <strong>{{ nomeColegaLista(colega.nome) }}</strong>
-                  <small class="muted">{{
-                    colega.cargo || "Equipe da loja"
+                  <small :class="colega.euMesmo ? 'colega-eu-label' : 'muted'">{{
+                    colega.euMesmo ? "Você" : colega.cargo || "Equipe da loja"
                   }}</small>
                 </div>
               </div>
-              <!-- <div class="colega-stats">
-                <div class="colega-stat">
-                  <span class="colega-stat-label">Nível</span>
-                  <strong>{{ colega.nivel }}</strong>
-                </div>
-                <div class="colega-stat">
-                  <span class="colega-stat-label">Itens</span>
-                  <strong>{{ formatNum(colega.totalItensLidos) }}</strong>
-                </div>
-                <div class="colega-stat">
-                  <span class="colega-stat-label">Conform.</span>
-                  <strong
-                    >{{
-                      Number(colega.taxaConformidade || 0).toFixed(1)
-                    }}%</strong
-                  >
-                </div>
-              </div> -->
               <div class="colega-link">
                 <span>Abrir perfil</span>
                 <fa icon="chevron-right" />
@@ -2338,6 +2400,164 @@ onBeforeUnmount(() => {
   font-weight: 700;
   color: #7c5cff;
 }
+
+/* ===== TOP 3 COLEGAS ===== */
+@keyframes colegaShine {
+  0%   { transform: translateX(-130%) skewX(-20deg); opacity: 0; }
+  12%  { opacity: 1; }
+  88%  { opacity: 1; }
+  100% { transform: translateX(240%) skewX(-20deg); opacity: 0; }
+}
+@keyframes colegaParticle {
+  0%   { transform: translateY(0) scale(1);   opacity: 0.8; }
+  55%  { transform: translateY(-20px) scale(1.35); opacity: 1; }
+  100% { transform: translateY(-44px) scale(0.5); opacity: 0; }
+}
+@keyframes colegaPulseOuro {
+  0%,100% { box-shadow: 0 12px 26px rgba(15,23,42,.08), 0 0 0 0 rgba(245,158,11,0); }
+  50%      { box-shadow: 0 18px 38px rgba(245,158,11,.18), 0 0 0 3px rgba(245,158,11,.22); }
+}
+@keyframes colegaPulsePrata {
+  0%,100% { box-shadow: 0 12px 26px rgba(15,23,42,.08), 0 0 0 0 rgba(148,163,184,0); }
+  50%      { box-shadow: 0 16px 34px rgba(148,163,184,.15), 0 0 0 3px rgba(148,163,184,.2); }
+}
+@keyframes colegaPulseBronze {
+  0%,100% { box-shadow: 0 12px 26px rgba(15,23,42,.08), 0 0 0 0 rgba(249,115,22,0); }
+  50%      { box-shadow: 0 16px 34px rgba(249,115,22,.15), 0 0 0 3px rgba(249,115,22,.2); }
+}
+@keyframes badgePop {
+  0%   { transform: scale(0.5) rotate(-18deg); opacity: 0; }
+  65%  { transform: scale(1.18) rotate(4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+/* Variáveis de cor por posição */
+.colega-rank-ouro {
+  --ck: 245, 158, 11;
+  border-color: rgba(245, 158, 11, 0.42) !important;
+  background:
+    radial-gradient(200px 130px at 0% 0%,   rgba(245,158,11,.15), transparent 68%),
+    radial-gradient(300px 160px at 100% 100%, rgba(245,158,11,.08), transparent 70%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--surface-strong) 92%, transparent),
+      color-mix(in srgb, var(--surface) 94%, transparent)) !important;
+  animation: colegaPulseOuro 2.6s ease-in-out 0.5s infinite;
+}
+.colega-rank-prata {
+  --ck: 148, 163, 184;
+  border-color: rgba(148, 163, 184, 0.38) !important;
+  background:
+    radial-gradient(200px 130px at 0% 0%,   rgba(148,163,184,.13), transparent 68%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--surface-strong) 92%, transparent),
+      color-mix(in srgb, var(--surface) 94%, transparent)) !important;
+  animation: colegaPulsePrata 3s ease-in-out 0.5s infinite;
+}
+.colega-rank-bronze {
+  --ck: 249, 115, 22;
+  border-color: rgba(249, 115, 22, 0.38) !important;
+  background:
+    radial-gradient(200px 130px at 0% 0%,   rgba(249,115,22,.13), transparent 68%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--surface-strong) 92%, transparent),
+      color-mix(in srgb, var(--surface) 94%, transparent)) !important;
+  animation: colegaPulseBronze 3.2s ease-in-out 0.5s infinite;
+}
+
+/* Link color acompanha a cor do tier */
+.colega-rank-ouro  .colega-link { color: #f59e0b; }
+.colega-rank-prata .colega-link { color: #94a3b8; }
+.colega-rank-bronze .colega-link { color: #f97316; }
+
+/* Faixa de brilho varrendo */
+.colega-shine {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  z-index: 0;
+}
+.colega-shine::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: 0;
+  width: 38%;
+  height: 200%;
+  animation: colegaShine 2.6s ease-in-out 0.2s infinite;
+}
+.colega-rank-ouro  .colega-shine::after {
+  background: linear-gradient(108deg, transparent 15%, rgba(255,220,80,.28) 50%, transparent 85%);
+  animation-duration: 2.4s;
+}
+.colega-rank-prata .colega-shine::after {
+  background: linear-gradient(108deg, transparent 15%, rgba(200,220,240,.22) 50%, transparent 85%);
+  animation-duration: 3.2s;
+}
+.colega-rank-bronze .colega-shine::after {
+  background: linear-gradient(108deg, transparent 15%, rgba(255,180,80,.22) 50%, transparent 85%);
+  animation-duration: 2.8s;
+}
+
+/* Partículas */
+.colega-particles {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.cp {
+  position: absolute;
+  border-radius: 50%;
+  animation: colegaParticle 2.4s ease-in infinite;
+  opacity: 0;
+  background: rgba(var(--ck), 1);
+  box-shadow: 0 0 5px 1px rgba(var(--ck), 0.55);
+}
+.cp.p1 { width:4px; height:4px; left:12%; bottom:16%; animation-delay:0s;    animation-duration:2.2s; }
+.cp.p2 { width:5px; height:5px; left:32%; bottom:8%;  animation-delay:0.6s;  animation-duration:2.8s; }
+.cp.p3 { width:3px; height:3px; left:56%; bottom:18%; animation-delay:1.1s;  animation-duration:2.5s; }
+.cp.p4 { width:4px; height:4px; left:74%; bottom:10%; animation-delay:0.3s;  animation-duration:3s;   }
+.cp.p5 { width:3px; height:3px; left:88%; bottom:22%; animation-delay:1.5s;  animation-duration:2.3s; }
+
+/* Medalha de posição (canto superior direito) */
+.colega-rank-badge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 20px;
+  line-height: 1;
+  z-index: 2;
+  animation: badgePop 0.55s cubic-bezier(0.22,1,0.36,1) both;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.25));
+}
+
+/* Garantir position:relative para os efeitos absolutos */
+.colega-rank-ouro,
+.colega-rank-prata,
+.colega-rank-bronze {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Conteúdo fica acima dos efeitos */
+.colega-rank-ouro  > .colega-main,
+.colega-rank-ouro  > .colega-link,
+.colega-rank-prata > .colega-main,
+.colega-rank-prata > .colega-link,
+.colega-rank-bronze > .colega-main,
+.colega-rank-bronze > .colega-link {
+  position: relative;
+  z-index: 1;
+}
+
+/* "Você" subtitle */
+.colega-eu-label {
+  color: #7c5cff;
+  font-weight: 700;
+  font-size: 11px;
+}
 .topbar-left {
   display: flex;
   align-items: center;
@@ -2444,6 +2664,40 @@ onBeforeUnmount(() => {
 }
 .nivel-stats small {
   font-size: 11px;
+}
+
+/* Ranking geral no nivel-card */
+.ranking-stat {
+  position: relative;
+}
+.rank-pos {
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.rank-trophy {
+  font-style: normal;
+  font-size: 15px;
+}
+.rank-num {
+  font-size: 13px;
+  opacity: 0.6;
+}
+.rank-nd {
+  opacity: 0.4;
+}
+.rank-ouro .rank-pos {
+  color: #f59e0b;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.45);
+}
+.rank-prata .rank-pos {
+  color: #94a3b8;
+  text-shadow: 0 0 8px rgba(148, 163, 184, 0.4);
+}
+.rank-bronze .rank-pos {
+  color: #f97316;
+  text-shadow: 0 0 8px rgba(249, 115, 22, 0.4);
 }
 
 .kpis-tipos {

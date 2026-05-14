@@ -9,6 +9,7 @@ const props = defineProps({
   erro: { type: String, default: "" },
   perfil: { type: Object, default: () => null },
   colegaResumo: { type: Object, default: () => null },
+  rankingGeral: { type: Object, default: () => null },
 });
 
 const corPorTipo = {
@@ -161,6 +162,21 @@ const serieChart = computed(() => {
 
 const temSerie = computed(() => serieChart.value.datasets.length > 0);
 
+const rankingPos = computed(() => props.rankingGeral?.posicao ?? null);
+const rankingTotal = computed(() => props.rankingGeral?.totalColaboradores ?? 0);
+const rankingTrophy = computed(() => {
+  if (rankingPos.value === 1) return "🏆";
+  if (rankingPos.value === 2) return "🥈";
+  if (rankingPos.value === 3) return "🥉";
+  return null;
+});
+const rankingClass = computed(() => {
+  if (rankingPos.value === 1) return "rank-ouro";
+  if (rankingPos.value === 2) return "rank-prata";
+  if (rankingPos.value === 3) return "rank-bronze";
+  return "";
+});
+
 const serieChartOptions = computed(() => ({
   plugins: {
     tooltip: {
@@ -245,6 +261,44 @@ function normalizarTier(valor) {
         </div>
       </div>
     </header>
+     <section
+        v-if="rankingPos !== null"
+        class="perfil-publico-section card-state perfil-ranking-card"
+        :class="rankingClass"
+      >
+        <!-- Varredura de brilho (top 3) -->
+        <div v-if="rankingTrophy" class="perfil-ranking-shine" aria-hidden="true" />
+
+        <!-- Partículas flutuantes (top 3) -->
+        <div v-if="rankingTrophy" class="perfil-ranking-particles" aria-hidden="true">
+          <span class="prk-p p1" />
+          <span class="prk-p p2" />
+          <span class="prk-p p3" />
+          <span class="prk-p p4" />
+          <span class="prk-p p5" />
+          <span class="prk-p p6" />
+        </div>
+
+        <div class="perfil-ranking-inner">
+          <div
+            class="perfil-ranking-icon"
+            :class="{ 'perfil-ranking-icon--animated': !!rankingTrophy }"
+          >
+            <span v-if="rankingTrophy" class="perfil-ranking-trophy">{{ rankingTrophy }}</span>
+            <fa v-else icon="ranking-star" />
+          </div>
+          <div class="perfil-ranking-body">
+            <small class="muted perfil-ranking-label">Ranking geral · mais itens lidos</small>
+            <div class="perfil-ranking-pos" :class="rankingClass">
+              <span v-if="!rankingTrophy" class="perfil-ranking-hash">#</span>{{ rankingPos }}
+              <span v-if="rankingTotal" class="perfil-ranking-total muted">/ {{ rankingTotal }}</span>
+            </div>
+            <small class="muted">
+              {{ formatNum(props.rankingGeral?.totalItensLidos) }} itens lidos (histórico)
+            </small>
+          </div>
+        </div>
+      </section>
 
     <div v-if="carregando" class="perfil-publico-state card-state">
       <Loader />
@@ -340,6 +394,8 @@ function normalizarTier(valor) {
           :options="serieChartOptions"
         />
       </section>
+
+     
     </div>
   </section>
 </template>
@@ -639,6 +695,244 @@ function normalizarTier(valor) {
   border: 1px dashed var(--border);
   text-align: center;
   background: color-mix(in srgb, var(--surface) 76%, transparent);
+}
+
+/* ============ KEYFRAMES ============ */
+@keyframes rankShine {
+  0%   { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: translateX(220%) skewX(-18deg); opacity: 0; }
+}
+@keyframes rankPulseOuro {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0), 0 18px 34px rgba(15,23,42,0.12); }
+  50%       { box-shadow: 0 0 0 4px rgba(245,158,11,0.28), 0 22px 44px rgba(245,158,11,0.18); }
+}
+@keyframes rankPulsePrata {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(148,163,184,0), 0 18px 34px rgba(15,23,42,0.12); }
+  50%       { box-shadow: 0 0 0 4px rgba(148,163,184,0.24), 0 22px 40px rgba(148,163,184,0.14); }
+}
+@keyframes rankPulseBronze {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(249,115,22,0), 0 18px 34px rgba(15,23,42,0.12); }
+  50%       { box-shadow: 0 0 0 4px rgba(249,115,22,0.24), 0 22px 40px rgba(249,115,22,0.16); }
+}
+@keyframes trophyBounce {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  20%       { transform: scale(1.22) rotate(-8deg); }
+  40%       { transform: scale(0.94) rotate(5deg); }
+  60%       { transform: scale(1.08) rotate(-3deg); }
+  80%       { transform: scale(0.98) rotate(2deg); }
+}
+@keyframes particleFloat {
+  0%   { transform: translateY(0) scale(1);   opacity: 0.7; }
+  50%  { transform: translateY(-18px) scale(1.3); opacity: 1; }
+  100% { transform: translateY(-40px) scale(0.6); opacity: 0; }
+}
+@keyframes rankReveal {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ---- Card ranking geral ---- */
+.perfil-ranking-card {
+  position: relative;
+  overflow: hidden;
+  animation: rankReveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  background:
+    radial-gradient(
+      400px 160px at 100% 50%,
+      rgba(124, 92, 255, 0.1),
+      transparent 70%
+    ),
+    color-mix(in srgb, var(--surface-strong) 90%, transparent);
+}
+.perfil-ranking-card.rank-ouro {
+  animation: rankReveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) both,
+             rankPulseOuro 2.8s ease-in-out 0.6s infinite;
+  background:
+    radial-gradient(360px 200px at 80% 50%, rgba(245, 158, 11, 0.18), transparent 70%),
+    radial-gradient(200px 120px at 0% 0%,   rgba(245, 158, 11, 0.10), transparent 60%),
+    color-mix(in srgb, var(--surface-strong) 90%, transparent);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+.perfil-ranking-card.rank-prata {
+  animation: rankReveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) both,
+             rankPulsePrata 3s ease-in-out 0.6s infinite;
+  background:
+    radial-gradient(360px 160px at 100% 50%, rgba(148, 163, 184, 0.16), transparent 70%),
+    color-mix(in srgb, var(--surface-strong) 90%, transparent);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+.perfil-ranking-card.rank-bronze {
+  animation: rankReveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) both,
+             rankPulseBronze 3.2s ease-in-out 0.6s infinite;
+  background:
+    radial-gradient(360px 160px at 100% 50%, rgba(249, 115, 22, 0.16), transparent 70%),
+    color-mix(in srgb, var(--surface-strong) 90%, transparent);
+  border-color: rgba(249, 115, 22, 0.35);
+}
+
+/* Shine sweep layer */
+.perfil-ranking-shine {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  z-index: 0;
+}
+.perfil-ranking-shine::after {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: 0;
+  width: 40%;
+  height: 180%;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255,255,255,0.13) 50%,
+    transparent 80%
+  );
+  animation: rankShine 3.4s ease-in-out 0.3s infinite;
+}
+.rank-ouro .perfil-ranking-shine::after {
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255, 220, 80, 0.22) 50%,
+    transparent 80%
+  );
+  animation-duration: 2.8s;
+}
+.rank-prata .perfil-ranking-shine::after {
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(200, 220, 240, 0.18) 50%,
+    transparent 80%
+  );
+  animation-duration: 3.6s;
+}
+.rank-bronze .perfil-ranking-shine::after {
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255, 180, 80, 0.18) 50%,
+    transparent 80%
+  );
+  animation-duration: 3.2s;
+}
+
+/* Floating particles */
+.perfil-ranking-particles {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.prk-p {
+  position: absolute;
+  border-radius: 50%;
+  animation: particleFloat 2.6s ease-in infinite;
+  opacity: 0;
+}
+.rank-ouro  .prk-p { background: #f59e0b; box-shadow: 0 0 6px 1px rgba(245,158,11,0.6); }
+.rank-prata .prk-p { background: #cbd5e1; box-shadow: 0 0 6px 1px rgba(148,163,184,0.5); }
+.rank-bronze .prk-p { background: #f97316; box-shadow: 0 0 6px 1px rgba(249,115,22,0.5); }
+
+.prk-p.p1 { width:5px; height:5px; left:10%; bottom:18%; animation-delay:0s;    animation-duration:2.4s; }
+.prk-p.p2 { width:4px; height:4px; left:28%; bottom:10%; animation-delay:0.5s;  animation-duration:3s;   }
+.prk-p.p3 { width:6px; height:6px; left:50%; bottom:22%; animation-delay:0.9s;  animation-duration:2.7s; }
+.prk-p.p4 { width:3px; height:3px; left:65%; bottom:14%; animation-delay:1.3s;  animation-duration:2.2s; }
+.prk-p.p5 { width:5px; height:5px; left:80%; bottom:8%;  animation-delay:0.3s;  animation-duration:3.1s; }
+.prk-p.p6 { width:4px; height:4px; left:92%; bottom:20%; animation-delay:1.7s;  animation-duration:2.5s; }
+
+/* Inner layout sits above the effects */
+.perfil-ranking-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.perfil-ranking-icon {
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  background: rgba(124, 92, 255, 0.12);
+  color: #7c5cff;
+  transition: box-shadow 0.3s;
+}
+.perfil-ranking-icon--animated {
+  animation: trophyBounce 2.2s ease-in-out 0.4s infinite;
+}
+.rank-ouro .perfil-ranking-icon {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  box-shadow: 0 0 18px rgba(245, 158, 11, 0.35);
+}
+.rank-prata .perfil-ranking-icon {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  box-shadow: 0 0 14px rgba(148, 163, 184, 0.3);
+}
+.rank-bronze .perfil-ranking-icon {
+  background: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+  box-shadow: 0 0 14px rgba(249, 115, 22, 0.3);
+}
+.perfil-ranking-trophy {
+  font-style: normal;
+  font-size: 28px;
+  line-height: 1;
+}
+.perfil-ranking-body {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.perfil-ranking-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.perfil-ranking-pos {
+  font-size: 2rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--text);
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.perfil-ranking-pos.rank-ouro {
+  color: #f59e0b;
+  text-shadow: 0 0 16px rgba(245, 158, 11, 0.6), 0 0 32px rgba(245, 158, 11, 0.25);
+}
+.perfil-ranking-pos.rank-prata {
+  color: #94a3b8;
+  text-shadow: 0 0 12px rgba(148, 163, 184, 0.5), 0 0 24px rgba(148, 163, 184, 0.2);
+}
+.perfil-ranking-pos.rank-bronze {
+  color: #f97316;
+  text-shadow: 0 0 12px rgba(249, 115, 22, 0.5), 0 0 24px rgba(249, 115, 22, 0.2);
+}
+.perfil-ranking-hash {
+  font-size: 1.2rem;
+  opacity: 0.5;
+}
+.perfil-ranking-total {
+  font-size: 1rem;
+  font-weight: 500;
+  opacity: 0.55;
 }
 
 @media (max-width: 720px) {
