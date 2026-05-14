@@ -1,72 +1,76 @@
 <script setup>
-import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import api from '@/services/api';
-import { useAuthStore } from '@/stores/auth';
-import ColaboradorAvatar from '@/components/ColaboradorAvatar.vue';
-import Loader from '@/components/Loader.vue';
-import AppChart from '@/components/AppChart.vue';
-import PeriodoSelector from '@/components/PeriodoSelector.vue';
+import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import api from "@/services/api";
+import { useAuthStore } from "@/stores/auth";
+import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
+import Loader from "@/components/Loader.vue";
+import AppChart from "@/components/AppChart.vue";
+import PeriodoSelector from "@/components/PeriodoSelector.vue";
 
 const auth = useAuthStore();
 const route = useRoute();
 const router = useRouter();
-const RELATORIOS_LOJA_STORAGE_KEY = 'na_relatorios_superadmin_loja';
+const RELATORIOS_LOJA_STORAGE_KEY = "na_relatorios_superadmin_loja";
 
-const periodo = ref('1d');
-const dataInicio = ref('');
-const dataFim = ref('');
-const tipo = ref('');
+const periodo = ref("1d");
+const dataInicio = ref("");
+const dataFim = ref("");
+const tipo = ref("");
 const lojasDisponiveis = ref([]);
-const lojaSelecionadaId = ref('');
+const lojaSelecionadaId = ref("");
 const carregandoLojas = ref(false);
-const erroLojas = ref('');
+const erroLojas = ref("");
 const carregando = ref(true);
 const refreshing = ref(false);
 const situacoes = ref([]);
 const classes = ref([]);
 const corredores = ref([]);
 const detalheOverlay = ref(null);
+const carregandoDetalheCorredor = ref(false);
+const erroDetalheCorredor = ref("");
+const filtroProdutosCorredor = ref("lidos");
 const sincronizandoRotaLoja = ref(false);
 const carregamentoInicialConcluido = ref(false);
+let requisicaoDetalheCorredor = 0;
 
 function tipoSugeridoHoje() {
   const diaSemana = new Date().getDay(); // 0=Dom, 1=Seg, ...
-  if (diaSemana === 1 || diaSemana === 4) return 'ETIQUETA';
-  if (diaSemana === 2) return 'PRESENCA';
-  if (diaSemana === 3) return 'RUPTURA';
-  return '';
+  if (diaSemana === 1 || diaSemana === 4) return "ETIQUETA";
+  if (diaSemana === 2) return "PRESENCA";
+  if (diaSemana === 3) return "RUPTURA";
+  return "";
 }
 
 function iniciais(nome) {
-  return (nome || '?')
-    .split(' ')
+  return (nome || "?")
+    .split(" ")
     .filter(Boolean)
     .slice(0, 2)
     .map((parte) => parte[0])
-    .join('')
+    .join("")
     .toUpperCase();
 }
 
 const labelsPeriodo = {
-  '1d': 'Hoje',
-  semana: 'Semana',
-  mes: 'Mês',
-  ano: 'Ano',
-  tudo: 'Histórico',
-  custom: 'Período personalizado',
+  "1d": "Hoje",
+  semana: "Semana",
+  mes: "Mês",
+  ano: "Ano",
+  tudo: "Histórico",
+  custom: "Período personalizado",
 };
 
 const labelsTipo = {
-  ETIQUETA: 'Etiqueta',
-  PRESENCA: 'Presença',
-  RUPTURA: 'Ruptura',
+  ETIQUETA: "Etiqueta",
+  PRESENCA: "Presença",
+  RUPTURA: "Ruptura",
 };
 
 const coresTipo = {
-  ETIQUETA: '#7c5cff',
-  PRESENCA: '#22d3ee',
-  RUPTURA: '#f59e0b',
+  ETIQUETA: "#7c5cff",
+  PRESENCA: "#22d3ee",
+  RUPTURA: "#f59e0b",
 };
 
 function paramsEscopoLoja(extra = {}) {
@@ -88,8 +92,9 @@ function persistirLojaSelecionada() {
 async function sincronizarRotaLoja() {
   if (!auth.isSuperAdmin) return;
 
-  const lojaAtualNaRota = typeof route.query.lojaId === 'string' ? route.query.lojaId : '';
-  const proximaLojaId = lojaSelecionadaId.value || '';
+  const lojaAtualNaRota =
+    typeof route.query.lojaId === "string" ? route.query.lojaId : "";
+  const proximaLojaId = lojaSelecionadaId.value || "";
   if (lojaAtualNaRota === proximaLojaId) return;
 
   const query = { ...route.query };
@@ -108,25 +113,29 @@ async function carregarLojasRelatorios() {
   if (!auth.isSuperAdmin) return;
 
   carregandoLojas.value = true;
-  erroLojas.value = '';
+  erroLojas.value = "";
   try {
-    const { data } = await api.get('/lojas');
-    lojasDisponiveis.value = (data.items || []).filter((loja) => loja.ativa !== false);
+    const { data } = await api.get("/lojas");
+    lojasDisponiveis.value = (data.items || []).filter(
+      (loja) => loja.ativa !== false,
+    );
 
-    const lojaDaRota = typeof route.query.lojaId === 'string' ? route.query.lojaId : '';
-    const lojaSalva = localStorage.getItem(RELATORIOS_LOJA_STORAGE_KEY) || '';
+    const lojaDaRota =
+      typeof route.query.lojaId === "string" ? route.query.lojaId : "";
+    const lojaSalva = localStorage.getItem(RELATORIOS_LOJA_STORAGE_KEY) || "";
     const lojaInicial =
-      lojasDisponiveis.value.find((loja) => loja._id === lojaDaRota)
-      || lojasDisponiveis.value.find((loja) => loja._id === lojaSalva)
-      || null;
+      lojasDisponiveis.value.find((loja) => loja._id === lojaDaRota) ||
+      lojasDisponiveis.value.find((loja) => loja._id === lojaSalva) ||
+      null;
 
-    lojaSelecionadaId.value = lojaInicial?._id || '';
+    lojaSelecionadaId.value = lojaInicial?._id || "";
     persistirLojaSelecionada();
     await sincronizarRotaLoja();
   } catch (error) {
-    erroLojas.value = error?.response?.data?.error || 'Não foi possível carregar as lojas.';
+    erroLojas.value =
+      error?.response?.data?.error || "Não foi possível carregar as lojas.";
     lojasDisponiveis.value = [];
-    lojaSelecionadaId.value = '';
+    lojaSelecionadaId.value = "";
     persistirLojaSelecionada();
     await sincronizarRotaLoja();
   } finally {
@@ -140,23 +149,29 @@ async function trocarLojaSelecionada() {
   await carregar();
 }
 
+function montarParamsRelatoriosAtivos() {
+  const params = paramsEscopoLoja({ periodo: periodo.value });
+  if (periodo.value === "custom" && dataInicio.value && dataFim.value) {
+    params.dataInicio = dataInicio.value;
+    params.dataFim = dataFim.value;
+  }
+  if (tipo.value) params.tipo = tipo.value;
+  return params;
+}
+
 async function carregar() {
   if (carregamentoInicialConcluido.value) refreshing.value = true;
   else carregando.value = true;
   detalheOverlay.value = null;
   try {
-    const paramsBase = paramsEscopoLoja({ periodo: periodo.value });
-    if (periodo.value === 'custom' && dataInicio.value && dataFim.value) {
-      paramsBase.dataInicio = dataInicio.value;
-      paramsBase.dataFim = dataFim.value;
-    }
+    const paramsBase = montarParamsRelatoriosAtivos();
 
     const carregarRelatorios = async (tipoSelecionado) => {
       const params = { ...paramsBase, tipo: tipoSelecionado || undefined };
       const [situacoesResp, classesResp, corredoresResp] = await Promise.all([
-        api.get('/metricas/relatorios/situacoes', { params }),
-        api.get('/metricas/relatorios/classes', { params }),
-        api.get('/metricas/relatorios/corredores', { params }),
+        api.get("/metricas/relatorios/situacoes", { params }),
+        api.get("/metricas/relatorios/classes", { params }),
+        api.get("/metricas/relatorios/corredores", { params }),
       ]);
 
       return {
@@ -172,15 +187,18 @@ async function carregar() {
 
     // Regra padrão: em seg/ter/qua/qui inicia no tipo sugerido do dia.
     // Se não houver dados para esse tipo no dia, volta automaticamente para "Todos os tipos".
-    const semDados = !respostaAtual.situacoes.length && !respostaAtual.classes.length && !respostaAtual.corredores.length;
+    const semDados =
+      !respostaAtual.situacoes.length &&
+      !respostaAtual.classes.length &&
+      !respostaAtual.corredores.length;
     if (
-      periodo.value === '1d'
-      && tipo.value
-      && tipo.value === tipoSugeridoHoje()
-      && semDados
+      periodo.value === "1d" &&
+      tipo.value &&
+      tipo.value === tipoSugeridoHoje() &&
+      semDados
     ) {
-      tipo.value = '';
-      dadosFinais = await carregarRelatorios('');
+      tipo.value = "";
+      dadosFinais = await carregarRelatorios("");
     }
 
     situacoes.value = dadosFinais.situacoes;
@@ -200,39 +218,52 @@ onMounted(async () => {
 });
 
 function aoPressionarTecla(event) {
-  if (event.key === 'Escape' && detalheOverlay.value) fecharOverlay();
+  if (event.key === "Escape" && detalheOverlay.value) fecharOverlay();
 }
 
 onMounted(() => {
-  if (typeof window !== 'undefined') window.addEventListener('keydown', aoPressionarTecla);
+  if (typeof window !== "undefined")
+    window.addEventListener("keydown", aoPressionarTecla);
 });
 
 onBeforeUnmount(() => {
-  if (typeof window !== 'undefined') window.removeEventListener('keydown', aoPressionarTecla);
-  if (typeof document !== 'undefined') document.body.style.overflow = '';
+  if (typeof window !== "undefined")
+    window.removeEventListener("keydown", aoPressionarTecla);
+  if (typeof document !== "undefined") document.body.style.overflow = "";
 });
 
 watch([periodo, tipo, dataInicio, dataFim], () => {
-  if (periodo.value !== 'custom' || (dataInicio.value && dataFim.value)) carregar();
+  if (periodo.value !== "custom" || (dataInicio.value && dataFim.value))
+    carregar();
 });
 
-watch(() => route.query.lojaId, async (novoValor) => {
-  if (!auth.isSuperAdmin || sincronizandoRotaLoja.value || carregandoLojas.value) return;
+watch(
+  () => route.query.lojaId,
+  async (novoValor) => {
+    if (
+      !auth.isSuperAdmin ||
+      sincronizandoRotaLoja.value ||
+      carregandoLojas.value
+    )
+      return;
 
-  const lojaDaRota = typeof novoValor === 'string' ? novoValor : '';
-  const lojaValida = lojaDaRota && lojasDisponiveis.value.some((loja) => loja._id === lojaDaRota);
-  const proximaLojaId = lojaValida ? lojaDaRota : '';
-  if (proximaLojaId === lojaSelecionadaId.value) return;
+    const lojaDaRota = typeof novoValor === "string" ? novoValor : "";
+    const lojaValida =
+      lojaDaRota &&
+      lojasDisponiveis.value.some((loja) => loja._id === lojaDaRota);
+    const proximaLojaId = lojaValida ? lojaDaRota : "";
+    if (proximaLojaId === lojaSelecionadaId.value) return;
 
-  lojaSelecionadaId.value = proximaLojaId;
-  persistirLojaSelecionada();
-  await sincronizarRotaLoja();
-  await carregar();
-});
+    lojaSelecionadaId.value = proximaLojaId;
+    persistirLojaSelecionada();
+    await sincronizarRotaLoja();
+    await carregar();
+  },
+);
 
 watch(detalheOverlay, (valor) => {
-  if (typeof document === 'undefined') return;
-  document.body.style.overflow = valor ? 'hidden' : '';
+  if (typeof document === "undefined") return;
+  document.body.style.overflow = valor ? "hidden" : "";
 });
 
 function somar(items, key) {
@@ -240,68 +271,168 @@ function somar(items, key) {
 }
 
 function formatarInteiro(valor = 0) {
-  return Number(valor || 0).toLocaleString('pt-BR');
+  return Number(valor || 0).toLocaleString("pt-BR");
 }
 
 function formatarMoeda(valor = 0) {
-  return `R$ ${Number(valor || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
+  return `R$ ${Number(valor || 0).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`;
 }
 
 function formatarPercentual(valor = 0, casas = 1) {
-  return `${Number(valor || 0).toLocaleString('pt-BR', {
+  return `${Number(valor || 0).toLocaleString("pt-BR", {
     minimumFractionDigits: casas,
     maximumFractionDigits: casas,
   })}%`;
 }
 
 function formatarData(valor) {
-  if (!valor) return 'Sem data recente';
+  if (!valor) return "Sem data recente";
   const data = new Date(valor);
-  if (Number.isNaN(data.getTime())) return 'Sem data recente';
-  return data.toLocaleDateString('pt-BR');
+  if (Number.isNaN(data.getTime())) return "Sem data recente";
+  return data.toLocaleDateString("pt-BR");
 }
 
 function statusRelatorio(item) {
   const taxa = Number(item?.taxaConformidade || 0);
   if (taxa >= 92) {
-    return { key: 'excellent', label: 'Excelente', color: '#22c55e', soft: 'rgba(34, 197, 94, 0.14)' };
+    return {
+      key: "excellent",
+      label: "Excelente",
+      color: "#22c55e",
+      soft: "rgba(34, 197, 94, 0.14)",
+    };
   }
   if (taxa >= 80) {
-    return { key: 'good', label: 'Bom', color: '#4f9cf0', soft: 'rgba(79, 156, 240, 0.16)' };
+    return {
+      key: "good",
+      label: "Bom",
+      color: "#4f9cf0",
+      soft: "rgba(79, 156, 240, 0.16)",
+    };
   }
   if (taxa >= 65) {
-    return { key: 'warn', label: 'Atenção', color: '#f59e0b', soft: 'rgba(245, 158, 11, 0.16)' };
+    return {
+      key: "warn",
+      label: "Atenção",
+      color: "#f59e0b",
+      soft: "rgba(245, 158, 11, 0.16)",
+    };
   }
-  return { key: 'critical', label: 'Crítico', color: '#ef4444', soft: 'rgba(239, 68, 68, 0.15)' };
+  return {
+    key: "critical",
+    label: "Crítico",
+    color: "#ef4444",
+    soft: "rgba(239, 68, 68, 0.15)",
+  };
 }
 
 function estiloStatus(item) {
   const status = statusRelatorio(item);
   return {
-    '--report-accent': status.color,
-    '--report-accent-soft': status.soft,
+    "--report-accent": status.color,
+    "--report-accent-soft": status.soft,
   };
 }
 
 function descricaoTipos(item) {
-  if (!item?.tipos?.length) return 'Sem tipo identificado';
-  if (item.tipos.length === 1) return labelsTipo[item.tipos[0]] || item.tipos[0];
+  if (!item?.tipos?.length) return "Sem tipo identificado";
+  if (item.tipos.length === 1)
+    return labelsTipo[item.tipos[0]] || item.tipos[0];
   return `${item.tipos.length} tipos no período`;
 }
 
-function abrirOverlay(item, dimensao) {
+function classeBadgeProdutoRelatorio(item) {
+  if (!item?.foiLido) return "warn";
+  if (item?.conforme === true) return "ok";
+  if (item?.conforme === false) return "bad";
+  return "dim";
+}
+
+function textoLeituraProdutoRelatorio(item) {
+  return item?.foiLido ? "Lido" : "Não lido";
+}
+
+const contagemProdutosCorredor = computed(() => ({
+  lidos: Number(detalheOverlay.value?.itensLidos?.length || 0),
+  naoLidos: Number(detalheOverlay.value?.itensNaoLidos?.length || 0),
+}));
+
+const produtosCorredorFiltrados = computed(() => {
+  if (filtroProdutosCorredor.value === "nao-lidos") {
+    return detalheOverlay.value?.itensNaoLidos || [];
+  }
+
+  return detalheOverlay.value?.itensLidos || [];
+});
+
+async function abrirOverlay(item, dimensao) {
+  const requestId = ++requisicaoDetalheCorredor;
+  filtroProdutosCorredor.value = "lidos";
   detalheOverlay.value = {
     ...item,
     dimensao,
+    itensLidos: [],
+    itensNaoLidos: [],
+    semEstoqueIgnorados: 0,
   };
+
+  erroDetalheCorredor.value = "";
+  carregandoDetalheCorredor.value = false;
+
+  if (dimensao !== "corredor") return;
+
+  carregandoDetalheCorredor.value = true;
+  try {
+    const params = {
+      ...montarParamsRelatoriosAtivos(),
+      corredor: item.nome,
+    };
+    const { data } = await api.get("/metricas/relatorios/corredores/detalhe", {
+      params,
+    });
+
+    if (
+      requestId !== requisicaoDetalheCorredor ||
+      detalheOverlay.value?.dimensao !== "corredor" ||
+      detalheOverlay.value?.nome !== item.nome
+    ) {
+      return;
+    }
+
+    detalheOverlay.value = {
+      ...detalheOverlay.value,
+      itensLidos: data?.itensLidos || [],
+      itensNaoLidos: data?.itensNaoLidos || [],
+      semEstoqueIgnorados: Number(data?.semEstoqueIgnorados || 0),
+    };
+
+    if (
+      !(data?.itensLidos || []).length &&
+      (data?.itensNaoLidos || []).length
+    ) {
+      filtroProdutosCorredor.value = "nao-lidos";
+    }
+  } catch (error) {
+    if (requestId !== requisicaoDetalheCorredor) return;
+    erroDetalheCorredor.value =
+      error?.response?.data?.error ||
+      "Não foi possível carregar os produtos deste corredor.";
+  } finally {
+    if (requestId === requisicaoDetalheCorredor) {
+      carregandoDetalheCorredor.value = false;
+    }
+  }
 }
 
 function fecharOverlay() {
+  requisicaoDetalheCorredor += 1;
   detalheOverlay.value = null;
+  erroDetalheCorredor.value = "";
+  carregandoDetalheCorredor.value = false;
 }
 
 function tituloDimensao(dimensao) {
-  return dimensao === 'classe' ? 'classe' : 'corredor';
+  return dimensao === "classe" ? "classe" : "corredor";
 }
 
 function colaboradoresLimitados(item, limite = 8) {
@@ -309,34 +440,69 @@ function colaboradoresLimitados(item, limite = 8) {
 }
 
 function restantesColaboradores(item, limite = 8) {
-  const total = Number(item?.totalColaboradores || item?.colaboradores?.length || 0);
+  const total = Number(
+    item?.totalColaboradores || item?.colaboradores?.length || 0,
+  );
   return Math.max(0, total - limite);
 }
 
-const possuiDados = computed(() => situacoes.value.length || classes.value.length || corredores.value.length);
+const possuiDados = computed(
+  () =>
+    situacoes.value.length || classes.value.length || corredores.value.length,
+);
 
 const periodoAtivoLabel = computed(() => {
-  if (periodo.value === 'custom') return `${dataInicio.value || '--'} a ${dataFim.value || '--'}`;
+  if (periodo.value === "custom")
+    return `${dataInicio.value || "--"} a ${dataFim.value || "--"}`;
   return labelsPeriodo[periodo.value] || periodo.value;
 });
 
-const tipoAtivoLabel = computed(() => (tipo.value ? labelsTipo[tipo.value] || tipo.value : 'Todos os tipos'));
+const tipoAtivoLabel = computed(() =>
+  tipo.value ? labelsTipo[tipo.value] || tipo.value : "Todos os tipos",
+);
 
-const fonteResumo = computed(() => (classes.value.length ? classes.value : corredores.value));
+const fonteResumo = computed(() =>
+  classes.value.length ? classes.value : corredores.value,
+);
 
 const resumoOperacional = computed(() => {
   const base = fonteResumo.value;
-  const totalLidos = somar(base, 'totalLidos');
-  const totalItens = somar(base, 'totalItens');
-  const totalConformes = somar(base, 'conformes');
+  const totalLidos = somar(base, "totalLidos");
+  const totalItens = somar(base, "totalItens");
+  const totalConformes = somar(base, "conformes");
   const taxaMedia = totalLidos ? (totalConformes / totalLidos) * 100 : 0;
 
   return [
-    { titulo: 'Classes mapeadas', valor: formatarInteiro(classes.value.length), detalhe: 'classes com leitura no período', tone: 'primary' },
-    { titulo: 'Corredores monitorados', valor: formatarInteiro(corredores.value.length), detalhe: 'corredores com itens auditados', tone: 'accent' },
-    { titulo: 'Itens lidos', valor: formatarInteiro(totalLidos), detalhe: `${formatarInteiro(totalItens)} itens considerados`, tone: 'success' },
-    { titulo: 'Conformidade média', valor: formatarPercentual(taxaMedia, 1), detalhe: `${formatarInteiro(totalConformes)} conformes no período`, tone: 'info' },
-    { titulo: 'Custo de ruptura', valor: formatarMoeda(somar(base, 'custoRuptura')), detalhe: 'soma operacional do período', tone: 'warning' },
+    {
+      titulo: "Classes mapeadas",
+      valor: formatarInteiro(classes.value.length),
+      detalhe: "classes com leitura no período",
+      tone: "primary",
+    },
+    {
+      titulo: "Corredores monitorados",
+      valor: formatarInteiro(corredores.value.length),
+      detalhe: "corredores com itens auditados",
+      tone: "accent",
+    },
+    {
+      titulo: "Itens lidos",
+      valor: formatarInteiro(totalLidos),
+      detalhe: `${formatarInteiro(totalItens)} itens considerados`,
+      tone: "success",
+    },
+    {
+      titulo: "Conformidade média",
+      valor: formatarPercentual(taxaMedia, 1),
+      detalhe: `${formatarInteiro(totalConformes)} conformes no período`,
+      tone: "info",
+    },
+    {
+      titulo: "Custo de ruptura",
+      valor: formatarMoeda(somar(base, "custoRuptura")),
+      detalhe: "soma operacional do período",
+      tone: "warning",
+    },
   ];
 });
 
@@ -348,8 +514,15 @@ const chartSituacoes = computed(() => {
     labels,
     datasets: tipos.map((tipoAtual) => ({
       label: labelsTipo[tipoAtual] || tipoAtual,
-      data: labels.map((situacaoAtual) => situacoes.value.find((item) => item._id.tipo === tipoAtual && item._id.situacao === situacaoAtual)?.total || 0),
-      backgroundColor: coresTipo[tipoAtual] || '#888',
+      data: labels.map(
+        (situacaoAtual) =>
+          situacoes.value.find(
+            (item) =>
+              item._id.tipo === tipoAtual &&
+              item._id.situacao === situacaoAtual,
+          )?.total || 0,
+      ),
+      backgroundColor: coresTipo[tipoAtual] || "#888",
       borderRadius: 8,
     })),
   };
@@ -362,55 +535,71 @@ const chartSituacoesOptions = computed(() => ({
   },
 }));
 
-const topClassesPorVolume = computed(() => [...classes.value]
-  .sort((a, b) => b.totalLidos - a.totalLidos || b.totalItens - a.totalItens || a.nome.localeCompare(b.nome, 'pt-BR'))
-  .slice(0, 8));
+const topClassesPorVolume = computed(() =>
+  [...classes.value]
+    .sort(
+      (a, b) =>
+        b.totalLidos - a.totalLidos ||
+        b.totalItens - a.totalItens ||
+        a.nome.localeCompare(b.nome, "pt-BR"),
+    )
+    .slice(0, 8),
+);
 
 const chartClasses = computed(() => ({
   labels: topClassesPorVolume.value.map((item) => item.nome),
   datasets: [
     {
-      label: 'Itens lidos',
+      label: "Itens lidos",
       data: topClassesPorVolume.value.map((item) => item.totalLidos),
-      backgroundColor: '#5b8cff',
+      backgroundColor: "#5b8cff",
       borderRadius: 10,
     },
     {
-      label: 'Não conformes',
+      label: "Não conformes",
       data: topClassesPorVolume.value.map((item) => item.naoConformes),
-      backgroundColor: '#f59e0b',
+      backgroundColor: "#f59e0b",
       borderRadius: 10,
     },
   ],
 }));
 
 const chartClassesOptions = computed(() => ({
-  indexAxis: 'y',
+  indexAxis: "y",
   scales: {
     x: { ticks: { precision: 0 } },
     y: { ticks: { autoSkip: false } },
   },
 }));
 
-const classesOrdenadas = computed(() => [...classes.value]
-  .sort((a, b) => {
+const classesOrdenadas = computed(() =>
+  [...classes.value].sort((a, b) => {
     const prioridade = (item) => {
       const status = statusRelatorio(item).key;
-      if (status === 'critical') return 0;
-      if (status === 'warn') return 1;
-      if (status === 'good') return 2;
+      if (status === "critical") return 0;
+      if (status === "warn") return 1;
+      if (status === "good") return 2;
       return 3;
     };
 
-    return prioridade(a) - prioridade(b)
-      || a.taxaConformidade - b.taxaConformidade
-      || b.naoConformes - a.naoConformes
-      || b.totalLidos - a.totalLidos
-      || a.nome.localeCompare(b.nome, 'pt-BR');
-  }));
+    return (
+      prioridade(a) - prioridade(b) ||
+      a.taxaConformidade - b.taxaConformidade ||
+      b.naoConformes - a.naoConformes ||
+      b.totalLidos - a.totalLidos ||
+      a.nome.localeCompare(b.nome, "pt-BR")
+    );
+  }),
+);
 
-const corredoresOrdenados = computed(() => [...corredores.value]
-  .sort((a, b) => b.taxaConformidade - a.taxaConformidade || b.totalLidos - a.totalLidos || a.nome.localeCompare(b.nome, 'pt-BR')));
+const corredoresOrdenados = computed(() =>
+  [...corredores.value].sort(
+    (a, b) =>
+      b.taxaConformidade - a.taxaConformidade ||
+      b.totalLidos - a.totalLidos ||
+      a.nome.localeCompare(b.nome, "pt-BR"),
+  ),
+);
 </script>
 
 <template>
@@ -421,7 +610,7 @@ const corredoresOrdenados = computed(() => [...corredores.value]
         v-model:dataInicio="dataInicio"
         v-model:dataFim="dataFim"
       />
-      <select v-model="tipo" class="btn ghost" style="padding: 8px 14px;">
+      <select v-model="tipo" class="btn ghost" style="padding: 8px 14px">
         <option value="">Todos os tipos</option>
         <option value="ETIQUETA">Etiqueta</option>
         <option value="PRESENCA">Presença</option>
@@ -431,207 +620,307 @@ const corredoresOrdenados = computed(() => [...corredores.value]
         v-if="auth.isSuperAdmin"
         v-model="lojaSelecionadaId"
         class="btn ghost"
-        style="padding: 8px 14px; min-width: 240px;"
+        style="padding: 8px 14px; min-width: 240px"
         :disabled="carregandoLojas"
         @change="trocarLojaSelecionada"
       >
         <option value="">Todas as lojas</option>
-        <option v-for="loja in lojasDisponiveis" :key="loja._id" :value="loja._id">{{ loja.nome }}</option>
+        <option
+          v-for="loja in lojasDisponiveis"
+          :key="loja._id"
+          :value="loja._id"
+        >
+          {{ loja.nome }}
+        </option>
       </select>
       <span v-if="refreshing" class="badge dim reports-loading-pill">
         <span class="reports-loading-dot"></span>
         Atualizando...
       </span>
-      <span v-if="auth.isSuperAdmin && erroLojas" class="badge bad">{{ erroLojas }}</span>
+      <span v-if="auth.isSuperAdmin && erroLojas" class="badge bad">{{
+        erroLojas
+      }}</span>
     </div>
 
     <Loader v-if="carregando" />
 
-    <div v-else :class="['reports-content', { 'reports-refreshing': refreshing }]">
+    <div
+      v-else
+      :class="['reports-content', { 'reports-refreshing': refreshing }]"
+    >
       <div v-if="!possuiDados" class="empty">
         Não há dados suficientes para montar os relatórios desse período.
       </div>
 
       <template v-else>
-      <section class="report-summary-grid">
-        <article
-          v-for="card in resumoOperacional"
-          :key="card.titulo"
-          class="card report-summary-card"
-          :class="`tone-${card.tone}`"
-        >
-          <span class="report-summary-label">{{ card.titulo }}</span>
-          <strong class="report-summary-value">{{ card.valor }}</strong>
-          <span class="report-summary-detail">{{ card.detalhe }}</span>
-        </article>
-      </section>
-
-      <section class="report-panorama-grid">
-        <div class="card report-panel">
-          <div class="report-panel-head">
-            <div>
-              <h3 class="mt-0 mb-0">Distribuição por situação</h3>
-              <p class="muted report-panel-copy">Resumo do volume de ocorrências por tipo dentro do período filtrado.</p>
-            </div>
-            <span class="badge dim">{{ tipoAtivoLabel }}</span>
-          </div>
-          <AppChart type="bar" :data="chartSituacoes" :options="chartSituacoesOptions" :height="320" />
-        </div>
-
-        <div class="card report-panel">
-          <div class="report-panel-head">
-            <div>
-              <h3 class="mt-0 mb-0">Classes com maior leitura</h3>
-              <p class="muted report-panel-copy">Panorama das classes mais movimentadas, comparando itens lidos com desvios encontrados.</p>
-            </div>
-            <span class="badge dim">{{ periodoAtivoLabel }}</span>
-          </div>
-          <AppChart type="bar" :data="chartClasses" :options="chartClassesOptions" :height="320" />
-        </div>
-      </section>
-
-      <section class="card report-panel">
-        <div class="report-panel-head">
-          <div>
-            <h3 class="mt-0 mb-0">Relatório por corredor</h3>
-            <p class="muted report-panel-copy">Lista todos os corredores auditados com conformidade, volume lido e custo de ruptura.</p>
-          </div>
-          <span class="badge dim">{{ formatarInteiro(corredoresOrdenados.length) }} corredores</span>
-        </div>
-
-        <div class="corridor-grid">
+        <section class="report-summary-grid">
           <article
-            v-for="item in corredoresOrdenados"
-            :key="item.nome"
-            class="corridor-card"
-            :class="`status-${statusRelatorio(item).key}`"
-            :style="estiloStatus(item)"
-            @click="abrirOverlay(item, 'corredor')"
-            @keydown.enter.prevent="abrirOverlay(item, 'corredor')"
-            @keydown.space.prevent="abrirOverlay(item, 'corredor')"
-            role="button"
-            tabindex="0"
+            v-for="card in resumoOperacional"
+            :key="card.titulo"
+            class="card report-summary-card"
+            :class="`tone-${card.tone}`"
           >
-            <div class="corridor-head">
-              <div class="corridor-mark">
-                <fa icon="chart-bar" />
-              </div>
-
-              <div class="corridor-copy">
-                <div class="corridor-name">{{ item.nome }}</div>
-                <div class="corridor-rate">{{ formatarPercentual(item.taxaConformidade, 2) }}</div>
-              </div>
-
-              <span class="report-status-pill" :class="`status-${statusRelatorio(item).key}`">
-                {{ statusRelatorio(item).label }}
-              </span>
-            </div>
-
-            <div class="corridor-progress">
-              <span :style="{ width: Math.min(100, Math.max(0, item.taxaConformidade || 0)) + '%' }"></span>
-            </div>
-
-            <div class="corridor-footnote">{{ formatarPercentual(item.taxaConformidade, 2) }} concluído · {{ descricaoTipos(item) }}</div>
-
-            <div class="corridor-stats">
-              <span><strong>{{ formatarInteiro(item.totalLidos) }}</strong> lidos</span>
-              <span><strong>{{ formatarInteiro(item.totalItens) }}</strong> itens</span>
-              <span><strong>{{ formatarInteiro(item.naoConformes) }}</strong> desvios</span>
-            </div>
-
-            <div class="corridor-toggle muted">
-              <fa icon="up-right-and-down-left-from-center" />
-              Ver detalhes
-            </div>
+            <span class="report-summary-label">{{ card.titulo }}</span>
+            <strong class="report-summary-value">{{ card.valor }}</strong>
+            <span class="report-summary-detail">{{ card.detalhe }}</span>
           </article>
-        </div>
-      </section>
+        </section>
 
-      <section class="card report-panel">
-        <div class="report-panel-head">
-          <div>
-            <h3 class="mt-0 mb-0">Relatório por classe</h3>
-            <p class="muted report-panel-copy">Visão operacional completa das classes, priorizando os pontos com maior necessidade de ação.</p>
+        <section class="report-panorama-grid">
+          <div class="card report-panel">
+            <div class="report-panel-head">
+              <div>
+                <h3 class="mt-0 mb-0">Distribuição por situação</h3>
+                <p class="muted report-panel-copy">
+                  Resumo do volume de ocorrências por tipo dentro do período
+                  filtrado.
+                </p>
+              </div>
+              <span class="badge dim">{{ tipoAtivoLabel }}</span>
+            </div>
+            <AppChart
+              type="bar"
+              :data="chartSituacoes"
+              :options="chartSituacoesOptions"
+              :height="320"
+            />
           </div>
-          <span class="badge dim">{{ formatarInteiro(classesOrdenadas.length) }} classes</span>
-        </div>
 
-        <div class="table-wrap report-table-wrap">
-          <table class="table report-table">
-            <thead>
-              <tr>
-                <th>Classe</th>
-                <th>Desempenho</th>
-                <th>Total itens</th>
-                <th>Itens lidos</th>
-                <th>Não conformes</th>
-                <th>Custo ruptura</th>
-                <th>Status</th>
-                <th>Colaboradores</th>
-              </tr>
-            </thead>
-            <tbody>
-              <template v-for="item in classesOrdenadas" :key="item.nome">
-              <tr :style="estiloStatus(item)">
-                <td>
-                  <div class="class-cell">
-                    <strong>{{ item.nome }}</strong>
-                    <span class="muted">{{ descricaoTipos(item) }}</span>
+          <div class="card report-panel">
+            <div class="report-panel-head">
+              <div>
+                <h3 class="mt-0 mb-0">Classes com maior leitura</h3>
+                <p class="muted report-panel-copy">
+                  Panorama das classes mais movimentadas, comparando itens lidos
+                  com desvios encontrados.
+                </p>
+              </div>
+              <span class="badge dim">{{ periodoAtivoLabel }}</span>
+            </div>
+            <AppChart
+              type="bar"
+              :data="chartClasses"
+              :options="chartClassesOptions"
+              :height="320"
+            />
+          </div>
+        </section>
+
+        <section class="card report-panel">
+          <div class="report-panel-head">
+            <div>
+              <h3 class="mt-0 mb-0">Relatório por corredor</h3>
+              <p class="muted report-panel-copy">
+                Lista todos os corredores auditados com conformidade, volume
+                lido e custo de ruptura.
+              </p>
+            </div>
+            <span class="badge dim"
+              >{{
+                formatarInteiro(corredoresOrdenados.length)
+              }}
+              corredores</span
+            >
+          </div>
+
+          <div class="corridor-grid">
+            <article
+              v-for="item in corredoresOrdenados"
+              :key="item.nome"
+              class="corridor-card"
+              :class="`status-${statusRelatorio(item).key}`"
+              :style="estiloStatus(item)"
+              @click="abrirOverlay(item, 'corredor')"
+              @keydown.enter.prevent="abrirOverlay(item, 'corredor')"
+              @keydown.space.prevent="abrirOverlay(item, 'corredor')"
+              role="button"
+              tabindex="0"
+            >
+              <div class="corridor-head">
+                <div class="corridor-mark">
+                  <fa icon="chart-bar" />
+                </div>
+
+                <div class="corridor-copy">
+                  <div class="corridor-name">{{ item.nome }}</div>
+                  <div class="corridor-rate">
+                    {{ formatarPercentual(item.taxaConformidade, 2) }}
                   </div>
-                </td>
-                <td>
-                  <div class="class-progress-wrap">
-                    <div class="class-progress-bar">
-                      <span :style="{ width: Math.min(100, Math.max(0, item.taxaConformidade || 0)) + '%' }"></span>
-                    </div>
-                    <strong>{{ formatarPercentual(item.taxaConformidade, 1) }}</strong>
-                  </div>
-                </td>
-                <td>{{ formatarInteiro(item.totalItens) }}</td>
-                <td>{{ formatarInteiro(item.totalLidos) }}</td>
-                <td>{{ formatarInteiro(item.naoConformes) }}</td>
-                <td>{{ formatarMoeda(item.custoRuptura) }}</td>
-                <td>
-                  <span class="report-status-pill" :class="`status-${statusRelatorio(item).key}`">
-                    {{ statusRelatorio(item).label }}
-                  </span>
-                </td>
-                <td>
-                  <button class="btn ghost class-collab-toggle" @click="abrirOverlay(item, 'classe')">
-                    <fa icon="up-right-and-down-left-from-center" />
-                    Ver mais
-                  </button>
-                </td>
-              </tr>
-              </template>
-            </tbody>
-          </table>
-        </div>
-      </section>
+                </div>
+
+                <span
+                  class="report-status-pill"
+                  :class="`status-${statusRelatorio(item).key}`"
+                >
+                  {{ statusRelatorio(item).label }}
+                </span>
+              </div>
+
+              <div class="corridor-progress">
+                <span
+                  :style="{
+                    width:
+                      Math.min(100, Math.max(0, item.taxaConformidade || 0)) +
+                      '%',
+                  }"
+                ></span>
+              </div>
+
+              <div class="corridor-footnote">
+                {{ formatarPercentual(item.taxaConformidade, 2) }} concluído ·
+                {{ descricaoTipos(item) }}
+              </div>
+
+              <div class="corridor-stats">
+                <span
+                  ><strong>{{ formatarInteiro(item.totalLidos) }}</strong>
+                  lidos</span
+                >
+                <span
+                  ><strong>{{ formatarInteiro(item.totalItens) }}</strong>
+                  itens</span
+                >
+                <span
+                  ><strong>{{ formatarInteiro(item.naoConformes) }}</strong>
+                  desvios</span
+                >
+              </div>
+
+              <div class="corridor-toggle muted">
+                <fa icon="up-right-and-down-left-from-center" />
+                Ver detalhes
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="card report-panel">
+          <div class="report-panel-head">
+            <div>
+              <h3 class="mt-0 mb-0">Relatório por classe</h3>
+              <p class="muted report-panel-copy">
+                Visão operacional completa das classes, priorizando os pontos
+                com maior necessidade de ação.
+              </p>
+            </div>
+            <span class="badge dim"
+              >{{ formatarInteiro(classesOrdenadas.length) }} classes</span
+            >
+          </div>
+
+          <div class="table-wrap report-table-wrap">
+            <table class="table report-table">
+              <thead>
+                <tr>
+                  <th>Classe</th>
+                  <th>Desempenho</th>
+                  <th>Total itens</th>
+                  <th>Itens lidos</th>
+                  <th>Não conformes</th>
+                  <th>Custo ruptura</th>
+                  <th>Status</th>
+                  <th>Colaboradores</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template v-for="item in classesOrdenadas" :key="item.nome">
+                  <tr :style="estiloStatus(item)">
+                    <td>
+                      <div class="class-cell">
+                        <strong>{{ item.nome }}</strong>
+                        <span class="muted">{{ descricaoTipos(item) }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div class="class-progress-wrap">
+                        <div class="class-progress-bar">
+                          <span
+                            :style="{
+                              width:
+                                Math.min(
+                                  100,
+                                  Math.max(0, item.taxaConformidade || 0),
+                                ) + '%',
+                            }"
+                          ></span>
+                        </div>
+                        <strong>{{
+                          formatarPercentual(item.taxaConformidade, 1)
+                        }}</strong>
+                      </div>
+                    </td>
+                    <td>{{ formatarInteiro(item.totalItens) }}</td>
+                    <td>{{ formatarInteiro(item.totalLidos) }}</td>
+                    <td>{{ formatarInteiro(item.naoConformes) }}</td>
+                    <td>{{ formatarMoeda(item.custoRuptura) }}</td>
+                    <td>
+                      <span
+                        class="report-status-pill"
+                        :class="`status-${statusRelatorio(item).key}`"
+                      >
+                        {{ statusRelatorio(item).label }}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        class="btn ghost class-collab-toggle"
+                        @click="abrirOverlay(item, 'classe')"
+                      >
+                        <fa icon="up-right-and-down-left-from-center" />
+                        Ver mais
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </template>
     </div>
 
     <Teleport to="body">
       <Transition name="detail-overlay" appear>
-        <div v-if="detalheOverlay" class="global-overlay-backdrop" @click="fecharOverlay">
-          <div class="global-overlay-panel card glow" :style="estiloStatus(detalheOverlay)" @click.stop>
+        <div
+          v-if="detalheOverlay"
+          class="global-overlay-backdrop"
+          @click="fecharOverlay"
+        >
+          <div
+            class="global-overlay-panel card glow"
+            :style="estiloStatus(detalheOverlay)"
+            @click.stop
+          >
             <div class="global-overlay-hero">
               <div class="overlay-hero-mark">
                 <fa icon="chart-bar" />
               </div>
 
               <div class="overlay-hero-copy">
-                <span class="badge dim">Relatório por {{ tituloDimensao(detalheOverlay.dimensao) }}</span>
+                <span class="badge dim"
+                  >Relatório por
+                  {{ tituloDimensao(detalheOverlay.dimensao) }}</span
+                >
                 <h3 class="mt-0 mb-0">{{ detalheOverlay.nome }}</h3>
-                <p class="muted overlay-copy">{{ descricaoTipos(detalheOverlay) }} · {{ periodoAtivoLabel }}</p>
+                <p class="muted overlay-copy">
+                  {{ descricaoTipos(detalheOverlay) }} · {{ periodoAtivoLabel }}
+                </p>
               </div>
 
               <div class="overlay-hero-side">
-                <span class="report-status-pill" :class="`status-${statusRelatorio(detalheOverlay).key}`">
+                <span
+                  class="report-status-pill"
+                  :class="`status-${statusRelatorio(detalheOverlay).key}`"
+                >
                   {{ statusRelatorio(detalheOverlay).label }}
                 </span>
-                <strong class="overlay-hero-rate">{{ formatarPercentual(detalheOverlay.taxaConformidade, 2) }}</strong>
-                <button class="btn ghost overlay-close-btn" @click="fecharOverlay">
+                <strong class="overlay-hero-rate">{{
+                  formatarPercentual(detalheOverlay.taxaConformidade, 2)
+                }}</strong>
+                <button
+                  class="btn ghost overlay-close-btn"
+                  @click="fecharOverlay"
+                >
                   <fa icon="xmark" /> Fechar
                 </button>
               </div>
@@ -639,24 +928,42 @@ const corredoresOrdenados = computed(() => [...corredores.value]
 
             <div class="overlay-metrics-grid">
               <div class="overlay-metric-card">
-                <span class="overlay-metric-label">Total de itens</span>
-                <strong class="overlay-metric-value">{{ formatarInteiro(detalheOverlay.totalItens) }}</strong>
+                <span class="overlay-metric-label">{{
+                  detalheOverlay.dimensao === "corredor"
+                    ? "Itens válidos"
+                    : "Total de itens"
+                }}</span>
+                <strong class="overlay-metric-value">{{
+                  formatarInteiro(detalheOverlay.totalItens)
+                }}</strong>
               </div>
               <div class="overlay-metric-card">
-                <span class="overlay-metric-label">Itens auditados</span>
-                <strong class="overlay-metric-value">{{ formatarInteiro(detalheOverlay.totalLidos) }}</strong>
+                <span class="overlay-metric-label">{{
+                  detalheOverlay.dimensao === "corredor"
+                    ? "Itens lidos"
+                    : "Itens auditados"
+                }}</span>
+                <strong class="overlay-metric-value">{{
+                  formatarInteiro(detalheOverlay.totalLidos)
+                }}</strong>
               </div>
               <div class="overlay-metric-card">
                 <span class="overlay-metric-label">Itens corretos</span>
-                <strong class="overlay-metric-value">{{ formatarInteiro(detalheOverlay.conformes) }}</strong>
+                <strong class="overlay-metric-value">{{
+                  formatarInteiro(detalheOverlay.conformes)
+                }}</strong>
               </div>
               <div class="overlay-metric-card">
                 <span class="overlay-metric-label">Pendentes de leitura</span>
-                <strong class="overlay-metric-value">{{ formatarInteiro(detalheOverlay.semLeitura) }}</strong>
+                <strong class="overlay-metric-value">{{
+                  formatarInteiro(detalheOverlay.semLeitura)
+                }}</strong>
               </div>
               <div class="overlay-metric-card">
                 <span class="overlay-metric-label">Custo de ruptura</span>
-                <strong class="overlay-metric-value">{{ formatarMoeda(detalheOverlay.custoRuptura) }}</strong>
+                <strong class="overlay-metric-value">{{
+                  formatarMoeda(detalheOverlay.custoRuptura)
+                }}</strong>
               </div>
             </div>
 
@@ -665,36 +972,229 @@ const corredoresOrdenados = computed(() => [...corredores.value]
                 <strong><fa icon="circle-info" /> Visão operacional</strong>
               </div>
               <div class="corridor-meta overlay-meta-grid">
-                <span>Itens com desvio: <strong>{{ formatarInteiro(detalheOverlay.naoConformes) }}</strong></span>
-                <span>Última auditoria: <strong>{{ formatarData(detalheOverlay.ultimaAuditoriaEm) }}</strong></span>
-                <span>Colaboradores ativos: <strong>{{ formatarInteiro(detalheOverlay.totalColaboradores || detalheOverlay.colaboradores?.length || 0) }}</strong></span>
+                <span
+                  >Itens com desvio:
+                  <strong>{{
+                    formatarInteiro(detalheOverlay.naoConformes)
+                  }}</strong></span
+                >
+                <span
+                  >Última auditoria:
+                  <strong>{{
+                    formatarData(detalheOverlay.ultimaAuditoriaEm)
+                  }}</strong></span
+                >
+                <span
+                  >Colaboradores ativos:
+                  <strong>{{
+                    formatarInteiro(
+                      detalheOverlay.totalColaboradores ||
+                        detalheOverlay.colaboradores?.length ||
+                        0,
+                    )
+                  }}</strong></span
+                >
+              </div>
+            </div>
+
+            <div
+              v-if="detalheOverlay.dimensao === 'corredor'"
+              class="overlay-section"
+            >
+              <div class="overlay-section-head overlay-section-head-between">
+                <strong
+                  ><fa icon="boxes-stacked" /> Produtos do corredor</strong
+                >
+                <span
+                  v-if="detalheOverlay.semEstoqueIgnorados"
+                  class="badge dim"
+                >
+                  {{ formatarInteiro(detalheOverlay.semEstoqueIgnorados) }} sem
+                  estoque ignorados
+                </span>
+              </div>
+
+              <div
+                v-if="carregandoDetalheCorredor"
+                class="muted reports-loading-pill"
+              >
+                <span class="reports-loading-dot"></span>
+                Carregando produtos deste corredor...
+              </div>
+
+              <div v-else-if="erroDetalheCorredor" class="badge bad">
+                {{ erroDetalheCorredor }}
+              </div>
+
+              <div v-else class="overlay-products-stack">
+                <div
+                  class="overlay-products-filters"
+                  role="tablist"
+                  aria-label="Filtro de leitura dos produtos do corredor"
+                >
+                  <button
+                    class="overlay-products-filter"
+                    :class="{ ativo: filtroProdutosCorredor === 'lidos' }"
+                    type="button"
+                    @click="filtroProdutosCorredor = 'lidos'"
+                  >
+                    Lidos
+                    <span>{{
+                      formatarInteiro(contagemProdutosCorredor.lidos)
+                    }}</span>
+                  </button>
+                  <button
+                    class="overlay-products-filter"
+                    :class="{ ativo: filtroProdutosCorredor === 'nao-lidos' }"
+                    type="button"
+                    @click="filtroProdutosCorredor = 'nao-lidos'"
+                  >
+                    Não lidos
+                    <span>{{
+                      formatarInteiro(contagemProdutosCorredor.naoLidos)
+                    }}</span>
+                  </button>
+                </div>
+
+                <div class="overlay-products-head">
+                  <h4 class="mt-0 mb-0">
+                    {{
+                      filtroProdutosCorredor === "nao-lidos"
+                        ? "Produtos não lidos"
+                        : "Produtos lidos"
+                    }}
+                  </h4>
+                  <span
+                    class="report-status-pill"
+                    :class="
+                      filtroProdutosCorredor === 'nao-lidos'
+                        ? 'status-warn'
+                        : 'status-good'
+                    "
+                  >
+                    {{ formatarInteiro(produtosCorredorFiltrados.length) }}
+                  </span>
+                </div>
+
+                <div
+                  v-if="!produtosCorredorFiltrados.length"
+                  class="muted overlay-products-empty"
+                >
+                  {{
+                    filtroProdutosCorredor === "nao-lidos"
+                      ? "Nenhum produto pendente neste corredor."
+                      : "Nenhum produto lido neste corredor."
+                  }}
+                </div>
+
+                <div v-else class="overlay-products-list">
+                  <article
+                    v-for="produto in produtosCorredorFiltrados"
+                    :key="`${filtroProdutosCorredor}-${produto._id}`"
+                    class="overlay-product-card"
+                    :class="
+                      filtroProdutosCorredor === 'nao-lidos'
+                        ? 'nao-lido'
+                        : 'lido'
+                    "
+                  >
+                    <div class="overlay-product-main">
+                      <strong
+                        >{{ produto.codigo }} · {{ produto.produto }}</strong
+                      >
+                      <div class="muted overlay-product-meta">
+                        <span v-if="produto.classeRaiz">{{
+                          produto.classeRaiz
+                        }}</span>
+                        <span v-if="produto.setor">{{ produto.setor }}</span>
+                        <span>{{ produto.colaboradorNome }}</span>
+                      </div>
+                    </div>
+                    <div class="overlay-product-side">
+                      <span
+                        class="badge"
+                        :class="classeBadgeProdutoRelatorio(produto)"
+                      >
+                        {{ textoLeituraProdutoRelatorio(produto) }}
+                      </span>
+                      <span
+                        class="badge"
+                        :class="classeBadgeProdutoRelatorio(produto)"
+                      >
+                        {{ produto.situacao }}
+                      </span>
+                      <small v-if="produto.auditadoEm" class="muted">
+                        {{ formatarData(produto.auditadoEm) }}
+                      </small>
+                    </div>
+                  </article>
+                </div>
               </div>
             </div>
 
             <div class="overlay-section collab-box">
               <div class="collab-title">
                 <fa icon="users" />
-                Colaboradores que leram neste {{ tituloDimensao(detalheOverlay.dimensao) }}
-                <span class="muted">({{ formatarInteiro(detalheOverlay.totalColaboradores || detalheOverlay.colaboradores?.length || 0) }})</span>
+                Colaboradores que leram neste
+                {{ tituloDimensao(detalheOverlay.dimensao) }}
+                <span class="muted"
+                  >({{
+                    formatarInteiro(
+                      detalheOverlay.totalColaboradores ||
+                        detalheOverlay.colaboradores?.length ||
+                        0,
+                    )
+                  }})</span
+                >
               </div>
-              <div v-if="!(detalheOverlay.colaboradores || []).length" class="muted">Sem colaboradores com leitura registrada neste período.</div>
+              <div
+                v-if="!(detalheOverlay.colaboradores || []).length"
+                class="muted"
+              >
+                Sem colaboradores com leitura registrada neste período.
+              </div>
               <div v-else class="collab-list overlay-collab-grid">
-                <div v-for="col in colaboradoresLimitados(detalheOverlay, 18)" :key="`${detalheOverlay.nome}-${col.codigoExterno}-${col.nome}`" class="collab-chip overlay-collab-card">
+                <div
+                  v-for="col in colaboradoresLimitados(detalheOverlay, 18)"
+                  :key="`${detalheOverlay.nome}-${col.codigoExterno}-${col.nome}`"
+                  class="collab-chip overlay-collab-card"
+                >
                   <div class="overlay-collab-head">
-                    <ColaboradorAvatar class="overlay-collab-avatar" :nome="col.nome" :avatar-url="col.avatarUrl" :size="48" :font-size="16" />
+                    <ColaboradorAvatar
+                      class="overlay-collab-avatar"
+                      :nome="col.nome"
+                      :avatar-url="col.avatarUrl"
+                      :size="48"
+                      :font-size="16"
+                    />
                     <div class="overlay-collab-copy">
                       <strong>{{ col.nome }}</strong>
                       <span class="muted">#{{ col.codigoExterno }}</span>
                     </div>
                   </div>
                   <div class="overlay-collab-stats muted">
-                    <span><strong>{{ formatarInteiro(col.totalLidos) }}</strong> lidos</span>
-                    <span><strong>{{ formatarInteiro(col.naoConformes) }}</strong> desvios</span>
-                    <span><strong>{{ formatarInteiro(col.conformes) }}</strong> corretos</span>
+                    <span
+                      ><strong>{{ formatarInteiro(col.totalLidos) }}</strong>
+                      lidos</span
+                    >
+                    <span
+                      ><strong>{{ formatarInteiro(col.naoConformes) }}</strong>
+                      desvios</span
+                    >
+                    <span
+                      ><strong>{{ formatarInteiro(col.conformes) }}</strong>
+                      corretos</span
+                    >
                   </div>
                 </div>
-                <span v-if="restantesColaboradores(detalheOverlay, 18) > 0" class="collab-chip more overlay-collab-card more-card">
-                  +{{ formatarInteiro(restantesColaboradores(detalheOverlay, 18)) }} colaboradores
+                <span
+                  v-if="restantesColaboradores(detalheOverlay, 18) > 0"
+                  class="collab-chip more overlay-collab-card more-card"
+                >
+                  +{{
+                    formatarInteiro(restantesColaboradores(detalheOverlay, 18))
+                  }}
+                  colaboradores
                 </span>
               </div>
             </div>
@@ -716,7 +1216,9 @@ const corredoresOrdenados = computed(() => [...corredores.value]
 .reports-content {
   display: grid;
   gap: 16px;
-  transition: opacity 0.2s ease, filter 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    filter 0.2s ease;
 }
 
 .reports-refreshing {
@@ -767,11 +1269,15 @@ const corredoresOrdenados = computed(() => [...corredores.value]
   display: grid;
   gap: 8px;
   min-height: 132px;
-  background: linear-gradient(160deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0.02)
+  );
 }
 
 .report-summary-card::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: auto -28px -44px auto;
   width: 120px;
@@ -781,11 +1287,21 @@ const corredoresOrdenados = computed(() => [...corredores.value]
   filter: blur(6px);
 }
 
-.report-summary-card.tone-primary { --summary-glow: rgba(124, 92, 255, 0.18); }
-.report-summary-card.tone-accent { --summary-glow: rgba(34, 211, 238, 0.18); }
-.report-summary-card.tone-success { --summary-glow: rgba(34, 197, 94, 0.18); }
-.report-summary-card.tone-info { --summary-glow: rgba(91, 140, 255, 0.18); }
-.report-summary-card.tone-warning { --summary-glow: rgba(245, 158, 11, 0.2); }
+.report-summary-card.tone-primary {
+  --summary-glow: rgba(124, 92, 255, 0.18);
+}
+.report-summary-card.tone-accent {
+  --summary-glow: rgba(34, 211, 238, 0.18);
+}
+.report-summary-card.tone-success {
+  --summary-glow: rgba(34, 197, 94, 0.18);
+}
+.report-summary-card.tone-info {
+  --summary-glow: rgba(91, 140, 255, 0.18);
+}
+.report-summary-card.tone-warning {
+  --summary-glow: rgba(245, 158, 11, 0.2);
+}
 
 .report-summary-label,
 .report-summary-value,
@@ -798,7 +1314,7 @@ const corredoresOrdenados = computed(() => [...corredores.value]
   color: var(--text-dim);
   font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   font-weight: 700;
 }
 
@@ -851,7 +1367,11 @@ const corredoresOrdenados = computed(() => [...corredores.value]
   padding: 14px;
   border-radius: 20px;
   border: 1px solid color-mix(in srgb, var(--report-accent) 28%, var(--border));
-  background: linear-gradient(180deg, var(--report-accent-soft), rgba(255,255,255,0.02));
+  background: linear-gradient(
+    180deg,
+    var(--report-accent-soft),
+    rgba(255, 255, 255, 0.02)
+  );
   box-shadow: var(--shadow-sm);
   cursor: pointer;
 }
@@ -862,7 +1382,7 @@ const corredoresOrdenados = computed(() => [...corredores.value]
 }
 
 .corridor-card::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
@@ -882,10 +1402,10 @@ const corredoresOrdenados = computed(() => [...corredores.value]
   border-radius: 16px;
   display: grid;
   place-items: center;
-  background: rgba(255,255,255,.62);
+  background: rgba(255, 255, 255, 0.62);
   color: var(--report-accent);
   font-size: 22px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
 .corridor-copy {
@@ -897,7 +1417,7 @@ const corredoresOrdenados = computed(() => [...corredores.value]
 .corridor-name {
   font-size: 15px;
   font-weight: 800;
-  letter-spacing: .02em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
@@ -959,7 +1479,11 @@ const corredoresOrdenados = computed(() => [...corredores.value]
   padding: 14px;
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--report-accent) 22%, var(--border));
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.02)
+  );
 }
 
 .collab-title,
@@ -1006,8 +1530,16 @@ const corredoresOrdenados = computed(() => [...corredores.value]
   place-items: center;
   padding: 20px;
   background:
-    radial-gradient(1200px 700px at 8% -10%, rgba(124,92,255,.22), transparent 58%),
-    radial-gradient(1000px 640px at 100% 10%, rgba(34,211,238,.16), transparent 56%),
+    radial-gradient(
+      1200px 700px at 8% -10%,
+      rgba(124, 92, 255, 0.22),
+      transparent 58%
+    ),
+    radial-gradient(
+      1000px 640px at 100% 10%,
+      rgba(34, 211, 238, 0.16),
+      transparent 56%
+    ),
     rgba(4, 8, 22, 0.68);
   backdrop-filter: blur(10px);
 }
@@ -1024,13 +1556,21 @@ const corredoresOrdenados = computed(() => [...corredores.value]
   border-radius: 26px;
   border: 1px solid color-mix(in srgb, var(--report-accent) 32%, var(--border));
   background:
-    linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02)),
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-2) 92%, var(--report-accent-soft)), var(--bg-1));
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.02)
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-2) 92%, var(--report-accent-soft)),
+      var(--bg-1)
+    );
   box-shadow: var(--shadow-lg);
 }
 
 .global-overlay-panel::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: -30% auto auto -10%;
   width: 300px;
@@ -1042,7 +1582,7 @@ const corredoresOrdenados = computed(() => [...corredores.value]
 }
 
 .global-overlay-panel::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: auto -10% -34% auto;
   width: 260px;
@@ -1075,8 +1615,13 @@ const corredoresOrdenados = computed(() => [...corredores.value]
   place-items: center;
   color: white;
   font-size: 28px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--report-accent) 72%, white), var(--report-accent));
-  box-shadow: 0 16px 34px color-mix(in srgb, var(--report-accent) 28%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--report-accent) 72%, white),
+    var(--report-accent)
+  );
+  box-shadow: 0 16px 34px
+    color-mix(in srgb, var(--report-accent) 28%, transparent);
 }
 
 .overlay-hero-copy {
@@ -1087,7 +1632,7 @@ const corredoresOrdenados = computed(() => [...corredores.value]
 .overlay-hero-copy h3 {
   font-size: clamp(28px, 4vw, 38px);
   line-height: 1.02;
-  letter-spacing: -.03em;
+  letter-spacing: -0.03em;
 }
 
 .overlay-hero-side {
@@ -1110,7 +1655,7 @@ const corredoresOrdenados = computed(() => [...corredores.value]
 
 .overlay-metric-card,
 .overlay-section {
-  background: rgba(255,255,255,.04);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 14px;
@@ -1124,7 +1669,7 @@ const corredoresOrdenados = computed(() => [...corredores.value]
 .overlay-metric-label {
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   color: var(--text-dim);
   font-weight: 700;
 }
@@ -1145,10 +1690,128 @@ const corredoresOrdenados = computed(() => [...corredores.value]
   gap: 8px;
 }
 
+.overlay-section-head-between {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
 .overlay-meta-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+}
+
+.overlay-products-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.overlay-products-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.overlay-products-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.overlay-products-filter:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--report-accent) 28%, var(--border));
+}
+
+.overlay-products-filter.ativo {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--report-accent) 34%, var(--border));
+  background: color-mix(in srgb, var(--report-accent-soft) 64%, transparent);
+}
+
+.overlay-products-filter span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+
+.overlay-products-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.overlay-products-list {
+  display: grid;
+  gap: 10px;
+  max-height: 340px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.overlay-products-empty {
+  padding: 8px 0;
+  font-size: 13px;
+}
+
+.overlay-product-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.overlay-product-card.lido {
+  border-color: color-mix(in srgb, var(--success) 20%, var(--border));
+}
+
+.overlay-product-card.nao-lido {
+  border-color: color-mix(in srgb, var(--warning) 30%, var(--border));
+}
+
+.overlay-product-main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.overlay-product-main strong {
+  overflow-wrap: anywhere;
+}
+
+.overlay-product-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.overlay-product-side {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
 }
 
 .overlay-collab-grid {
@@ -1156,7 +1819,7 @@ const corredoresOrdenados = computed(() => [...corredores.value]
 }
 
 .overlay-collab-card {
-  background: rgba(255,255,255,.05);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .overlay-collab-head {
@@ -1221,7 +1884,7 @@ const corredoresOrdenados = computed(() => [...corredores.value]
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
-  letter-spacing: .03em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
@@ -1250,7 +1913,7 @@ const corredoresOrdenados = computed(() => [...corredores.value]
 }
 
 .report-table tbody tr {
-  transition: background-color .18s ease;
+  transition: background-color 0.18s ease;
 }
 
 .report-table tbody tr:hover {
@@ -1273,11 +1936,19 @@ const corredoresOrdenados = computed(() => [...corredores.value]
 }
 
 :global([data-theme="light"]) .report-summary-card {
-  background: linear-gradient(180deg, rgba(255,255,255,.94), rgba(255,255,255,.82));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.94),
+    rgba(255, 255, 255, 0.82)
+  );
 }
 
 :global([data-theme="light"]) .corridor-card {
-  background: linear-gradient(180deg, rgba(255,255,255,.95), color-mix(in srgb, var(--report-accent-soft) 52%, white));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.95),
+    color-mix(in srgb, var(--report-accent-soft) 52%, white)
+  );
 }
 
 :global([data-theme="light"]) .global-overlay-backdrop {
@@ -1285,24 +1956,36 @@ const corredoresOrdenados = computed(() => [...corredores.value]
 }
 
 :global([data-theme="light"]) .global-overlay-panel {
-  background: linear-gradient(180deg, color-mix(in srgb, white 91%, var(--report-accent-soft)), white);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, white 91%, var(--report-accent-soft)),
+    white
+  );
 }
 
 :global([data-theme="light"]) .overlay-metric-card,
 :global([data-theme="light"]) .overlay-section,
 :global([data-theme="light"]) .collab-box,
-:global([data-theme="light"]) .overlay-collab-card {
-  background: rgba(255,255,255,.72);
+:global([data-theme="light"]) .overlay-collab-card,
+:global([data-theme="light"]) .overlay-product-card {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+:global([data-theme="light"]) .overlay-products-filter {
+  background: rgba(255, 255, 255, 0.78);
 }
 
 .detail-overlay-enter-active,
 .detail-overlay-leave-active {
-  transition: opacity .28s ease;
+  transition: opacity 0.28s ease;
 }
 
 .detail-overlay-enter-active .global-overlay-panel,
 .detail-overlay-leave-active .global-overlay-panel {
-  transition: transform .34s cubic-bezier(.21, 1, .32, 1), opacity .34s ease, filter .34s ease;
+  transition:
+    transform 0.34s cubic-bezier(0.21, 1, 0.32, 1),
+    opacity 0.34s ease,
+    filter 0.34s ease;
 }
 
 .detail-overlay-enter-from,
@@ -1313,7 +1996,7 @@ const corredoresOrdenados = computed(() => [...corredores.value]
 .detail-overlay-enter-from .global-overlay-panel,
 .detail-overlay-leave-to .global-overlay-panel {
   opacity: 0;
-  transform: translateY(18px) scale(.96);
+  transform: translateY(18px) scale(0.96);
   filter: blur(10px);
 }
 
@@ -1357,6 +2040,18 @@ const corredoresOrdenados = computed(() => [...corredores.value]
   .overlay-metrics-grid,
   .overlay-meta-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .overlay-products-filters {
+    flex-direction: column;
+  }
+
+  .overlay-product-card {
+    grid-template-columns: 1fr;
+  }
+
+  .overlay-product-side {
+    justify-items: start;
   }
 }
 </style>

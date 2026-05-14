@@ -50,6 +50,19 @@ function formatNum(valor) {
   return Number(valor || 0).toLocaleString("pt-BR");
 }
 
+function formatarEstoque(valor) {
+  if (valor === null || valor === undefined || valor === "") {
+    return "não informado";
+  }
+
+  const numero = Number(valor);
+  if (Number.isFinite(numero)) {
+    return numero.toLocaleString("pt-BR");
+  }
+
+  return String(valor);
+}
+
 function formatarData(valor, incluirHora = false) {
   if (!valor) return "Data indisponível";
   const data = new Date(valor);
@@ -656,6 +669,12 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
                     <strong>{{ item.codigo }} · {{ item.produto }}</strong>
                     <ProductBarcode v-if="item.codigo" :value="item.codigo" />
                     <div class="muted item-meta">
+                      <span class="item-estoque-chip">
+                        <span class="item-estoque-label">Estoque</span>
+                        <strong class="item-estoque-value">{{
+                          formatarEstoque(item.estoqueAtual)
+                        }}</strong>
+                      </span>
                       <span v-if="item.setor">{{ item.setor }}</span>
                       <span v-if="item.classeRaiz">{{ item.classeRaiz }}</span>
                       <span>{{ item.colaboradorNome }}</span>
@@ -1187,6 +1206,36 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
   gap: 8px;
   margin-top: 4px;
   font-size: 12px;
+}
+
+.item-estoque-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 34%, white 66%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary) 14%, white 86%),
+    color-mix(in srgb, var(--accent) 14%, white 86%)
+  );
+  color: var(--text);
+  box-shadow: 0 8px 18px rgba(35, 64, 123, 0.12);
+}
+
+.item-estoque-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text) 68%, var(--primary) 32%);
+}
+
+.item-estoque-value {
+  font-size: 15px;
+  line-height: 1;
+  color: color-mix(in srgb, var(--primary) 76%, #0f172a 24%);
 }
 
 .item-row-side {
