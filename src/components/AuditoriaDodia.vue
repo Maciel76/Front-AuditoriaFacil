@@ -18,6 +18,8 @@ const detalheCorredor = ref(null);
 const carregandoDetalhe = ref(false);
 const erroDetalhe = ref("");
 const filtroItensModal = ref("todos");
+const filtroDiasSemVendaModal = ref(false);
+const ordemDiasSemVendaModal = ref("maior");
 
 const TIPO_LABELS = {
   ETIQUETA: "Etiqueta",
@@ -61,6 +63,17 @@ function formatarEstoque(valor) {
   }
 
   return String(valor);
+}
+
+function valorDiasSemVendaItem(item) {
+  const numero = Number(item?.diasSemVenda);
+  return Number.isFinite(numero) && numero >= 0 ? numero : null;
+}
+
+function textoDiasSemVendaItem(item) {
+  const diasSemVenda = valorDiasSemVendaItem(item);
+  if (diasSemVenda === null) return "Sem histórico de venda";
+  return `${formatNum(diasSemVenda)} dia(s) sem venda`;
 }
 
 function formatarData(valor, incluirHora = false) {
@@ -108,6 +121,8 @@ function fecharCorredor() {
   detalheCorredor.value = null;
   erroDetalhe.value = "";
   filtroItensModal.value = "todos";
+  filtroDiasSemVendaModal.value = false;
+  ordemDiasSemVendaModal.value = "maior";
 }
 
 async function carregarResumo(origem = origemResumo.value) {
@@ -153,6 +168,8 @@ async function abrirCorredor(corredor) {
   detalheCorredor.value = null;
   erroDetalhe.value = "";
   filtroItensModal.value = "todos";
+  filtroDiasSemVendaModal.value = false;
+  ordemDiasSemVendaModal.value = "maior";
   carregandoDetalhe.value = true;
 
   try {
@@ -234,7 +251,7 @@ const contagemItensDetalhe = computed(() => {
 
   return totais;
 });
-const itensDetalheFiltrados = computed(() => {
+const itensDetalhePorLeitura = computed(() => {
   const itensBase = itensDetalheValidos.value;
 
   if (filtroItensModal.value === "lidos") {
@@ -246,6 +263,34 @@ const itensDetalheFiltrados = computed(() => {
   }
 
   return itensBase;
+});
+const contagemDiasSemVendaFiltroAtual = computed(
+  () =>
+    itensDetalhePorLeitura.value.filter(
+      (item) => valorDiasSemVendaItem(item) !== null,
+    ).length,
+);
+const itensDetalheFiltrados = computed(() => {
+  const itensBase = itensDetalhePorLeitura.value;
+
+  if (!filtroDiasSemVendaModal.value) {
+    return itensBase;
+  }
+
+  return itensBase
+    .filter((item) => valorDiasSemVendaItem(item) !== null)
+    .toSorted((a, b) => {
+      const diasA = valorDiasSemVendaItem(a) ?? -1;
+      const diasB = valorDiasSemVendaItem(b) ?? -1;
+
+      if (diasA !== diasB) {
+        return ordemDiasSemVendaModal.value === "menor"
+          ? diasA - diasB
+          : diasB - diasA;
+      }
+
+      return `${a.produto}`.localeCompare(`${b.produto}`, "pt-BR");
+    });
 });
 const totalCorredoresResumo = computed(() =>
   Number(
@@ -653,12 +698,46 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
                   <span>{{ formatNum(contagemItensDetalhe.naoLidos) }}</span>
                 </button>
               </div>
+              <div class="itens-ordenacao">
+                <button
+                  class="itens-filtro"
+                  :class="{ ativo: filtroDiasSemVendaModal }"
+                  type="button"
+                  @click="filtroDiasSemVendaModal = !filtroDiasSemVendaModal"
+                >
+                  Dias sem venda
+                  <span>{{ formatNum(contagemDiasSemVendaFiltroAtual) }}</span>
+                </button>
+                <template v-if="filtroDiasSemVendaModal">
+                  <span class="muted">Classificar:</span>
+                  <button
+                    class="itens-filtro"
+                    :class="{ ativo: ordemDiasSemVendaModal === 'maior' }"
+                    type="button"
+                    @click="ordemDiasSemVendaModal = 'maior'"
+                  >
+                    Maior para menor
+                  </button>
+                  <button
+                    class="itens-filtro"
+                    :class="{ ativo: ordemDiasSemVendaModal === 'menor' }"
+                    type="button"
+                    @click="ordemDiasSemVendaModal = 'menor'"
+                  >
+                    Menor para maior
+                  </button>
+                </template>
+              </div>
               <div class="itens-lista">
                 <div
                   v-if="!itensDetalheFiltrados.length"
                   class="empty mini itens-vazios"
                 >
-                  Nenhum item válido encontrado para esse filtro.
+                  {{
+                    filtroDiasSemVendaModal
+                      ? "Nenhum item com dias sem venda disponível para esse filtro."
+                      : "Nenhum item válido encontrado para esse filtro."
+                  }}
                 </div>
                 <div
                   v-for="item in itensDetalheFiltrados"
@@ -674,6 +753,9 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
                         <strong class="item-estoque-value">{{
                           formatarEstoque(item.estoqueAtual)
                         }}</strong>
+                      </span>
+                      <span class="item-dias-chip">
+                        {{ textoDiasSemVendaItem(item) }}
                       </span>
                       <span v-if="item.setor">{{ item.setor }}</span>
                       <span v-if="item.classeRaiz">{{ item.classeRaiz }}</span>
@@ -1158,6 +1240,13 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
   color: var(--text);
 }
 
+.itens-ordenacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .itens-vazios {
   padding: 16px;
 }
@@ -1236,6 +1325,18 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
   font-size: 15px;
   line-height: 1;
   color: color-mix(in srgb, var(--primary) 76%, #0f172a 24%);
+}
+
+.item-dias-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--warning) 28%, transparent);
+  background: color-mix(in srgb, var(--warning) 10%, white 90%);
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .item-row-side {

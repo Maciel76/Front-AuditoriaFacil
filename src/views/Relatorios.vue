@@ -352,12 +352,55 @@ function textoLeituraProdutoRelatorio(item) {
   return item?.foiLido ? "Lido" : "Não lido";
 }
 
+function classeCardProdutoRelatorio(item) {
+  return item?.foiLido ? "lido" : "nao-lido";
+}
+
+function valorDiasSemVendaProduto(item) {
+  const diasSemVenda = Number(item?.diasSemVenda);
+  return Number.isFinite(diasSemVenda) && diasSemVenda >= 0
+    ? diasSemVenda
+    : null;
+}
+
+function textoDiasSemVendaProduto(item) {
+  const diasSemVenda = valorDiasSemVendaProduto(item);
+  if (diasSemVenda === null) return "Sem histórico de venda";
+  return `${formatarInteiro(diasSemVenda)} dia(s) sem venda`;
+}
+
+const produtosCorredorOrdenadosPorDiasSemVenda = computed(() =>
+  [
+    ...(detalheOverlay.value?.itensLidos || []),
+    ...(detalheOverlay.value?.itensNaoLidos || []),
+  ].sort((a, b) => {
+    const diasA = valorDiasSemVendaProduto(a);
+    const diasB = valorDiasSemVendaProduto(b);
+    if (diasA !== diasB) return (diasB ?? -1) - (diasA ?? -1);
+
+    const ultimaVendaA = a?.ultimaVendaEm
+      ? new Date(a.ultimaVendaEm).getTime()
+      : Number.POSITIVE_INFINITY;
+    const ultimaVendaB = b?.ultimaVendaEm
+      ? new Date(b.ultimaVendaEm).getTime()
+      : Number.POSITIVE_INFINITY;
+    if (ultimaVendaA !== ultimaVendaB) return ultimaVendaA - ultimaVendaB;
+
+    return `${a.produto}`.localeCompare(`${b.produto}`, "pt-BR");
+  }),
+);
+
 const contagemProdutosCorredor = computed(() => ({
   lidos: Number(detalheOverlay.value?.itensLidos?.length || 0),
   naoLidos: Number(detalheOverlay.value?.itensNaoLidos?.length || 0),
+  diasSemVenda: Number(produtosCorredorOrdenadosPorDiasSemVenda.value.length),
 }));
 
 const produtosCorredorFiltrados = computed(() => {
+  if (filtroProdutosCorredor.value === "dias-sem-venda") {
+    return produtosCorredorOrdenadosPorDiasSemVenda.value;
+  }
+
   if (filtroProdutosCorredor.value === "nao-lidos") {
     return detalheOverlay.value?.itensNaoLidos || [];
   }
@@ -1054,22 +1097,39 @@ const corredoresOrdenados = computed(() =>
                       formatarInteiro(contagemProdutosCorredor.naoLidos)
                     }}</span>
                   </button>
+                  <button
+                    class="overlay-products-filter"
+                    :class="{
+                      ativo: filtroProdutosCorredor === 'dias-sem-venda',
+                    }"
+                    type="button"
+                    @click="filtroProdutosCorredor = 'dias-sem-venda'"
+                  >
+                    Dias sem venda
+                    <span>{{
+                      formatarInteiro(contagemProdutosCorredor.diasSemVenda)
+                    }}</span>
+                  </button>
                 </div>
 
                 <div class="overlay-products-head">
                   <h4 class="mt-0 mb-0">
                     {{
-                      filtroProdutosCorredor === "nao-lidos"
-                        ? "Produtos não lidos"
-                        : "Produtos lidos"
+                      filtroProdutosCorredor === "dias-sem-venda"
+                        ? "Produtos por dias sem venda"
+                        : filtroProdutosCorredor === "nao-lidos"
+                          ? "Produtos não lidos"
+                          : "Produtos lidos"
                     }}
                   </h4>
                   <span
                     class="report-status-pill"
                     :class="
-                      filtroProdutosCorredor === 'nao-lidos'
+                      filtroProdutosCorredor === 'dias-sem-venda'
                         ? 'status-warn'
-                        : 'status-good'
+                        : filtroProdutosCorredor === 'nao-lidos'
+                          ? 'status-warn'
+                          : 'status-good'
                     "
                   >
                     {{ formatarInteiro(produtosCorredorFiltrados.length) }}
@@ -1081,9 +1141,11 @@ const corredoresOrdenados = computed(() =>
                   class="muted overlay-products-empty"
                 >
                   {{
-                    filtroProdutosCorredor === "nao-lidos"
-                      ? "Nenhum produto pendente neste corredor."
-                      : "Nenhum produto lido neste corredor."
+                    filtroProdutosCorredor === "dias-sem-venda"
+                      ? "Nenhum produto disponível para classificar por dias sem venda."
+                      : filtroProdutosCorredor === "nao-lidos"
+                        ? "Nenhum produto pendente neste corredor."
+                        : "Nenhum produto lido neste corredor."
                   }}
                 </div>
 
@@ -1092,17 +1154,18 @@ const corredoresOrdenados = computed(() =>
                     v-for="produto in produtosCorredorFiltrados"
                     :key="`${filtroProdutosCorredor}-${produto._id}`"
                     class="overlay-product-card"
-                    :class="
-                      filtroProdutosCorredor === 'nao-lidos'
-                        ? 'nao-lido'
-                        : 'lido'
-                    "
+                    :class="classeCardProdutoRelatorio(produto)"
                   >
                     <div class="overlay-product-main">
                       <strong
                         >{{ produto.codigo }} · {{ produto.produto }}</strong
                       >
                       <div class="muted overlay-product-meta">
+                        <span>{{ textoDiasSemVendaProduto(produto) }}</span>
+                        <span v-if="produto.ultimaVendaEm"
+                          >Última venda
+                          {{ formatarData(produto.ultimaVendaEm) }}</span
+                        >
                         <span v-if="produto.classeRaiz">{{
                           produto.classeRaiz
                         }}</span>
