@@ -43,6 +43,7 @@ const METRICA_LABELS = {
   totalItensConformes: "Itens conformes",
   totalAuditorias: "Auditorias realizadas",
   totalItensParticipacaoLoja: "Itens lidos da loja com participação",
+  totalLiderPodium: "Vezes no pódio",
   taxaConformidadeAcumulada: "Taxa de conformidade (%)",
   pontuacao: "Pontuação (XP)",
   nivel: "Nível atingido",
@@ -276,8 +277,8 @@ onMounted(carregar);
         </h2>
         <p class="muted page-sub">
           Defina os marcos que motivam os colaboradores. Cada conquista pode ter
-          múltiplos tiers — Comum, Raro, Épico, Lendário, Diamante e Mítico — desbloqueados
-          conforme o colaborador progride na métrica.
+          múltiplos tiers — Comum, Raro, Épico, Lendário, Diamante e Mítico —
+          desbloqueados conforme o colaborador progride na métrica.
         </p>
       </div>
       <div class="row gap-2 page-actions">
@@ -508,9 +509,19 @@ onMounted(carregar);
                 placeholder="título (opcional)"
                 class="tier-input wide"
               />
-              <label class="tier-upload" :class="{ uploading: uploadingTier[`${i}-${t.nivel}`] }">
-                <fa :icon="uploadingTier[`${i}-${t.nivel}`] ? 'spinner' : 'upload'" :spin="uploadingTier[`${i}-${t.nivel}`]" />
-                <span>{{ t.imagemUrl ? "Trocar imagem" : "Selecionar imagem" }}</span>
+              <label
+                class="tier-upload"
+                :class="{ uploading: uploadingTier[`${i}-${t.nivel}`] }"
+              >
+                <fa
+                  :icon="
+                    uploadingTier[`${i}-${t.nivel}`] ? 'spinner' : 'upload'
+                  "
+                  :spin="uploadingTier[`${i}-${t.nivel}`]"
+                />
+                <span>{{
+                  t.imagemUrl ? "Trocar imagem" : "Selecionar imagem"
+                }}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -519,8 +530,16 @@ onMounted(carregar);
                 />
               </label>
               <div v-if="t.imagemUrl" class="tier-img-preview">
-                <img :src="resolverUrlMidia(t.imagemUrl)" :alt="`Imagem ${t.nivel}`" />
-                <button type="button" class="tier-img-remove" @click="removerImagemTier(t)" title="Remover imagem">
+                <img
+                  :src="resolverUrlMidia(t.imagemUrl)"
+                  :alt="`Imagem ${t.nivel}`"
+                />
+                <button
+                  type="button"
+                  class="tier-img-remove"
+                  @click="removerImagemTier(t)"
+                  title="Remover imagem"
+                >
                   <fa icon="xmark" />
                 </button>
               </div>

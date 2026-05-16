@@ -64,7 +64,11 @@ const erroPerfilPublico = ref("");
 const conquistaSelecionada = ref(null);
 const filtroCategoriaConq = ref("todas");
 const filtroStatusConq = ref("todas");
-const rankingGeral = ref({ posicao: null, totalColaboradores: 0, totalItensLidos: 0 });
+const rankingGeral = ref({
+  posicao: null,
+  totalColaboradores: 0,
+  totalItensLidos: 0,
+});
 
 // ---- Ranking da loja (aba Ranking) ----
 const rankingLoja = ref([]);
@@ -144,6 +148,7 @@ const METRICA_LABELS = {
   totalItensLidos: "Itens lidos",
   totalItensConformes: "Itens conformes",
   totalAuditorias: "Auditorias realizadas",
+  totalLiderPodium: "Vezes no pódio",
   taxaConformidadeAcumulada: "Taxa de conformidade",
   pontuacao: "Pontuação (XP)",
   nivel: "Nível",
@@ -171,7 +176,8 @@ function imagemConquistaPorTier(conquista) {
 
   // Preferência: imagem cadastrada pelo admin no tier desbloqueado
   const tierAtual = String(conquista.tierAtual || "").toLowerCase();
-  if (conquista.tierAtualImagem) return resolverUrlMidia(conquista.tierAtualImagem);
+  if (conquista.tierAtualImagem)
+    return resolverUrlMidia(conquista.tierAtualImagem);
   if (Array.isArray(conquista.tiers)) {
     const t = conquista.tiers.find(
       (x) => String(x.nivel).toLowerCase() === tierAtual,
@@ -186,7 +192,9 @@ function imagemConquistaPorTier(conquista) {
 }
 
 function altImagemConquista(conquista) {
-  return [conquista?.nome, conquista?.tierAtualLabel].filter(Boolean).join(" • ");
+  return [conquista?.nome, conquista?.tierAtualLabel]
+    .filter(Boolean)
+    .join(" • ");
 }
 
 const colegaIdRota = computed(() => String(route.params.colegaId || "").trim());
@@ -525,11 +533,15 @@ async function login() {
 }
 
 async function carregarPerfil() {
-  const [perfilResponse, metricasResponse, rankingResponse] = await Promise.all([
-    apiPortal().get("/colaboradores/portal/me"),
-    apiPortal().get("/metricas/portal/me?periodo=tudo"),
-    apiPortal().get("/metricas/portal/me/ranking-geral").catch(() => ({ data: { posicao: null, totalColaboradores: 0 } })),
-  ]);
+  const [perfilResponse, metricasResponse, rankingResponse] = await Promise.all(
+    [
+      apiPortal().get("/colaboradores/portal/me"),
+      apiPortal().get("/metricas/portal/me?periodo=tudo"),
+      apiPortal()
+        .get("/metricas/portal/me/ranking-geral")
+        .catch(() => ({ data: { posicao: null, totalColaboradores: 0 } })),
+    ],
+  );
 
   const perfilData = perfilResponse.data;
   perfil.value = perfilData;
@@ -552,7 +564,10 @@ async function carregarPerfil() {
 
   metricas.value = metricasResponse.data;
   conquistasResolvidas.value = metricasResponse.data.conquistas || [];
-  rankingGeral.value = rankingResponse.data || { posicao: null, totalColaboradores: 0 };
+  rankingGeral.value = rankingResponse.data || {
+    posicao: null,
+    totalColaboradores: 0,
+  };
   await carregarColegas();
 }
 
@@ -562,10 +577,9 @@ async function carregarRankingLoja() {
   try {
     const params = { periodo: periodoRankingLoja.value };
     if (tipoRankingLoja.value) params.tipo = tipoRankingLoja.value;
-    const { data } = await apiPortal().get(
-      "/metricas/portal/me/ranking-loja",
-      { params },
-    );
+    const { data } = await apiPortal().get("/metricas/portal/me/ranking-loja", {
+      params,
+    });
     rankingLoja.value = data?.items || [];
     rankingLojaCarregado.value = true;
   } catch (e) {
@@ -925,8 +939,9 @@ const pctNivel = computed(() => {
 
 // Mapa de _id → posição no ranking de itens lidos (top 3 ganham destaque)
 const rankingColegas = computed(() => {
-  const sorted = [...colegasEquipe.value]
-    .sort((a, b) => (b.totalItensLidos || 0) - (a.totalItensLidos || 0));
+  const sorted = [...colegasEquipe.value].sort(
+    (a, b) => (b.totalItensLidos || 0) - (a.totalItensLidos || 0),
+  );
   const mapa = new Map();
   sorted.forEach((c, i) => {
     if (i < 3) mapa.set(String(c._id), i + 1);
@@ -1463,9 +1478,15 @@ onBeforeUnmount(() => {
               }"
             >
               <strong v-if="rankingGeral.posicao" class="rank-pos">
-                <span v-if="rankingGeral.posicao === 1" class="rank-trophy">🏆</span>
-                <span v-else-if="rankingGeral.posicao === 2" class="rank-trophy">🥈</span>
-                <span v-else-if="rankingGeral.posicao === 3" class="rank-trophy">🥉</span>
+                <span v-if="rankingGeral.posicao === 1" class="rank-trophy"
+                  >🏆</span
+                >
+                <span v-else-if="rankingGeral.posicao === 2" class="rank-trophy"
+                  >🥈</span
+                >
+                <span v-else-if="rankingGeral.posicao === 3" class="rank-trophy"
+                  >🥉</span
+                >
                 <span v-else class="rank-num">#</span>{{ rankingGeral.posicao }}
               </strong>
               <strong v-else class="rank-pos rank-nd">—</strong>
@@ -1581,16 +1602,29 @@ onBeforeUnmount(() => {
               @click="abrirPerfilPublicoColega(colega._id, $event)"
             >
               <!-- Varredura de brilho (top 3) -->
-              <div v-if="rankColega(colega._id)" class="colega-shine" aria-hidden="true" />
+              <div
+                v-if="rankColega(colega._id)"
+                class="colega-shine"
+                aria-hidden="true"
+              />
 
               <!-- Partículas (top 3) -->
-              <div v-if="rankColega(colega._id)" class="colega-particles" aria-hidden="true">
-                <span class="cp p1" /><span class="cp p2" /><span class="cp p3" />
+              <div
+                v-if="rankColega(colega._id)"
+                class="colega-particles"
+                aria-hidden="true"
+              >
+                <span class="cp p1" /><span class="cp p2" /><span
+                  class="cp p3"
+                />
                 <span class="cp p4" /><span class="cp p5" />
               </div>
 
               <!-- Medalha de posição -->
-              <div v-if="rankColegaTrophy(colega._id)" class="colega-rank-badge">
+              <div
+                v-if="rankColegaTrophy(colega._id)"
+                class="colega-rank-badge"
+              >
                 {{ rankColegaTrophy(colega._id) }}
               </div>
 
@@ -1603,9 +1637,12 @@ onBeforeUnmount(() => {
                 />
                 <div class="colega-body">
                   <strong>{{ nomeColegaLista(colega.nome) }}</strong>
-                  <small :class="colega.euMesmo ? 'colega-eu-label' : 'muted'">{{
-                    colega.euMesmo ? "Você" : colega.cargo || "Equipe da loja"
-                  }}</small>
+                  <small
+                    :class="colega.euMesmo ? 'colega-eu-label' : 'muted'"
+                    >{{
+                      colega.euMesmo ? "Você" : colega.cargo || "Equipe da loja"
+                    }}</small
+                  >
                 </div>
               </div>
               <div class="colega-link">
@@ -1753,7 +1790,7 @@ onBeforeUnmount(() => {
           <div
             v-else-if="!rankingLoja.length"
             class="empty mini"
-            style="padding: 16px; text-align: center;"
+            style="padding: 16px; text-align: center"
           >
             Ainda não há dados de ranking neste período.
           </div>
@@ -1784,7 +1821,10 @@ onBeforeUnmount(() => {
                   >
                 </strong>
                 <div class="ranking-meta muted small">
-                  <span><fa icon="book-open" /> {{ formatNum(item.totalLidos) }} lidos</span>
+                  <span
+                    ><fa icon="book-open" />
+                    {{ formatNum(item.totalLidos) }} lidos</span
+                  >
                   <span v-if="item.percentualConclusao != null">
                     · {{ Number(item.percentualConclusao).toFixed(1) }}%
                   </span>
@@ -1971,7 +2011,8 @@ onBeforeUnmount(() => {
               >
                 <img
                   v-if="
-                    conquistaSelecionada.desbloqueada && imagemConquistaSelecionada
+                    conquistaSelecionada.desbloqueada &&
+                    imagemConquistaSelecionada
                   "
                   class="conq-icon-image"
                   :src="imagemConquistaSelecionada"
@@ -2626,32 +2667,87 @@ onBeforeUnmount(() => {
 
 /* ===== TOP 3 COLEGAS ===== */
 @keyframes colegaShine {
-  0%   { transform: translateX(-130%) skewX(-20deg); opacity: 0; }
-  12%  { opacity: 1; }
-  88%  { opacity: 1; }
-  100% { transform: translateX(240%) skewX(-20deg); opacity: 0; }
+  0% {
+    transform: translateX(-130%) skewX(-20deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(240%) skewX(-20deg);
+    opacity: 0;
+  }
 }
 @keyframes colegaParticle {
-  0%   { transform: translateY(0) scale(1);   opacity: 0.8; }
-  55%  { transform: translateY(-20px) scale(1.35); opacity: 1; }
-  100% { transform: translateY(-44px) scale(0.5); opacity: 0; }
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0.8;
+  }
+  55% {
+    transform: translateY(-20px) scale(1.35);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-44px) scale(0.5);
+    opacity: 0;
+  }
 }
 @keyframes colegaPulseOuro {
-  0%,100% { box-shadow: 0 12px 26px rgba(15,23,42,.08), 0 0 0 0 rgba(245,158,11,0); }
-  50%      { box-shadow: 0 18px 38px rgba(245,158,11,.18), 0 0 0 3px rgba(245,158,11,.22); }
+  0%,
+  100% {
+    box-shadow:
+      0 12px 26px rgba(15, 23, 42, 0.08),
+      0 0 0 0 rgba(245, 158, 11, 0);
+  }
+  50% {
+    box-shadow:
+      0 18px 38px rgba(245, 158, 11, 0.18),
+      0 0 0 3px rgba(245, 158, 11, 0.22);
+  }
 }
 @keyframes colegaPulsePrata {
-  0%,100% { box-shadow: 0 12px 26px rgba(15,23,42,.08), 0 0 0 0 rgba(148,163,184,0); }
-  50%      { box-shadow: 0 16px 34px rgba(148,163,184,.15), 0 0 0 3px rgba(148,163,184,.2); }
+  0%,
+  100% {
+    box-shadow:
+      0 12px 26px rgba(15, 23, 42, 0.08),
+      0 0 0 0 rgba(148, 163, 184, 0);
+  }
+  50% {
+    box-shadow:
+      0 16px 34px rgba(148, 163, 184, 0.15),
+      0 0 0 3px rgba(148, 163, 184, 0.2);
+  }
 }
 @keyframes colegaPulseBronze {
-  0%,100% { box-shadow: 0 12px 26px rgba(15,23,42,.08), 0 0 0 0 rgba(249,115,22,0); }
-  50%      { box-shadow: 0 16px 34px rgba(249,115,22,.15), 0 0 0 3px rgba(249,115,22,.2); }
+  0%,
+  100% {
+    box-shadow:
+      0 12px 26px rgba(15, 23, 42, 0.08),
+      0 0 0 0 rgba(249, 115, 22, 0);
+  }
+  50% {
+    box-shadow:
+      0 16px 34px rgba(249, 115, 22, 0.15),
+      0 0 0 3px rgba(249, 115, 22, 0.2);
+  }
 }
 @keyframes badgePop {
-  0%   { transform: scale(0.5) rotate(-18deg); opacity: 0; }
-  65%  { transform: scale(1.18) rotate(4deg); opacity: 1; }
-  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  0% {
+    transform: scale(0.5) rotate(-18deg);
+    opacity: 0;
+  }
+  65% {
+    transform: scale(1.18) rotate(4deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
 }
 
 /* Variáveis de cor por posição */
@@ -2659,38 +2755,66 @@ onBeforeUnmount(() => {
   --ck: 245, 158, 11;
   border-color: rgba(245, 158, 11, 0.42) !important;
   background:
-    radial-gradient(200px 130px at 0% 0%,   rgba(245,158,11,.15), transparent 68%),
-    radial-gradient(300px 160px at 100% 100%, rgba(245,158,11,.08), transparent 70%),
-    linear-gradient(180deg,
+    radial-gradient(
+      200px 130px at 0% 0%,
+      rgba(245, 158, 11, 0.15),
+      transparent 68%
+    ),
+    radial-gradient(
+      300px 160px at 100% 100%,
+      rgba(245, 158, 11, 0.08),
+      transparent 70%
+    ),
+    linear-gradient(
+      180deg,
       color-mix(in srgb, var(--surface-strong) 92%, transparent),
-      color-mix(in srgb, var(--surface) 94%, transparent)) !important;
+      color-mix(in srgb, var(--surface) 94%, transparent)
+    ) !important;
   animation: colegaPulseOuro 2.6s ease-in-out 0.5s infinite;
 }
 .colega-rank-prata {
   --ck: 148, 163, 184;
   border-color: rgba(148, 163, 184, 0.38) !important;
   background:
-    radial-gradient(200px 130px at 0% 0%,   rgba(148,163,184,.13), transparent 68%),
-    linear-gradient(180deg,
+    radial-gradient(
+      200px 130px at 0% 0%,
+      rgba(148, 163, 184, 0.13),
+      transparent 68%
+    ),
+    linear-gradient(
+      180deg,
       color-mix(in srgb, var(--surface-strong) 92%, transparent),
-      color-mix(in srgb, var(--surface) 94%, transparent)) !important;
+      color-mix(in srgb, var(--surface) 94%, transparent)
+    ) !important;
   animation: colegaPulsePrata 3s ease-in-out 0.5s infinite;
 }
 .colega-rank-bronze {
   --ck: 249, 115, 22;
   border-color: rgba(249, 115, 22, 0.38) !important;
   background:
-    radial-gradient(200px 130px at 0% 0%,   rgba(249,115,22,.13), transparent 68%),
-    linear-gradient(180deg,
+    radial-gradient(
+      200px 130px at 0% 0%,
+      rgba(249, 115, 22, 0.13),
+      transparent 68%
+    ),
+    linear-gradient(
+      180deg,
       color-mix(in srgb, var(--surface-strong) 92%, transparent),
-      color-mix(in srgb, var(--surface) 94%, transparent)) !important;
+      color-mix(in srgb, var(--surface) 94%, transparent)
+    ) !important;
   animation: colegaPulseBronze 3.2s ease-in-out 0.5s infinite;
 }
 
 /* Link color acompanha a cor do tier */
-.colega-rank-ouro  .colega-link { color: #f59e0b; }
-.colega-rank-prata .colega-link { color: #94a3b8; }
-.colega-rank-bronze .colega-link { color: #f97316; }
+.colega-rank-ouro .colega-link {
+  color: #f59e0b;
+}
+.colega-rank-prata .colega-link {
+  color: #94a3b8;
+}
+.colega-rank-bronze .colega-link {
+  color: #f97316;
+}
 
 /* Faixa de brilho varrendo */
 .colega-shine {
@@ -2702,7 +2826,7 @@ onBeforeUnmount(() => {
   z-index: 0;
 }
 .colega-shine::after {
-  content: '';
+  content: "";
   position: absolute;
   top: -50%;
   left: 0;
@@ -2710,16 +2834,31 @@ onBeforeUnmount(() => {
   height: 200%;
   animation: colegaShine 2.6s ease-in-out 0.2s infinite;
 }
-.colega-rank-ouro  .colega-shine::after {
-  background: linear-gradient(108deg, transparent 15%, rgba(255,220,80,.28) 50%, transparent 85%);
+.colega-rank-ouro .colega-shine::after {
+  background: linear-gradient(
+    108deg,
+    transparent 15%,
+    rgba(255, 220, 80, 0.28) 50%,
+    transparent 85%
+  );
   animation-duration: 2.4s;
 }
 .colega-rank-prata .colega-shine::after {
-  background: linear-gradient(108deg, transparent 15%, rgba(200,220,240,.22) 50%, transparent 85%);
+  background: linear-gradient(
+    108deg,
+    transparent 15%,
+    rgba(200, 220, 240, 0.22) 50%,
+    transparent 85%
+  );
   animation-duration: 3.2s;
 }
 .colega-rank-bronze .colega-shine::after {
-  background: linear-gradient(108deg, transparent 15%, rgba(255,180,80,.22) 50%, transparent 85%);
+  background: linear-gradient(
+    108deg,
+    transparent 15%,
+    rgba(255, 180, 80, 0.22) 50%,
+    transparent 85%
+  );
   animation-duration: 2.8s;
 }
 
@@ -2738,11 +2877,46 @@ onBeforeUnmount(() => {
   background: rgba(var(--ck), 1);
   box-shadow: 0 0 5px 1px rgba(var(--ck), 0.55);
 }
-.cp.p1 { width:4px; height:4px; left:12%; bottom:16%; animation-delay:0s;    animation-duration:2.2s; }
-.cp.p2 { width:5px; height:5px; left:32%; bottom:8%;  animation-delay:0.6s;  animation-duration:2.8s; }
-.cp.p3 { width:3px; height:3px; left:56%; bottom:18%; animation-delay:1.1s;  animation-duration:2.5s; }
-.cp.p4 { width:4px; height:4px; left:74%; bottom:10%; animation-delay:0.3s;  animation-duration:3s;   }
-.cp.p5 { width:3px; height:3px; left:88%; bottom:22%; animation-delay:1.5s;  animation-duration:2.3s; }
+.cp.p1 {
+  width: 4px;
+  height: 4px;
+  left: 12%;
+  bottom: 16%;
+  animation-delay: 0s;
+  animation-duration: 2.2s;
+}
+.cp.p2 {
+  width: 5px;
+  height: 5px;
+  left: 32%;
+  bottom: 8%;
+  animation-delay: 0.6s;
+  animation-duration: 2.8s;
+}
+.cp.p3 {
+  width: 3px;
+  height: 3px;
+  left: 56%;
+  bottom: 18%;
+  animation-delay: 1.1s;
+  animation-duration: 2.5s;
+}
+.cp.p4 {
+  width: 4px;
+  height: 4px;
+  left: 74%;
+  bottom: 10%;
+  animation-delay: 0.3s;
+  animation-duration: 3s;
+}
+.cp.p5 {
+  width: 3px;
+  height: 3px;
+  left: 88%;
+  bottom: 22%;
+  animation-delay: 1.5s;
+  animation-duration: 2.3s;
+}
 
 /* Medalha de posição (canto superior direito) */
 .colega-rank-badge {
@@ -2752,8 +2926,8 @@ onBeforeUnmount(() => {
   font-size: 20px;
   line-height: 1;
   z-index: 2;
-  animation: badgePop 0.55s cubic-bezier(0.22,1,0.36,1) both;
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,.25));
+  animation: badgePop 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
 }
 
 /* Garantir position:relative para os efeitos absolutos */
@@ -2765,8 +2939,8 @@ onBeforeUnmount(() => {
 }
 
 /* Conteúdo fica acima dos efeitos */
-.colega-rank-ouro  > .colega-main,
-.colega-rank-ouro  > .colega-link,
+.colega-rank-ouro > .colega-main,
+.colega-rank-ouro > .colega-link,
 .colega-rank-prata > .colega-main,
 .colega-rank-prata > .colega-link,
 .colega-rank-bronze > .colega-main,
