@@ -10,14 +10,19 @@
 
 ### Etiqueta
 
-| Situacao | Conforme | Pontos | Conta para taxa |
-| --- | --- | --- | --- |
-| Atualizado | true | 1 | Sim |
-| Desatualizado | false | -1 | Sim |
-| Lido sem estoque | true | 0.2 | Sim |
-| Lido nao pertence | false | -0.2 | Sim |
-| Nao lidos com estoque | false | 0 | Nao |
-| Sem Estoque | null | 0 | Nao |
+| Situacao | Conforme | Pontos | Conta para taxa | Conta no total auditavel |
+| --- | --- | --- | --- | --- |
+| Atualizado | true | 1 | Sim | Sim |
+| Desatualizado | false | -1 | Sim | Sim |
+| Lido sem estoque | true | 0.2 | Sim | Sim |
+| Lido nao pertence | false | -0.2 | Sim | Sim |
+| Nao lidos com estoque | false | 0 | Nao | Sim |
+| Sem Estoque | null | 0 | Nao | Nao |
+
+**Calculo da taxaConformidade ETIQUETA:**
+- `totalLidos` = itens com `conta:true` = Atualizado + Desatualizado + Lido sem estoque + Lido nao pertence (itens fisicamente lidos)
+- `totalItensAuditaveis` = itens com `conforme != null` = totalLidos + Nao lidos com estoque (exclui Sem Estoque)
+- `taxaConformidade` = `totalLidos / totalItensAuditaveis * 100` = **% de cobertura: qual fracao dos itens auditaveis foi efetivamente lida**
 
 ### Presenca
 
@@ -29,6 +34,9 @@
 | Sem Presenca e Sem Estoque | null | 0 | Nao |
 | Lido nao pertence | false | -0.2 | Sim |
 
+**Calculo da taxaConformidade PRESENCA:**
+- `taxaConformidade` = `totalConformes / totalLidos * 100` = % de itens lidos que estao conformes
+
 ### Ruptura
 
 | Situacao | Conforme | Pontos | Conta para taxa |
@@ -39,6 +47,9 @@
 | Sem Presenca e Sem Estoque | null | 0 | Nao |
 | Lido nao pertence | false | -0.2 | Sim |
 
+**Calculo da taxaConformidade RUPTURA:**
+- `taxaConformidade` = `totalConformes / totalLidos * 100` = % de itens lidos que estao conformes
+
 ## Regra de tipo da auditoria
 
 - O sistema tenta detectar o tipo usando nome da sheet, nome do arquivo e distribuicao de situacoes.
@@ -47,14 +58,29 @@
 
 ## Regra de data oficial
 
-- A data da auditoria e o dia mais frequente encontrado na coluna auditadoEm.
-- O valor persistido e truncado para o inicio do dia.
+- A data da auditoria e o dia mais frequente encontrado na coluna **auditadoEm** de cada linha da planilha.
+- O valor persistido e truncado para o inicio do dia (00:00 UTC).
+- A data do upload **nao interfere** — a data vem do conteudo da planilha.
+- Consequencia: planilhas de datas passadas (dias, semanas, meses atras) podem ser enviadas a qualquer momento e serao indexadas na data correta, alimentando todos os periodos analiticos retroativamente.
+- Nao ha restricao de data minima ou maxima: o sistema aceita qualquer data presente na coluna auditadoEm.
+
+## Regra de retroalimentacao historica
+
+- E possivel enviar planilhas de auditorias antigas (ex: todo o historico do ano) em qualquer ordem e em qualquer momento.
+- Cada planilha sera processada com a data real da auditoria, populando MetricaDiaria, AuditItem, Colaborador e Loja para aquele dia.
+- Apos carregar um lote grande de historico, recomenda-se executar o script de recompute para garantir que os acumulados de Colaborador e Loja fechem corretamente:
+  ```
+  node --env-file=.env scripts/recompute-acumulados.js
+  ```
+- O script e idempotente: pode ser rodado multiplas vezes sem risco de duplicar dados.
 
 ## Regra de idempotencia de upload
 
 - Chave logica do upload: loja + tipo + data.
 - Se essa combinacao ja existir, os AuditItems anteriores sao apagados e o upload e reprocessado.
 - Essa logica evita duplicidade para reenvios do mesmo dia.
+- No banco, o indice `{ loja, tipo, data }` e unico (garantia em nivel de banco alem da logica de aplicacao).
+- Para o mesmo dia, o ultimo envio sempre vence — inclusive para datas passadas.
 
 ## Regra de pontuacao e nivel
 

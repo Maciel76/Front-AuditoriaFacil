@@ -580,10 +580,18 @@ const topCorredores = computed(() =>
               <div class="store-type-rate">
                 {{ formatarPercentual(item.taxa, 1) }}
               </div>
-              <div class="muted" style="font-size: 12px; margin-top: 4px">
-                {{ formatarInteiro(item.totalConformes) }} de
-                {{ formatarInteiro(item.totalLidos) }} conformes
-              </div>
+              <template v-if="item.key === 'ETIQUETA'">
+                <div class="muted" style="font-size: 12px; margin-top: 4px">
+                  {{ formatarInteiro(item.totalLidos) }} de
+                  {{ formatarInteiro(item.totalItensAuditaveis) }} lidos
+                </div>
+              </template>
+              <template v-else>
+                <div class="muted" style="font-size: 12px; margin-top: 4px">
+                  {{ formatarInteiro(item.totalConformes) }} de
+                  {{ formatarInteiro(item.totalLidos) }} conformes
+                </div>
+              </template>
               <div class="progress mt-2">
                 <span :style="{ width: Math.min(100, item.taxa) + '%' }" />
               </div>

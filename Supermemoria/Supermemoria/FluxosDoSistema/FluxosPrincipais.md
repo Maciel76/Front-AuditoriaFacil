@@ -27,9 +27,11 @@
 6. Backend valida role, arquivo e escopo de loja, cria um job em memoria e devolve jobId.
 7. Frontend acompanha o progresso em duas fases: envio do arquivo e processamento do job.
 8. Frontend consulta GET /api/auditorias/upload/:jobId/status ate o status final.
-9. planilhaParser normaliza linhas e detecta tipo/data.
+9. planilhaParser normaliza linhas e detecta tipo/data. A data e extraida da coluna auditadoEm (dia mais frequente) — nao da data do upload.
 10. auditoriaProcessor garante colaboradores, classifica linhas, persiste AuditItems, atualiza Auditoria, MetricaDiaria, Colaborador e Loja, emitindo progresso por etapa.
 11. Frontend recebe o resultado final do job, atualiza o historico filtrado pela loja escolhida e exibe o resumo do processamento.
+
+> **Carregamento de historico**: o sistema aceita planilhas de qualquer data passada. Basta enviar normalmente; cada planilha sera indexada pela data real da auditoria e alimentara todos os periodos (dia, semana, mes, ano, tudo) retroativamente. Apos carregar um lote de historico, executar `scripts/recompute-acumulados.js` garante consistencia dos acumulados.
 
 ## Fluxo 4 - Dashboard e analytics
 
