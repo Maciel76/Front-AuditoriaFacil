@@ -93,6 +93,9 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Usa PeriodoSelector com suporte a custom.
 - Renderiza cinco KPIs principais, grafico de conformidade com colunas para series esparsas e linha para periodos mais densos, alem da distribuicao por tipo.
 - Exibe cards detalhados por tipo de auditoria e ultimas auditorias.
+- O botao Compartilhar exporta um PNG da area funcional atual do dashboard com os filtros ja aplicados.
+- Para manter fidelidade visual no light/dark, a exportacao nao deve capturar o DOM vivo diretamente: o padrao confirmado e clonar a area alvo fora da tela, sincronizar os campos de formulario, copiar os canvases dos graficos, remover estados transitorios de animacao e aplicar explicitamente o data-theme e as CSS vars do tema atual antes de chamar html2canvas.
+- O fundo final da captura deve usar os tokens do tema ativo, principalmente --bg-0, --surface e --grad-card, para evitar cards pretos/cinza ou perda do glow no tema claro.
 
 ### Auditorias.vue
 

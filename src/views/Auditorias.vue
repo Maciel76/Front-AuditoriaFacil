@@ -32,13 +32,17 @@ function formatBytes(bytes = 0) {
 
 const enviando     = ref(false);
 const dragOver     = ref(false);
-const arquivo      = ref(null);
+const arquivo      = ref(null);   // arquivo atualmente em processamento
+const fila         = ref([]);     // [{id, file, status, erro, resultado}]
 const tipoForcado  = ref(tipoSugeridoHoje());
 const ultimoResultado = ref(null);
 const progressoUpload = ref(0);
 const etapaUpload = ref('idle');
 const detalheProcessamento = ref('');
 const erroUpload = ref('');
+
+let filaProcessando = false;
+let idCounter = 0;
 
 let componenteAtivo = true;
 let simulacaoProcessamento = null;
@@ -54,7 +58,7 @@ const ultimaLojaProcessada = ref(null);
 
 const lojaDestino = computed(() => lojasDisponiveis.value.find((loja) => loja._id === lojaDestinoId.value) || null);
 const uploadBloqueadoSemLoja = computed(() => auth.isSuperAdmin && !lojaDestinoId.value);
-const podeSelecionarArquivo = computed(() => !uploadEmAndamento.value && !uploadBloqueadoSemLoja.value && !carregandoLojas.value);
+const podeSelecionarArquivo = computed(() => !uploadBloqueadoSemLoja.value && !carregandoLojas.value);
 
 function paramsEscopoLoja(extra = {}) {
   if (auth.isSuperAdmin && lojaDestinoId.value) return { ...extra, lojaId: lojaDestinoId.value };
@@ -138,14 +142,121 @@ function resetarEstadoUpload() {
   erroUpload.value = '';
 }
 
-function prepararArquivoSelecionado(file) {
-  if (enviando.value) return;
-  arquivo.value = file || null;
-  resetarEstadoUpload();
+function adicionarFilaArquivos(files) {
+  if (!files || !files.length) return;
+  for (const file of Array.from(files)) {
+    fila.value.push({ id: ++idCounter, file, status: 'waiting', erro: '', resultado: null });
+  }
+  if (fileInput.value) fileInput.value.value = '';
+  iniciarFila();
 }
 
-function pickFile(e) { prepararArquivoSelecionado(e.target.files?.[0] || null); }
-function onDrop(e)   { dragOver.value = false; prepararArquivoSelecionado(e.dataTransfer.files?.[0] || null); }
+function removerDaFila(id) {
+  const idx = fila.value.findIndex((item) => item.id === id);
+  if (idx !== -1 && fila.value[idx].status !== 'processing') {
+    fila.value.splice(idx, 1);
+  }
+}
+
+async function iniciarFila() {
+  if (filaProcessando) return;
+  filaProcessando = true;
+  while (componenteAtivo) {
+    const proximo = fila.value.find((item) => item.status === 'waiting');
+    if (!proximo) break;
+    await processarItem(proximo);
+  }
+  filaProcessando = false;
+  // Se fila vazia e tudo processado, volta para idle
+  const algumAtivo = fila.value.some((item) => item.status === 'waiting' || item.status === 'processing');
+  if (!algumAtivo) {
+    etapaUpload.value = fila.value.length ? (fila.value.every((i) => i.status === 'done') ? 'success' : 'idle') : 'idle';
+    arquivo.value = null;
+  }
+}
+
+async function processarItem(item) {
+  if (!componenteAtivo) return;
+  item.status = 'processing';
+  arquivo.value = item.file;
+
+  // reinicia animacao do zero
+  progressoUpload.value = 0;
+  etapaUpload.value = 'upload';
+  detalheProcessamento.value = 'Enviando arquivo';
+  erroUpload.value = '';
+  ultimoResultado.value = null;
+  enviando.value = true;
+
+  ultimaLojaProcessada.value = lojaDestino.value
+    ? { nome: lojaDestino.value.nome, cidade: lojaDestino.value.cidade, estado: lojaDestino.value.estado }
+    : auth.loja
+      ? { nome: auth.loja.nome, cidade: auth.loja.cidade, estado: auth.loja.estado }
+      : null;
+
+  const fd = new FormData();
+  fd.append('arquivo', item.file);
+  if (tipoForcado.value) fd.append('tipo', tipoForcado.value);
+
+  try {
+    const { data } = await api.post('/auditorias/upload', fd, {
+      params: paramsEscopoLoja(),
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress(event) {
+        if (!event.total) {
+          progressoUpload.value = Math.max(progressoUpload.value, 18);
+          return;
+        }
+        const percentual = event.loaded / event.total;
+        progressoUpload.value = Math.max(progressoUpload.value, Math.min(34, percentual * 34));
+        detalheProcessamento.value = percentual >= 0.98
+          ? 'Arquivo recebido. Iniciando processamento…'
+          : 'Enviando arquivo';
+      },
+    });
+    enviando.value = false;
+    await acompanharProcessamentoItem(item, data.jobId);
+  } catch (e) {
+    pararSimulacaoProcessamento();
+    etapaUpload.value = 'error';
+    progressoUpload.value = 0;
+    const msg = e?.response?.data?.error || e?.message || 'Falha no upload';
+    erroUpload.value = msg;
+    detalheProcessamento.value = msg;
+    item.status = 'error';
+    item.erro = msg;
+    ui.erro(`${item.file.name}: ${msg}`);
+  } finally {
+    enviando.value = false;
+  }
+}
+
+async function acompanharProcessamentoItem(item, jobId) {
+  etapaUpload.value = 'processing';
+  iniciarSimulacaoProcessamento();
+  while (componenteAtivo) {
+    const { data } = await api.get(`/auditorias/upload/${jobId}/status`);
+    detalheProcessamento.value = data.stage || 'Processando auditoria';
+    const progressoMapeado = 34 + (Number(data.progress || 0) * 0.66);
+    progressoUpload.value = Math.max(progressoUpload.value, progressoMapeado);
+    if (data.status === 'done') {
+      pararSimulacaoProcessamento();
+      progressoUpload.value = 100;
+      etapaUpload.value = 'success';
+      detalheProcessamento.value = 'Processamento concluído';
+      item.status = 'done';
+      item.resultado = data.result;
+      ultimoResultado.value = data.result;
+      ui.sucesso(`${item.file.name}: ${data.result.tipo} — ${data.result.totalLidos} itens lidos`);
+      await listar();
+      return;
+    }
+    if (data.status === 'error') {
+      throw new Error(data.error || 'Falha no processamento da planilha');
+    }
+    await new Promise((resolve) => setTimeout(resolve, 700));
+  }
+}
 
 function iniciarSimulacaoProcessamento() {
   pararSimulacaoProcessamento();
@@ -161,86 +272,8 @@ function pararSimulacaoProcessamento() {
   simulacaoProcessamento = null;
 }
 
-async function acompanharProcessamento(jobId) {
-  etapaUpload.value = 'processing';
-  iniciarSimulacaoProcessamento();
-
-  while (componenteAtivo) {
-    const { data } = await api.get(`/auditorias/upload/${jobId}/status`);
-    detalheProcessamento.value = data.stage || 'Processando auditoria';
-
-    const progressoBackend = Number(data.progress || 0);
-    const progressoMapeado = 34 + (progressoBackend * 0.66);
-    progressoUpload.value = Math.max(progressoUpload.value, progressoMapeado);
-
-    if (data.status === 'done') {
-      pararSimulacaoProcessamento();
-      progressoUpload.value = 100;
-      etapaUpload.value = 'success';
-      detalheProcessamento.value = 'Processamento concluído';
-      ultimoResultado.value = data.result;
-      ui.sucesso(`Processado: ${data.result.tipo} — ${data.result.totalLidos} itens lidos`);
-      limparArquivoSelecionado();
-      await listar();
-      return;
-    }
-
-    if (data.status === 'error') {
-      throw new Error(data.error || 'Falha no processamento da planilha');
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 700));
-  }
-}
-
-async function enviar() {
-  if (!arquivo.value) { ui.erro('Selecione um arquivo'); return; }
-  if (uploadBloqueadoSemLoja.value) { ui.erro('Selecione a loja de destino antes de enviar a planilha'); return; }
-  enviando.value = true;
-  etapaUpload.value = 'upload';
-  progressoUpload.value = 2;
-  detalheProcessamento.value = 'Enviando arquivo';
-  erroUpload.value = '';
-  ultimoResultado.value = null;
-  const fd = new FormData();
-  fd.append('arquivo', arquivo.value);
-  if (tipoForcado.value) fd.append('tipo', tipoForcado.value);
-  ultimaLojaProcessada.value = lojaDestino.value
-    ? { nome: lojaDestino.value.nome, cidade: lojaDestino.value.cidade, estado: lojaDestino.value.estado }
-    : auth.loja
-      ? { nome: auth.loja.nome, cidade: auth.loja.cidade, estado: auth.loja.estado }
-      : null;
-  try {
-    const { data } = await api.post('/auditorias/upload', fd, {
-      params: paramsEscopoLoja(),
-      headers: { 'Content-Type': 'multipart/form-data' },
-      onUploadProgress(event) {
-        if (!event.total) {
-          progressoUpload.value = Math.max(progressoUpload.value, 18);
-          return;
-        }
-
-        const percentual = event.loaded / event.total;
-        progressoUpload.value = Math.max(progressoUpload.value, Math.min(34, percentual * 34));
-        detalheProcessamento.value = percentual >= 0.98
-          ? 'Arquivo recebido. Iniciando processamento…'
-          : 'Enviando arquivo';
-      },
-    });
-
-    enviando.value = false;
-    await acompanharProcessamento(data.jobId);
-  } catch (e) {
-    pararSimulacaoProcessamento();
-    etapaUpload.value = 'error';
-    progressoUpload.value = 0;
-    erroUpload.value = e?.response?.data?.error || e?.message || 'Falha no upload';
-    detalheProcessamento.value = erroUpload.value;
-    ui.erro(erroUpload.value);
-  } finally {
-    enviando.value = false;
-  }
-}
+function pickFile(e) { adicionarFilaArquivos(e.target.files); }
+function onDrop(e)   { dragOver.value = false; adicionarFilaArquivos(e.dataTransfer.files); }
 
 function irParaDashboard() {
   router.push({ path: '/dashboard', query: paramsEscopoLoja({ refresh: Date.now() }) });
@@ -269,6 +302,8 @@ const arquivoResumo = computed(() => {
 const tipoAtualLabel = computed(() => tipoForcado.value ? tipoLabels[tipoForcado.value] : 'Automático');
 const lojaDestinoLabel = computed(() => lojaDestino.value?.nome || 'Selecione uma loja');
 const lojaDestinoResumo = computed(() => [lojaDestino.value?.cidade, lojaDestino.value?.estado].filter(Boolean).join(' / '));
+const filaVisivelOrdenada = computed(() => fila.value.filter((i) => i.status !== 'done' || fila.value.length <= 5));
+const temFilaEspera = computed(() => fila.value.some((i) => i.status === 'waiting'));
 const statusUploadTitulo = computed(() => {
   if (uploadBloqueadoSemLoja.value) return 'Escolha a loja de destino';
   if (etapaUpload.value === 'upload') return 'Enviando a planilha';
@@ -345,7 +380,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="upload-layout">
-          <div class="upload-status-card">
+          <div class="upload-status-card" :class="{ 'has-fila': fila.length > 0 }">
             <div class="upload-status-icon">
               <fa :icon="uploadEmAndamento ? 'spinner' : etapaUpload === 'success' ? 'check' : etapaUpload === 'error' ? 'triangle-exclamation' : 'cloud-arrow-up'" :spin="uploadEmAndamento" />
             </div>
@@ -356,7 +391,7 @@ onBeforeUnmount(() => {
               <p>{{ statusUploadTexto }}</p>
             </div>
 
-            <div class="upload-status-meta">
+            <div v-if="!fila.length" class="upload-status-meta">
               <div v-if="auth.isSuperAdmin" class="upload-meta-row">
                 <span class="muted">Loja</span>
                 <strong>{{ lojaDestinoLabel }}</strong>
@@ -373,21 +408,67 @@ onBeforeUnmount(() => {
                 <span class="muted">Limite</span>
                 <strong>100 MB</strong>
               </div>
-              <div class="upload-meta-row" v-if="arquivoResumo">
-                <span class="muted">Arquivo</span>
-                <strong>{{ arquivoResumo.tamanho }}</strong>
-              </div>
             </div>
+
+            <!-- Fila de processamento dentro do card esquerdo -->
+            <Transition name="fila-fade">
+              <div v-if="fila.length > 0" class="upload-fila-interna">
+                <div class="upload-fila-header row">
+                  <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; opacity: .6;">Fila</span>
+                  <span class="badge dim" style="font-size: 11px;">{{ fila.filter(i => i.status !== 'done').length }} pendente(s)</span>
+                  <span class="spacer" />
+                  <button
+                    v-if="!uploadEmAndamento && fila.some(i => i.status === 'done')"
+                    class="btn ghost"
+                    style="font-size: 11px; padding: 2px 8px;"
+                    @click="fila.splice(0, fila.length, ...fila.filter(i => i.status !== 'done'))"
+                  ><fa icon="broom" /></button>
+                </div>
+                <div class="upload-fila-scroll">
+                  <TransitionGroup name="fila-item" tag="div">
+                    <div
+                      v-for="item in filaVisivelOrdenada"
+                      :key="item.id"
+                      class="upload-fila-item"
+                      :class="item.status"
+                    >
+                      <div class="fila-item-icon">
+                        <fa v-if="item.status === 'processing'" icon="spinner" spin />
+                        <span v-else-if="item.status === 'waiting'" class="fila-waiting-pulse" />
+                        <fa v-else-if="item.status === 'done'" icon="check" />
+                        <fa v-else icon="triangle-exclamation" />
+                      </div>
+                      <div class="fila-item-info">
+                        <div class="fila-item-nome">{{ item.file.name }}</div>
+                        <div class="fila-item-meta muted">
+                          <span>{{ formatBytes(item.file.size) }}</span>
+                          <span v-if="item.status === 'processing'"> · Processando…</span>
+                          <span v-else-if="item.status === 'waiting'"> · Na fila</span>
+                          <span v-else-if="item.status === 'done'"> · Concluído</span>
+                          <span v-else-if="item.status === 'error'" class="fila-item-erro"> · {{ item.erro }}</span>
+                        </div>
+                      </div>
+                      <button
+                        v-if="item.status === 'waiting'"
+                        class="btn ghost fila-item-remove"
+                        title="Remover da fila"
+                        @click.prevent="removerDaFila(item.id)"
+                      ><fa icon="xmark" /></button>
+                    </div>
+                  </TransitionGroup>
+                </div>
+              </div>
+            </Transition>
           </div>
 
           <label
             class="dropzone upload-dropzone"
-            :class="{ over: dragOver, active: !!arquivo, disabled: !podeSelecionarArquivo }"
+            :class="{ over: dragOver, active: fila.length > 0, disabled: !podeSelecionarArquivo }"
             @dragover.prevent="podeSelecionarArquivo && (dragOver = true)"
             @dragleave.prevent="dragOver = false"
-            @drop.prevent="podeSelecionarArquivo && onDrop"
+            @drop.prevent="podeSelecionarArquivo && onDrop($event)"
           >
-            <input ref="fileInput" type="file" accept=".xlsx,.xls,.xlsb,.xlsm,.csv,.ods" @change="pickFile" hidden :disabled="!podeSelecionarArquivo" />
+            <input ref="fileInput" type="file" multiple accept=".xlsx,.xls,.xlsb,.xlsm,.csv,.ods" @change="pickFile" hidden :disabled="!podeSelecionarArquivo" />
 
             <template v-if="uploadEmAndamento">
               <div class="upload-progress-stage">
@@ -408,20 +489,19 @@ onBeforeUnmount(() => {
               </div>
             </template>
 
-            <template v-else-if="arquivoResumo">
+            <template v-else-if="temFilaEspera">
               <div class="upload-drop-content">
-                <div class="upload-drop-icon"><fa icon="cloud-arrow-up" /></div>
-                <strong>{{ arquivoResumo.nome }}</strong>
-                <div class="muted">{{ arquivoResumo.tamanho }} · {{ tipoAtualLabel }}</div>
-                <div class="badge info mt-1"><fa icon="check" /> Arquivo pronto para processamento</div>
+                <div class="upload-drop-icon"><fa icon="layer-group" /></div>
+                <strong>{{ fila.filter(i => i.status === 'waiting').length }} arquivo(s) aguardando na fila</strong>
+                <div class="muted">Clique ou arraste para adicionar mais planilhas</div>
               </div>
             </template>
 
             <template v-else>
               <div class="upload-drop-content">
                 <div class="upload-drop-icon"><fa icon="cloud-arrow-up" /></div>
-                <strong>Arraste a planilha aqui ou clique para selecionar</strong>
-                <div class="muted">Excel / CSV exportado do coletor (até 100 MB)</div>
+                <strong>Arraste planilhas aqui ou clique para selecionar</strong>
+                <div class="muted">Selecione vários arquivos de uma vez — Excel / CSV até 100 MB cada</div>
               </div>
             </template>
           </label>
@@ -443,10 +523,6 @@ onBeforeUnmount(() => {
               <span class="muted">{{ uploadEmAndamento ? (detalheProcessamento || 'Processando') : 'Último processamento' }}</span>
               <strong>{{ progressoExibido }}%</strong>
             </div>
-            <button class="btn primary" :disabled="!arquivo || uploadEmAndamento || uploadBloqueadoSemLoja" @click="enviar">
-              <fa :icon="uploadEmAndamento ? 'spinner' : 'cloud-arrow-up'" :spin="uploadEmAndamento" />
-              {{ uploadEmAndamento ? 'Processando…' : 'Processar' }}
-            </button>
           </div>
         </div>
       </div>
@@ -648,15 +724,20 @@ onBeforeUnmount(() => {
 }
 
 .upload-status-card {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
-  align-content: start;
   padding: 18px;
   border-radius: 18px;
   border: 1px solid var(--border);
   background: rgba(255,255,255,.12);
   backdrop-filter: blur(6px);
   min-height: 100%;
+  overflow: hidden;
+}
+
+.upload-status-card.has-fila {
+  min-height: 320px;
 }
 
 .upload-status-icon {
@@ -797,6 +878,139 @@ onBeforeUnmount(() => {
 .upload-store-badge {
   width: fit-content;
 }
+
+/* ---- Fila de processamento (dentro do card esquerdo) ---- */
+.upload-fila-interna {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(0,0,0,.06);
+}
+
+.upload-fila-header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.upload-fila-scroll {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  max-height: 260px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124,92,255,.3) transparent;
+}
+
+.upload-fila-scroll::-webkit-scrollbar { width: 4px; }
+.upload-fila-scroll::-webkit-scrollbar-track { background: transparent; }
+.upload-fila-scroll::-webkit-scrollbar-thumb { background: rgba(124,92,255,.3); border-radius: 2px; }
+
+.upload-fila-list {
+  display: grid;
+}
+
+.upload-fila-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  transition: background .2s;
+}
+
+.upload-fila-item:last-child {
+  border-bottom: none;
+}
+
+.upload-fila-item.processing {
+  background: rgba(124,92,255,.08);
+}
+
+.upload-fila-item.done {
+  opacity: .6;
+}
+
+.upload-fila-item.error {
+  background: rgba(239,68,68,.06);
+}
+
+.fila-item-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.upload-fila-item.processing .fila-item-icon { color: var(--accent, #7c5cff); }
+.upload-fila-item.done       .fila-item-icon { color: var(--success, #22c55e); }
+.upload-fila-item.error      .fila-item-icon { color: var(--danger, #ef4444); }
+.upload-fila-item.waiting    .fila-item-icon { color: var(--text-dim); }
+
+.fila-waiting-pulse {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  animation: filaWaitPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes filaWaitPulse {
+  0%, 100% { opacity: .35; transform: scale(.8); }
+  50%       { opacity: 1;   transform: scale(1.1); }
+}
+
+.fila-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.fila-item-nome {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fila-item-meta {
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.fila-item-erro {
+  color: var(--danger, #ef4444);
+}
+
+.fila-item-remove {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+  opacity: .6;
+}
+.fila-item-remove:hover { opacity: 1; }
+
+/* Transitions fila */
+.fila-fade-enter-active,
+.fila-fade-leave-active { transition: opacity .25s, transform .25s; }
+.fila-fade-enter-from,
+.fila-fade-leave-to    { opacity: 0; transform: translateY(-6px); }
+
+.fila-item-enter-active { transition: opacity .2s, transform .2s; }
+.fila-item-leave-active { transition: opacity .15s; }
+.fila-item-enter-from   { opacity: 0; transform: translateX(-10px); }
+.fila-item-leave-to     { opacity: 0; }
 
 @keyframes waterDrift {
   0% { transform: translateX(-4%) rotate(0deg); }

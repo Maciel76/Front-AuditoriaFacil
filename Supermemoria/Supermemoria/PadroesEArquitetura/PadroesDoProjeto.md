@@ -46,6 +46,18 @@
 - PeriodoSelector e o componente padrao para filtros temporais.
 - AppLayout concentra comportamento de shell, navegacao, tema e responsividade.
 
+## Padrao de exportacao visual no frontend
+
+- Quando uma tela precisar baixar um print fiel ao estado atual, a captura deve usar um clone offscreen da area alvo, e nao o DOM vivo inteiro da pagina.
+- O clone deve receber o data-theme atual e as CSS vars principais do design system, incluindo pelo menos --bg-0, --surface, --surface-strong, --border, --text, --grad-primary e --grad-card.
+- Campos de formulario dentro da area capturada precisam ter seus valores sincronizados manualmente no clone para refletir o filtro atual.
+- Graficos renderizados em canvas precisam ser copiados manualmente do original para o clone antes da exportacao.
+- Antes do html2canvas, remover ou neutralizar animacoes, transicoes e estados transitorios como loading/refresh/export para evitar cortes, textos lavados e botao mudando dentro da imagem.
+- O backgroundColor final da captura deve usar o token de fundo do tema ativo, preferencialmente --bg-0, para impedir que transparencia vire preto/cinza no PNG.
+- Quando a exportacao precisar incluir filtros e conteudo da tela, envolver tudo em uma captureArea dedicada e exportar esse bloco completo.
+
+## Padrao de documentacao desta memoria
+
 ## Padrao de documentacao desta memoria
 
 - Registrar apenas comportamento confirmado no codigo.

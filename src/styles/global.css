@@ -123,6 +123,23 @@
   color: var(--text);
 }
 
+:root:not([data-theme="light"]) select {
+  color-scheme: dark;
+}
+
+:root:not([data-theme="light"]) select.btn,
+:root:not([data-theme="light"]) .field select {
+  background: rgba(15,20,36,.92);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+:root:not([data-theme="light"]) select option,
+:root:not([data-theme="light"]) select optgroup {
+  background: var(--bg-2);
+  color: var(--text);
+}
+
 [data-theme="light"] .table thead th {
   background: rgba(0,0,0,.03);
 }

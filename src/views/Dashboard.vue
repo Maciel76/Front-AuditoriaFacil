@@ -1,21 +1,24 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import api from '@/services/api';
 import KpiCard from '@/components/KpiCard.vue';
 import AppChart from '@/components/AppChart.vue';
 import Loader from '@/components/Loader.vue';
 import PeriodoSelector from '@/components/PeriodoSelector.vue';
 import { RouterLink } from 'vue-router';
+import html2canvas from 'html2canvas';
 
-const periodo    = ref('1d');
-const dataInicio = ref('');
-const dataFim    = ref('');
-const tipo       = ref('');
-const carregando = ref(true);
-const refreshing = ref(false);
-const dataKey    = ref(0);
-const dados      = ref(null);
-const semDados   = ref(false);
+const periodo     = ref('1d');
+const dataInicio  = ref('');
+const dataFim     = ref('');
+const tipo        = ref('');
+const carregando  = ref(true);
+const refreshing  = ref(false);
+const captureArea = ref(null);
+const exportando  = ref(false);
+const dataKey     = ref(0);
+const dados       = ref(null);
+const semDados    = ref(false);
 
 async function carregar() {
   if (dados.value) refreshing.value = true;
@@ -157,6 +160,179 @@ const distribTipo = computed(() => {
   };
 });
 
+async function esperarCapturaEstavel() {
+  await nextTick();
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
+function sincronizarCamposDeFormulario(originalRoot, clonedRoot) {
+  const originalFields = originalRoot.querySelectorAll('input, select, textarea');
+  const clonedFields = clonedRoot.querySelectorAll('input, select, textarea');
+
+  originalFields.forEach((field, index) => {
+    const clonedField = clonedFields[index];
+    if (!clonedField) return;
+
+    clonedField.value = field.value;
+    if ('checked' in field) clonedField.checked = field.checked;
+  });
+}
+
+function copiarCanvases(originalRoot, clonedRoot) {
+  const originalCanvases = originalRoot.querySelectorAll('canvas');
+  const clonedCanvases = clonedRoot.querySelectorAll('canvas');
+
+  originalCanvases.forEach((canvas, index) => {
+    const clonedCanvas = clonedCanvases[index];
+    if (!clonedCanvas) return;
+
+    clonedCanvas.width = canvas.width;
+    clonedCanvas.height = canvas.height;
+    clonedCanvas.style.width = `${canvas.clientWidth}px`;
+    clonedCanvas.style.height = `${canvas.clientHeight}px`;
+
+    const context = clonedCanvas.getContext('2d');
+    if (context) context.drawImage(canvas, 0, 0);
+  });
+}
+
+function limparEstadosTransitorios(clonedRoot) {
+  clonedRoot.querySelectorAll('*').forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+    node.style.animation = 'none';
+    node.style.transition = 'none';
+    node.style.caretColor = 'transparent';
+  });
+
+  clonedRoot.querySelector('.dash-refreshing')?.classList.remove('dash-refreshing');
+
+  const shareButton = clonedRoot.querySelector('.dash-share-btn');
+  if (shareButton) {
+    shareButton.removeAttribute('disabled');
+    shareButton.setAttribute('aria-busy', 'false');
+  }
+}
+
+function aplicarTemaAtualNoClone(container) {
+  const temaAtual = document.documentElement.getAttribute('data-theme') || 'dark';
+  const rootStyles = getComputedStyle(document.documentElement);
+  const bodyStyles = getComputedStyle(document.body);
+  const themeVars = [
+    '--bg-0',
+    '--bg-1',
+    '--bg-2',
+    '--bg-3',
+    '--surface',
+    '--surface-strong',
+    '--border',
+    '--border-strong',
+    '--text',
+    '--text-dim',
+    '--text-mute',
+    '--primary',
+    '--primary-2',
+    '--accent',
+    '--success',
+    '--warning',
+    '--danger',
+    '--grad-primary',
+    '--grad-warm',
+    '--grad-success',
+    '--grad-card',
+    '--radius-sm',
+    '--radius',
+    '--radius-lg',
+    '--shadow-sm',
+    '--shadow',
+    '--shadow-lg',
+  ];
+
+  container.setAttribute('data-theme', temaAtual);
+
+  themeVars.forEach((name) => {
+    const value = rootStyles.getPropertyValue(name).trim();
+    if (value) container.style.setProperty(name, value);
+  });
+
+  container.style.color = rootStyles.getPropertyValue('--text').trim() || bodyStyles.color;
+  container.style.backgroundColor = rootStyles.getPropertyValue('--bg-0').trim() || bodyStyles.backgroundColor || '#ffffff';
+  container.style.backgroundImage = bodyStyles.backgroundImage !== 'none' ? bodyStyles.backgroundImage : 'none';
+  container.style.backgroundPosition = bodyStyles.backgroundPosition;
+  container.style.backgroundSize = bodyStyles.backgroundSize;
+  container.style.backgroundRepeat = bodyStyles.backgroundRepeat;
+}
+
+async function compartilhar() {
+  if (!captureArea.value || exportando.value) return;
+
+  exportando.value = true;
+  let tempContainer = null;
+
+  try {
+    const target = captureArea.value;
+    await esperarCapturaEstavel();
+
+    const targetRect = target.getBoundingClientRect();
+    const rootStyles = getComputedStyle(document.documentElement);
+
+    tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-20000px';
+    tempContainer.style.top = '0';
+    tempContainer.style.width = `${Math.ceil(targetRect.width)}px`;
+    tempContainer.style.maxWidth = 'none';
+    tempContainer.style.padding = '0';
+    tempContainer.style.margin = '0';
+    tempContainer.style.boxSizing = 'border-box';
+    tempContainer.style.overflow = 'visible';
+    aplicarTemaAtualNoClone(tempContainer);
+
+    const clonedTarget = target.cloneNode(true);
+    clonedTarget.style.width = '100%';
+    clonedTarget.style.maxWidth = 'none';
+    clonedTarget.style.overflow = 'visible';
+
+    tempContainer.appendChild(clonedTarget);
+    document.body.appendChild(tempContainer);
+
+    sincronizarCamposDeFormulario(target, clonedTarget);
+    copiarCanvases(target, clonedTarget);
+    limparEstadosTransitorios(clonedTarget);
+    await esperarCapturaEstavel();
+
+    const canvas = await html2canvas(tempContainer, {
+      backgroundColor: rootStyles.getPropertyValue('--bg-0').trim() || '#ffffff',
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      imageTimeout: 15000,
+      scale: Math.max(2, window.devicePixelRatio || 1),
+      width: Math.ceil(tempContainer.scrollWidth),
+      height: Math.ceil(tempContainer.scrollHeight),
+      scrollX: 0,
+      scrollY: 0,
+    });
+
+    const link = document.createElement('a');
+    const periodoLabel = {
+      '1d': 'hoje',
+      '7d': 'semana',
+      '30d': 'mes',
+      '365d': 'ano',
+      'all': 'historico',
+      'custom': 'periodo',
+    }[periodo.value] || periodo.value;
+    const tipoLabel = tipo.value ? '-' + tipo.value.toLowerCase() : '';
+
+    link.download = `dashboard-${periodoLabel}${tipoLabel}-${new Date().toISOString().slice(0, 10)}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } finally {
+    if (tempContainer?.parentNode) tempContainer.parentNode.removeChild(tempContainer);
+    exportando.value = false;
+  }
+}
+
 const taxaCentro = computed(() => {
   const d = dados.value;
   if (!d) return null;
@@ -168,7 +344,7 @@ const taxaCentro = computed(() => {
 </script>
 
 <template>
-  <div class="grid gap-3">
+  <div ref="captureArea" class="grid gap-3">
     <div class="row">
       <PeriodoSelector
         v-model="periodo"
@@ -182,9 +358,10 @@ const taxaCentro = computed(() => {
         <option value="RUPTURA">Ruptura</option>
       </select>
       <span class="spacer" />
-      <RouterLink to="/auditorias" class="btn primary">
-        <fa icon="cloud-arrow-up" /> Enviar planilha
-      </RouterLink>
+      <button class="btn primary dash-share-btn" :disabled="exportando" :aria-busy="exportando" @click="compartilhar">
+        <fa icon="share-nodes" />
+        Compartilhar
+      </button>
     </div>
 
     <Loader v-if="carregando" />

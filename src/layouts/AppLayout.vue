@@ -242,6 +242,14 @@ onBeforeUnmount(() => {
           <span class="badge tipo-RUPTURA" v-else-if="diaSemana === 3">
             <fa icon="calendar" /> Hoje: Ruptura
           </span>
+          <RouterLink
+            v-if="auth.podeGerenciar"
+            to="/auditorias"
+            class="btn primary topbar-upload-btn"
+            style="white-space: nowrap; font-size: 14px;"
+          >
+            <fa icon="cloud-arrow-up" /> Enviar planilha
+          </RouterLink>
         </div>
       </header>
 
