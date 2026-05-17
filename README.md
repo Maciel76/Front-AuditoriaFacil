@@ -1,16 +1,15 @@
-# NovaAuditoria
-
+# Novo sistema de auditoriaAuditoria
 Sistema multi-tenant para gestão de **auditorias de loja** (Etiqueta, Presença e Ruptura) com cálculo automático de conformidade, pontuação, ranking de colaboradores/lojas, gamificação e dashboards.
 
 > **Stack**: Node.js 22 · Express 5 · MongoDB · Mongoose 8 · Vue 3.5 · Vite 7 · Pinia · Chart.js · FontAwesome  
-> **Design**: tema dark moderno com gradientes (`#7c5cff → #22d3ee`), glassmorphism nos KPIs, badges por tipo, avatares com iniciais.
+> **Design**:deve ter um tema claro tambem  tema dark moderno com gradientes (`#7c5cff → #22d3ee`), glassmorphism nos KPIs, badges por tipo, avatares com iniciais. 
 
 ---
 
 ## ✨ Funcionalidades
 
-- **Detecção automática do tipo de auditoria** (Etiqueta / Presença / Ruptura) a partir do nome do arquivo, nome da aba e situações encontradas.
-- **Importação XLSX/XLSM/XLSB/XLS/CSV/ODS** via upload (até 100MB), com chunking e idempotência (re-uploads do mesmo dia substituem dados anteriores).
+- **Detecção automática do tipo de auditoria** (Etiqueta / Presença / Ruptura) pelo dia da semana deve ajusta para a detecção automática do tipo de auditoria pelo pelo dia da semana (segunda/quinta = Etiqueta, terça = Presença, quarta = Ruptura), mas também deve permitir override manual no upload. ao seleciona o tipo
+- **Importação XLSX/XLSM/XLSB/XLS/CSV/ODS** via upload (até 100MB), com chunking e idempotência (re-uploads do mesmo dia substituem dados anteriores). do tipo selecionado ou detectado. por exemplo se for segunda e nesse dia eu resolvo manda uma de presença manualmente o sistema deve aceitar e processar como auditoria de presença, de um dia separado.
 - **Multi-tenant** por loja: cada usuário enxerga apenas dados da sua loja; super admin enxerga tudo.
 - **3 perfis**: `SUPER_ADMIN`, `STORE_ADMIN`, `COLABORADOR`.
 - **Cálculo de conformidade, pontuação, custo de ruptura** por auditoria, por loja, por colaborador e por dia.
@@ -22,15 +21,9 @@ Sistema multi-tenant para gestão de **auditorias de loja** (Etiqueta, Presença
 
 ---
 
-## 📋 Pré-requisitos
 
-| Item | Versão recomendada |
-|---|---|
-| Node.js | ≥ 20 (testado em 22.18) |
-| npm | ≥ 10 |
-| MongoDB | ≥ 6 (local, Docker ou Atlas) |
 
-> Sem MongoDB instalado? Crie um cluster grátis em https://www.mongodb.com/atlas e use a connection string no `.env`.
+> Sem MongoDB instalado? Crie um cluster grátis em https://www.mongodb.com/atlas e use a connection string no `.env`. esta criado so que po front end agora nao esta impotando os dados 
 
 ---
 
