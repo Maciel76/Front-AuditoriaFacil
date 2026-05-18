@@ -1,18 +1,28 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import api from '@/services/api';
+import { useAuthStore } from '@/stores/auth';
 import AnimatedNumber from '@/components/AnimatedNumber.vue';
 import KpiCard from '@/components/KpiCard.vue';
 import AppChart from '@/components/AppChart.vue';
 import Loader from '@/components/Loader.vue';
 import PeriodoSelector from '@/components/PeriodoSelector.vue';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import html2canvas from 'html2canvas';
+
+const auth = useAuthStore();
+const route = useRoute();
+const router = useRouter();
+const DASHBOARD_LOJA_STORAGE_KEY = 'na_dashboard_superadmin_loja';
 
 const periodo     = ref('1d');
 const dataInicio  = ref('');
 const dataFim     = ref('');
 const tipo        = ref('');
+const lojasDisponiveis = ref([]);
+const lojaSelecionadaId = ref('');
+const carregandoLojas = ref(false);
+const erroLojas = ref('');
 const carregando  = ref(true);
 const refreshing  = ref(false);
 const captureArea = ref(null);
@@ -20,13 +30,105 @@ const exportando  = ref(false);
 const dataKey     = ref(0);
 const dados       = ref(null);
 const semDados    = ref(false);
+const sincronizandoRotaLoja = ref(false);
+
+const lojaSelecionada = computed(() =>
+  lojasDisponiveis.value.find((loja) => loja._id === lojaSelecionadaId.value) || null,
+);
+
+const rotaAuditorias = computed(() => {
+  if (auth.isSuperAdmin && lojaSelecionadaId.value) {
+    return { path: '/auditorias', query: { lojaId: lojaSelecionadaId.value } };
+  }
+  return { path: '/auditorias' };
+});
+
+function paramsEscopoLoja(extra = {}) {
+  if (auth.isSuperAdmin && lojaSelecionadaId.value) {
+    return { ...extra, lojaId: lojaSelecionadaId.value };
+  }
+  return { ...extra };
+}
+
+function rotaAuditoria(auditoriaId) {
+  if (auth.isSuperAdmin && lojaSelecionadaId.value) {
+    return { path: `/auditorias/${auditoriaId}`, query: { lojaId: lojaSelecionadaId.value } };
+  }
+  return { path: `/auditorias/${auditoriaId}` };
+}
+
+function persistirLojaSelecionada() {
+  if (!auth.isSuperAdmin) return;
+  if (lojaSelecionadaId.value) {
+    localStorage.setItem(DASHBOARD_LOJA_STORAGE_KEY, lojaSelecionadaId.value);
+    return;
+  }
+  localStorage.removeItem(DASHBOARD_LOJA_STORAGE_KEY);
+}
+
+async function sincronizarRotaLoja() {
+  if (!auth.isSuperAdmin) return;
+
+  const lojaAtualNaRota = typeof route.query.lojaId === 'string' ? route.query.lojaId : '';
+  const proximaLojaId = lojaSelecionadaId.value || '';
+  if (lojaAtualNaRota === proximaLojaId) return;
+
+  const query = { ...route.query };
+  delete query.refresh;
+
+  if (proximaLojaId) query.lojaId = proximaLojaId;
+  else delete query.lojaId;
+
+  sincronizandoRotaLoja.value = true;
+  try {
+    await router.replace({ query });
+  } finally {
+    sincronizandoRotaLoja.value = false;
+  }
+}
+
+async function carregarLojasDashboard() {
+  if (!auth.isSuperAdmin) return;
+
+  carregandoLojas.value = true;
+  erroLojas.value = '';
+  try {
+    const { data } = await api.get('/lojas');
+    lojasDisponiveis.value = (data.items || []).filter((loja) => loja.ativa !== false);
+
+    const lojaDaRota = typeof route.query.lojaId === 'string' ? route.query.lojaId : '';
+    const lojaSalva = localStorage.getItem(DASHBOARD_LOJA_STORAGE_KEY) || '';
+    const lojaInicial =
+      lojasDisponiveis.value.find((loja) => loja._id === lojaDaRota)
+      || lojasDisponiveis.value.find((loja) => loja._id === lojaSalva)
+      || null;
+
+    lojaSelecionadaId.value = lojaInicial?._id || '';
+    persistirLojaSelecionada();
+    await sincronizarRotaLoja();
+  } catch (error) {
+    erroLojas.value = error?.response?.data?.error || 'Não foi possível carregar as lojas.';
+    lojasDisponiveis.value = [];
+    lojaSelecionadaId.value = '';
+    persistirLojaSelecionada();
+    await sincronizarRotaLoja();
+  } finally {
+    carregandoLojas.value = false;
+  }
+}
+
+async function trocarLojaSelecionada() {
+  persistirLojaSelecionada();
+  await sincronizarRotaLoja();
+  await carregar();
+}
 
 async function carregar() {
   if (dados.value) refreshing.value = true;
   else carregando.value = true;
   semDados.value   = false;
   try {
-    const params = { periodo: periodo.value };
+    const params = paramsEscopoLoja({ periodo: periodo.value });
     if (periodo.value === 'custom' && dataInicio.value && dataFim.value) {
       params.dataInicio = dataInicio.value;
       params.dataFim    = dataFim.value;
@@ -44,7 +146,7 @@ async function carregar() {
 
 async function irParaUltimaData() {
   try {
-    const { data } = await api.get('/metricas/ultima-data');
+    const { data } = await api.get('/metricas/ultima-data', { params: paramsEscopoLoja() });
     if (data.data) {
       const d = new Date(data.data).toISOString().slice(0, 10);
       periodo.value    = 'custom';
@@ -54,10 +156,26 @@ async function irParaUltimaData() {
   } catch { /* ignora */ }
 }
 
-onMounted(carregar);
+onMounted(async () => {
+  if (auth.isSuperAdmin) await carregarLojasDashboard();
+  await carregar();
+});
 watch(periodo, carregar);
 watch(tipo, carregar);
 watch([dataInicio, dataFim], () => { if (periodo.value === 'custom') carregar(); });
+watch(() => route.query.lojaId, async (novoValor) => {
+  if (!auth.isSuperAdmin || sincronizandoRotaLoja.value || carregandoLojas.value) return;
+
+  const lojaDaRota = typeof novoValor === 'string' ? novoValor : '';
+  const lojaValida = lojaDaRota && lojasDisponiveis.value.some((loja) => loja._id === lojaDaRota);
+  const proximaLojaId = lojaValida ? lojaDaRota : '';
+  if (proximaLojaId === lojaSelecionadaId.value) return;
+
+  lojaSelecionadaId.value = proximaLojaId;
+  persistirLojaSelecionada();
+  await sincronizarRotaLoja();
+  await carregar();
+});
 
 const corPorTipo = { ETIQUETA: '#7c5cff', PRESENCA: '#22d3ee', RUPTURA: '#f59e0b' };
 
@@ -445,6 +563,18 @@ const taxaCentro = computed(() => {
         <option value="PRESENCA">Presença</option>
         <option value="RUPTURA">Ruptura</option>
       </select>
+      <select
+        v-if="auth.isSuperAdmin"
+        v-model="lojaSelecionadaId"
+        class="btn ghost"
+        style="padding: 8px 14px; min-width: 240px"
+        :disabled="carregandoLojas"
+        @change="trocarLojaSelecionada"
+      >
+        <option value="">Todas as lojas</option>
+        <option v-for="loja in lojasDisponiveis" :key="loja._id" :value="loja._id">{{ loja.nome }}</option>
+      </select>
+      <span v-if="auth.isSuperAdmin && erroLojas" class="badge bad">{{ erroLojas }}</span>
       <span class="spacer" />
       <button class="btn primary dash-share-btn" :disabled="exportando" :aria-busy="exportando" @click="compartilhar">
         <fa icon="share-nodes" />
@@ -546,7 +676,7 @@ const taxaCentro = computed(() => {
         <div class="row mb-2">
           <h3 class="mt-0 mb-0">Últimas auditorias</h3>
           <span class="spacer" />
-          <RouterLink to="/auditorias" class="btn ghost">Ver todas <fa icon="chevron-right" /></RouterLink>
+          <RouterLink :to="rotaAuditorias" class="btn ghost">Ver todas <fa icon="chevron-right" /></RouterLink>
         </div>
         <div v-if="!dados.ultimasAuditorias?.length" class="empty">Nenhuma auditoria enviada ainda.</div>
         <div v-else class="table-wrap">
@@ -562,7 +692,7 @@ const taxaCentro = computed(() => {
                 <td>{{ a.taxaConformidade?.toFixed(1) }}%</td>
                 <td>{{ Math.round(a.pontuacao || 0) }}</td>
                 <td class="text-right">
-                  <RouterLink :to="`/auditorias/${a._id}`" class="btn ghost"><fa icon="eye" /></RouterLink>
+                  <RouterLink :to="rotaAuditoria(a._id)" class="btn ghost"><fa icon="eye" /></RouterLink>
                 </td>
               </tr>
             </tbody>

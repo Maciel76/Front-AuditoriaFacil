@@ -47,8 +47,19 @@ const routes = [
       },
       {
         path: "rankings",
-        name: "rankings",
-        component: () => import("@/views/Rankings.vue"),
+        redirect: "/rankings/colaboradores",
+      },
+      {
+        path: "rankings/colaboradores",
+        name: "ranking-colaboradores",
+        component: () => import("@/views/RankingColaboradores.vue"),
+        meta: { roles: ["SUPER_ADMIN", "STORE_ADMIN"] },
+      },
+      {
+        path: "rankings/lojas",
+        name: "ranking-lojas",
+        component: () => import("@/views/RankingLojas.vue"),
+        meta: { roles: ["SUPER_ADMIN", "STORE_ADMIN"] },
       },
       {
         path: "colaboradores",

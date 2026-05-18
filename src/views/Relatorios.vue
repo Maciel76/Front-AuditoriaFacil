@@ -1,20 +1,34 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
-import { onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import api from '@/services/api';
+import { useAuthStore } from '@/stores/auth';
+import ColaboradorAvatar from '@/components/ColaboradorAvatar.vue';
 import Loader from '@/components/Loader.vue';
 import AppChart from '@/components/AppChart.vue';
 import PeriodoSelector from '@/components/PeriodoSelector.vue';
+
+const auth = useAuthStore();
+const route = useRoute();
+const router = useRouter();
+const RELATORIOS_LOJA_STORAGE_KEY = 'na_relatorios_superadmin_loja';
 
 const periodo = ref('1d');
 const dataInicio = ref('');
 const dataFim = ref('');
 const tipo = ref('');
+const lojasDisponiveis = ref([]);
+const lojaSelecionadaId = ref('');
+const carregandoLojas = ref(false);
+const erroLojas = ref('');
 const carregando = ref(true);
+const refreshing = ref(false);
 const situacoes = ref([]);
 const classes = ref([]);
 const corredores = ref([]);
 const detalheOverlay = ref(null);
+const sincronizandoRotaLoja = ref(false);
+const carregamentoInicialConcluido = ref(false);
 
 function tipoSugeridoHoje() {
   const diaSemana = new Date().getDay(); // 0=Dom, 1=Seg, ...
@@ -55,10 +69,83 @@ const coresTipo = {
   RUPTURA: '#f59e0b',
 };
 
-async function carregar() {
-  carregando.value = true;
+function paramsEscopoLoja(extra = {}) {
+  if (auth.isSuperAdmin && lojaSelecionadaId.value) {
+    return { ...extra, lojaId: lojaSelecionadaId.value };
+  }
+  return { ...extra };
+}
+
+function persistirLojaSelecionada() {
+  if (!auth.isSuperAdmin) return;
+  if (lojaSelecionadaId.value) {
+    localStorage.setItem(RELATORIOS_LOJA_STORAGE_KEY, lojaSelecionadaId.value);
+    return;
+  }
+  localStorage.removeItem(RELATORIOS_LOJA_STORAGE_KEY);
+}
+
+async function sincronizarRotaLoja() {
+  if (!auth.isSuperAdmin) return;
+
+  const lojaAtualNaRota = typeof route.query.lojaId === 'string' ? route.query.lojaId : '';
+  const proximaLojaId = lojaSelecionadaId.value || '';
+  if (lojaAtualNaRota === proximaLojaId) return;
+
+  const query = { ...route.query };
+  if (proximaLojaId) query.lojaId = proximaLojaId;
+  else delete query.lojaId;
+
+  sincronizandoRotaLoja.value = true;
   try {
-    const paramsBase = { periodo: periodo.value };
+    await router.replace({ query });
+  } finally {
+    sincronizandoRotaLoja.value = false;
+  }
+}
+
+async function carregarLojasRelatorios() {
+  if (!auth.isSuperAdmin) return;
+
+  carregandoLojas.value = true;
+  erroLojas.value = '';
+  try {
+    const { data } = await api.get('/lojas');
+    lojasDisponiveis.value = (data.items || []).filter((loja) => loja.ativa !== false);
+
+    const lojaDaRota = typeof route.query.lojaId === 'string' ? route.query.lojaId : '';
+    const lojaSalva = localStorage.getItem(RELATORIOS_LOJA_STORAGE_KEY) || '';
+    const lojaInicial =
+      lojasDisponiveis.value.find((loja) => loja._id === lojaDaRota)
+      || lojasDisponiveis.value.find((loja) => loja._id === lojaSalva)
+      || null;
+
+    lojaSelecionadaId.value = lojaInicial?._id || '';
+    persistirLojaSelecionada();
+    await sincronizarRotaLoja();
+  } catch (error) {
+    erroLojas.value = error?.response?.data?.error || 'Não foi possível carregar as lojas.';
+    lojasDisponiveis.value = [];
+    lojaSelecionadaId.value = '';
+    persistirLojaSelecionada();
+    await sincronizarRotaLoja();
+  } finally {
+    carregandoLojas.value = false;
+  }
+}
+
+async function trocarLojaSelecionada() {
+  persistirLojaSelecionada();
+  await sincronizarRotaLoja();
+  await carregar();
+}
+
+async function carregar() {
+  if (carregamentoInicialConcluido.value) refreshing.value = true;
+  else carregando.value = true;
+  detalheOverlay.value = null;
+  try {
+    const paramsBase = paramsEscopoLoja({ periodo: periodo.value });
     if (periodo.value === 'custom' && dataInicio.value && dataFim.value) {
       paramsBase.dataInicio = dataInicio.value;
       paramsBase.dataFim = dataFim.value;
@@ -100,12 +187,15 @@ async function carregar() {
     classes.value = dadosFinais.classes;
     corredores.value = dadosFinais.corredores;
   } finally {
+    carregamentoInicialConcluido.value = true;
     carregando.value = false;
+    refreshing.value = false;
   }
 }
 
 onMounted(async () => {
   tipo.value = tipoSugeridoHoje();
+  if (auth.isSuperAdmin) await carregarLojasRelatorios();
   await carregar();
 });
 
@@ -121,8 +211,23 @@ onBeforeUnmount(() => {
   if (typeof window !== 'undefined') window.removeEventListener('keydown', aoPressionarTecla);
   if (typeof document !== 'undefined') document.body.style.overflow = '';
 });
+
 watch([periodo, tipo, dataInicio, dataFim], () => {
   if (periodo.value !== 'custom' || (dataInicio.value && dataFim.value)) carregar();
+});
+
+watch(() => route.query.lojaId, async (novoValor) => {
+  if (!auth.isSuperAdmin || sincronizandoRotaLoja.value || carregandoLojas.value) return;
+
+  const lojaDaRota = typeof novoValor === 'string' ? novoValor : '';
+  const lojaValida = lojaDaRota && lojasDisponiveis.value.some((loja) => loja._id === lojaDaRota);
+  const proximaLojaId = lojaValida ? lojaDaRota : '';
+  if (proximaLojaId === lojaSelecionadaId.value) return;
+
+  lojaSelecionadaId.value = proximaLojaId;
+  persistirLojaSelecionada();
+  await sincronizarRotaLoja();
+  await carregar();
 });
 
 watch(detalheOverlay, (valor) => {
@@ -322,15 +427,32 @@ const corredoresOrdenados = computed(() => [...corredores.value]
         <option value="PRESENCA">Presença</option>
         <option value="RUPTURA">Ruptura</option>
       </select>
+      <select
+        v-if="auth.isSuperAdmin"
+        v-model="lojaSelecionadaId"
+        class="btn ghost"
+        style="padding: 8px 14px; min-width: 240px;"
+        :disabled="carregandoLojas"
+        @change="trocarLojaSelecionada"
+      >
+        <option value="">Todas as lojas</option>
+        <option v-for="loja in lojasDisponiveis" :key="loja._id" :value="loja._id">{{ loja.nome }}</option>
+      </select>
+      <span v-if="refreshing" class="badge dim reports-loading-pill">
+        <span class="reports-loading-dot"></span>
+        Atualizando...
+      </span>
+      <span v-if="auth.isSuperAdmin && erroLojas" class="badge bad">{{ erroLojas }}</span>
     </div>
 
     <Loader v-if="carregando" />
 
-    <div v-else-if="!possuiDados" class="empty">
-      Não há dados suficientes para montar os relatórios desse período.
-    </div>
+    <div v-else :class="['reports-content', { 'reports-refreshing': refreshing }]">
+      <div v-if="!possuiDados" class="empty">
+        Não há dados suficientes para montar os relatórios desse período.
+      </div>
 
-    <template v-else>
+      <template v-else>
       <section class="report-summary-grid">
         <article
           v-for="card in resumoOperacional"
@@ -486,7 +608,8 @@ const corredoresOrdenados = computed(() => [...corredores.value]
           </table>
         </div>
       </section>
-    </template>
+      </template>
+    </div>
 
     <Teleport to="body">
       <Transition name="detail-overlay" appear>
@@ -558,7 +681,7 @@ const corredoresOrdenados = computed(() => [...corredores.value]
               <div v-else class="collab-list overlay-collab-grid">
                 <div v-for="col in colaboradoresLimitados(detalheOverlay, 18)" :key="`${detalheOverlay.nome}-${col.codigoExterno}-${col.nome}`" class="collab-chip overlay-collab-card">
                   <div class="overlay-collab-head">
-                    <div class="overlay-collab-avatar">{{ iniciais(col.nome) }}</div>
+                    <ColaboradorAvatar class="overlay-collab-avatar" :nome="col.nome" :avatar-url="col.avatarUrl" :size="48" :font-size="16" />
                     <div class="overlay-collab-copy">
                       <strong>{{ col.nome }}</strong>
                       <span class="muted">#{{ col.codigoExterno }}</span>
@@ -585,9 +708,51 @@ const corredoresOrdenados = computed(() => [...corredores.value]
 <style scoped>
 .reports-toolbar {
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.reports-content {
+  display: grid;
+  gap: 16px;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.reports-refreshing {
+  opacity: 0.58;
+  filter: blur(1.4px);
+  pointer-events: none;
+}
+
+.reports-loading-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reports-loading-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent);
+  animation: reportsPulse 0.95s ease-out infinite;
+}
+
+@keyframes reportsPulse {
+  0% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 42%, transparent);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--primary) 0%, transparent);
+  }
+  100% {
+    transform: scale(0.92);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent);
+  }
 }
 
 .report-summary-grid {

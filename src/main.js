@@ -55,6 +55,7 @@ import {
   faUserCircle,
   faLock,
   faUnlock,
+  faShareNodes,
 } from "@fortawesome/free-solid-svg-icons";
 
 library.add(
@@ -106,6 +107,7 @@ library.add(
   faUserCircle,
   faLock,
   faUnlock,
+  faShareNodes,
 );
 
 const app = createApp(App);

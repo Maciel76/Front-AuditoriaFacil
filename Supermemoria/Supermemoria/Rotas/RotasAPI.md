@@ -50,8 +50,8 @@
 | ------ | ---------------------------------- | -------------------------- | ---------------- | --------------------------------- | ----------------------------------------------------- |
 | GET    | /api/colaboradores/portal/me       | Token colaborador          | Propria loja     | -                                 | Retorna o proprio colaborador do portal               |
 | POST   | /api/colaboradores/portal/password | Token colaborador          | Propria loja     | senhaAtual, novaSenha             | Troca senha do portal                                 |
-| POST   | /api/colaboradores/:id/avatar      | Usuario ou colaborador     | Proprio recurso  | multipart avatar                  | Atualiza avatar; colaborador so altera a propria foto |
-| GET    | /api/colaboradores                 | Usuario                    | Loja obrigatoria | q, page, limit                    | Lista colaboradores                                   |
+| POST   | /api/colaboradores/:id/avatar      | Usuario ou colaborador     | Proprio recurso  | multipart avatar (imagem ate 5 MB, lojaId opcional para SUPER_ADMIN) | Atualiza avatar; colaborador so altera a propria foto e admin respeita escopo da loja |
+| GET    | /api/colaboradores                 | Usuario                    | Loja ou global   | q, page, limit, lojaId opcional   | Lista colaboradores; SUPER_ADMIN pode consultar tudo ou filtrar uma loja |
 | POST   | /api/colaboradores                 | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | nome, codigoExterno, cargo, setor | Cria colaborador                                      |
 | PUT    | /api/colaboradores/:id             | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | nome, codigoExterno, cargo, setor | Atualiza colaborador sem alterar ativo                |
 | DELETE | /api/colaboradores/:id             | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | -                                 | Retorna 403; exclusao de colaborador desabilitada     |
@@ -80,10 +80,10 @@
 | GET    | /api/metricas/ranking/lojas            | Usuario           | Global                         | periodo, tipo, dataInicio, dataFim | Ranking de lojas                              |
 | GET    | /api/metricas/lojas/:id/perfil         | Usuario           | Loja explicita por id          | periodo, tipo, dataInicio, dataFim | Perfil analitico publico de uma loja          |
 | GET    | /api/metricas/colaboradores/:id/perfil | Usuario           | Loja opcional                  | periodo, dataInicio, dataFim       | Perfil analitico do colaborador               |
-| GET    | /api/metricas/relatorios/situacoes     | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim | Relatorio por situacao                        |
-| GET    | /api/metricas/relatorios/classes       | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim | Relatorio agregado por classe                 |
-| GET    | /api/metricas/relatorios/corredores    | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim | Relatorio agregado por corredor/local         |
-| GET    | /api/metricas/relatorios/setores       | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim | Alias legado do relatorio agregado por classe |
+| GET    | /api/metricas/relatorios/situacoes     | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio por situacao                        |
+| GET    | /api/metricas/relatorios/classes       | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio agregado por classe                 |
+| GET    | /api/metricas/relatorios/corredores    | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio agregado por corredor/local         |
+| GET    | /api/metricas/relatorios/setores       | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Alias legado do relatorio agregado por classe |
 
 ## Periodos suportados no backend
 
@@ -102,6 +102,6 @@
 
 - A ancora temporal usa a ultima data existente na base para evitar telas vazias quando nao ha dados do dia atual.
 - GET /api/metricas/dashboard retorna `cardsResumo` para os cinco KPIs do topo. `cardsResumo.mediaConclusao` e media simples de `Auditoria.taxaConformidade` no periodo filtrado; `cardsResumo.custoRupturaRuptura` sempre soma apenas auditorias do tipo RUPTURA no periodo; `cardsResumo.totalColaboradores` ignora o filtro de tipo e conta colaboradores distintos com leitura no periodo.
-- /api/metricas/ranking/lojas nao esta explicitamente protegida por exigirRole no backend; a restricao principal hoje aparece no frontend.
+- /api/metricas/ranking/lojas permanece sem exigirRole explicito na rota, mas o retorno agora e global para SUPER_ADMIN e STORE_ADMIN; perfis fora desse escopo continuam restritos a propria loja.
 - /api/metricas/lojas/:id/perfil nao depende de escopoLoja; ele recebe a loja por id, mas continua exigindo autenticacao no app principal.
 - As rotas do portal em colaboradores.routes.js estao posicionadas antes de router.use(autenticar) para aceitar o token proprio do colaborador.

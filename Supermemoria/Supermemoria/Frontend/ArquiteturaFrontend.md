@@ -90,6 +90,9 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 ### Dashboard.vue
 
 - Consulta GET /metricas/dashboard.
+- Quando o usuario e SUPER_ADMIN, a tela exibe um seletor de loja no topo e propaga `lojaId` para GET /metricas/dashboard e GET /metricas/ultima-data.
+- A loja escolhida no Dashboard fica persistida em localStorage na chave na_dashboard_superadmin_loja para manter o contexto analitico entre visitas.
+- O contexto de loja escolhido no Dashboard tambem e preservado na navegacao para a listagem e para o detalhe das ultimas auditorias via query string `lojaId`.
 - Usa PeriodoSelector com suporte a custom.
 - Renderiza cinco KPIs principais, grafico de conformidade com colunas para series esparsas e linha para periodos mais densos, alem da distribuicao por tipo.
 - Exibe cards detalhados por tipo de auditoria e ultimas auditorias.
@@ -106,6 +109,8 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - A loja escolhida fica persistida em localStorage na chave na_auditorias_superadmin_loja para manter o contexto operacional entre visitas.
 - Permite tipo automatico ou forcado manualmente.
 - O card de upload foi redesenhado com layout de status lateral, area principal de drop e preenchimento animado do componente durante o processamento.
+- A animacao de processamento em Auditorias.vue simula agua preenchendo o card com ondas em camadas, reflexos, bolhas e medidor circular, usando somente o estado visual do progresso existente.
+- Durante upload/processamento, a area principal exibe o stage real retornado pelo backend e um rotador visual com nomes de etapas operacionais para dar sensacao de acompanhamento continuo.
 - O frontend combina progresso real de envio do arquivo com polling do status de processamento no backend.
 - Para SUPER_ADMIN, GET /auditorias, POST /auditorias/upload e DELETE /auditorias/:id passam lojaId por query string, seguindo o contrato de escopo multi-loja do backend.
 - O historico, o resultado do upload e a navegacao para o detalhe da auditoria seguem a loja selecionada.
@@ -118,14 +123,25 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Quando aberto a partir do contexto SUPER_ADMIN, preserva lojaId na query para carregar cabecalho, itens e retorno para a listagem sem perder o escopo.
 - Exibe distribuicao por situacao, top colaboradores e tabela detalhada de itens.
 
-### Rankings.vue
+### RankingColaboradores.vue
 
-- Alterna entre ranking de colaboradores e ranking de lojas.
-- Usa podium para top 3.
-- O selo superior do podium usa contraste por colocacao no topo do card, com leitura ajustada no tema claro para ouro, prata e bronze.
+- View dedicada para ranking de colaboradores.
+- Usa podium para top 3 e lista para as demais posicoes.
 - Aceita filtros de periodo e tipo.
+- Quando o usuario e SUPER_ADMIN, exibe seletor de loja com opcao `Todas as lojas` e envia `lojaId` para /metricas/ranking/colaboradores.
+- A loja escolhida no ranking de colaboradores para SUPER_ADMIN fica persistida em localStorage na chave na_ranking_colaboradores_superadmin_loja.
+- STORE_ADMIN ve apenas colaboradores da propria loja e nao possui seletor de loja.
 - Ao abrir em periodo 1d, aplica o mesmo tipo padrao por dia util usado em relatorios (seg/qui etiqueta, ter presenca, qua ruptura) e faz fallback automatico para todos os tipos quando nao houver dados no tipo sugerido.
-- Ranking de lojas so faz sentido para SUPER_ADMIN.
+- O botao `Compartilhar` exporta um PNG fiel ao estado atual da tela, incluindo filtros aplicados e render final dos cards, reutilizando o mesmo padrao de captura estabilizada do Dashboard.
+
+### RankingLojas.vue
+
+- View dedicada para ranking de lojas.
+- Usa podium para top 3 e lista para as demais posicoes.
+- Aceita filtros de periodo e tipo.
+- Fica disponivel para SUPER_ADMIN e STORE_ADMIN.
+- Nao possui seletor de loja; ambos enxergam o ranking geral das lojas no periodo/tipo selecionado.
+- O botao `Compartilhar` exporta um PNG fiel ao estado atual da tela, incluindo filtros aplicados e render final dos cards, reutilizando o mesmo padrao de captura estabilizada do Dashboard.
 
 ### Lojas.vue
 
@@ -142,19 +158,29 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 ### Colaboradores.vue
 
 - Busca colaboradores por nome ou matricula.
-- Lista cards compactos com avatar, nivel, pontos e conformidade; as conquistas ficam restritas ao perfil detalhado para reduzir altura e ruido visual na grade.
+- Quando o usuario e SUPER_ADMIN, a listagem pode operar em escopo global e exibe um dropdown de lojas ativas com a opcao `Todas as lojas` para alternar entre visao consolidada e tenant especifico.
+- A loja escolhida em Colaboradores.vue fica persistida em localStorage na chave na_colaboradores_superadmin_loja.
+- No modo `Todas as lojas`, o SUPER_ADMIN pode consultar todos os colaboradores de todas as lojas e cada card exibe a loja de origem para dar contexto.
+- O cadastro de novo colaborador para SUPER_ADMIN continua dependente de uma loja especifica; com `Todas as lojas` selecionado, a tela permanece apenas em modo de consulta.
+- Lista cards compactos com avatar, nivel, pontos e conformidade; quando o colaborador possui avatarUrl a foto real aparece em vez das iniciais. As conquistas ficam restritas ao perfil detalhado para reduzir altura e ruido visual na grade.
 - O card inteiro abre o perfil do colaborador e a listagem nao exibe mais botoes dedicados de ver perfil ou exclusao.
 - Permite criacao para perfis com permissao, sem expor desativacao na listagem.
 
 ### ColaboradorPerfil.vue
 
 - Consulta GET /metricas/colaboradores/:id/perfil.
+- Quando aberto a partir da listagem filtrada de SUPER_ADMIN, preserva `lojaId` na query para manter o retorno coerente ao contexto anterior.
+- Para STORE_ADMIN e SUPER_ADMIN, a tela tambem permite editar nome, matricula, cargo, setor e foto do colaborador no proprio perfil.
+- O upload da foto do colaborador usa recorte previo com Cropper.js 2.1.1 e guia visual circular para manter o avatar padronizado.
 - Exibe resumo do colaborador, conquistas, pontos, nivel e grafico por periodo com alternancia automatica entre colunas e linha conforme a densidade da serie.
 
 ### Relatorios.vue
 
 - Consulta simultaneamente /metricas/relatorios/situacoes, /metricas/relatorios/classes e /metricas/relatorios/corredores.
 - Permite filtrar por periodo, custom range e tipo.
+- Quando o usuario e SUPER_ADMIN, a tela tambem exibe um seletor de loja com a opcao `Todas as lojas` e propaga `lojaId` para as consultas de relatorio.
+- A loja escolhida em Relatorios.vue fica persistida em localStorage na chave na_relatorios_superadmin_loja.
+- Ao trocar tipo, periodo ou loja depois da carga inicial, a view mantém os dados atuais visíveis com estado de refresh suave e indicador `Atualizando...`, em vez de desmontar toda a tela com Loader completo.
 - Exibe cards-resumo operacionais, grafico de situacoes, panorama das classes com maior leitura, grade completa por corredor e tabela operacional por classe.
 - Ao abrir em periodo 1d, aplica tipo padrao por dia util (seg/qui etiqueta, ter presenca, qua ruptura) e faz fallback automatico para todos os tipos quando nao existir dado para o tipo sugerido.
 - Os cards de corredor usam visual resumido por padrao e expandem detalhes (conformes, sem leitura, ruptura e ultima auditoria) ao clique, com porcentagem reduzida para preservar hierarquia com o status.
@@ -204,7 +230,8 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Loader.vue: estado de carregamento.
 - StoreAvatar.vue: renderer reutilizavel do avatar da loja com fallback para iniciais quando nao ha foto.
 - StoreAvatar.vue tambem normaliza URLs relativas de uploads para o host correto da API antes de renderizar a imagem.
-- StoreAvatar.vue usa elemento img real com object-fit cover e fallback para iniciais quando a URL falha, garantindo exibicao consistente do avatar da loja em LojaPerfil, Lojas, Rankings, AdminLojas, AppLayout e portal.
+- StoreAvatar.vue usa elemento img real com object-fit cover e fallback para iniciais quando a URL falha, garantindo exibicao consistente do avatar da loja em LojaPerfil, Lojas, RankingLojas, AdminLojas, AppLayout e portal.
+- captureExport.js: util compartilhado para exportar uma area da tela com html2canvas usando clone fora do viewport, sincronizacao de inputs/selects, copia de canvases e aplicacao explicita do tema atual.
 
 ## Chaves de localStorage confirmadas
 
@@ -215,6 +242,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - na_portal_token
 - na_portal_tema
 - na_auditorias_superadmin_loja
+- na_ranking_colaboradores_superadmin_loja
 
 ## Dependencias de dados do frontend
 

@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, RouterLink } from 'vue-router';
 import api from '@/services/api';
+import ColaboradorAvatar from '@/components/ColaboradorAvatar.vue';
 import Loader from '@/components/Loader.vue';
 import AppChart from '@/components/AppChart.vue';
 
@@ -77,7 +78,7 @@ const distribChart = computed(() => {
         <div v-if="!auditoria.topColaboradores?.length" class="empty">Sem dados</div>
         <div v-else class="grid" style="gap: 10px;">
           <div v-for="(c, i) in auditoria.topColaboradores" :key="c.colaborador" class="row card" style="padding: 10px 14px;">
-            <div class="avatar">{{ (c.nome || '?').slice(0, 2) }}</div>
+            <ColaboradorAvatar :nome="c.nome" :avatar-url="c.avatarUrl" :size="40" :font-size="14" />
             <div style="flex:1;">
               <div style="font-weight:600;">{{ c.nome }}</div>
               <div class="muted" style="font-size:12px;">{{ c.itens }} itens · {{ c.conformes }} conformes</div>

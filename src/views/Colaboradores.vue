@@ -1,33 +1,154 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import api from '@/services/api';
+import ColaboradorAvatar from '@/components/ColaboradorAvatar.vue';
 import Loader from '@/components/Loader.vue';
 import { useUiStore } from '@/stores/ui';
 import { useAuthStore } from '@/stores/auth';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 
 const ui = useUiStore();
 const auth = useAuthStore();
+const route = useRoute();
+const router = useRouter();
+const COLABORADORES_LOJA_STORAGE_KEY = 'na_colaboradores_superadmin_loja';
 
 const items = ref([]);
 const carregando = ref(true);
 const q = ref('');
 const novo = ref(null);
+const lojasDisponiveis = ref([]);
+const lojaSelecionadaId = ref('');
+const carregandoLojas = ref(false);
+const erroLojas = ref('');
+const sincronizandoRotaLoja = ref(false);
+
+const lojaSelecionada = computed(() =>
+  lojasDisponiveis.value.find((loja) => loja._id === lojaSelecionadaId.value) || null,
+);
+
+const podeCriarColaborador = computed(() => !auth.isSuperAdmin || !!lojaSelecionadaId.value);
+
+function paramsEscopoLoja(extra = {}) {
+  if (auth.isSuperAdmin && lojaSelecionadaId.value) {
+    return { ...extra, lojaId: lojaSelecionadaId.value };
+  }
+  return { ...extra };
+}
+
+function persistirLojaSelecionada() {
+  if (!auth.isSuperAdmin) return;
+  if (lojaSelecionadaId.value) {
+    localStorage.setItem(COLABORADORES_LOJA_STORAGE_KEY, lojaSelecionadaId.value);
+    return;
+  }
+  localStorage.removeItem(COLABORADORES_LOJA_STORAGE_KEY);
+}
+
+async function sincronizarRotaLoja() {
+  if (!auth.isSuperAdmin) return;
+
+  const lojaAtualNaRota = typeof route.query.lojaId === 'string' ? route.query.lojaId : '';
+  const proximaLojaId = lojaSelecionadaId.value || '';
+  if (lojaAtualNaRota === proximaLojaId) return;
+
+  const query = { ...route.query };
+  if (proximaLojaId) query.lojaId = proximaLojaId;
+  else delete query.lojaId;
+
+  sincronizandoRotaLoja.value = true;
+  try {
+    await router.replace({ query });
+  } finally {
+    sincronizandoRotaLoja.value = false;
+  }
+}
+
+async function carregarLojas() {
+  if (!auth.isSuperAdmin) return;
+
+  carregandoLojas.value = true;
+  erroLojas.value = '';
+  try {
+    const { data } = await api.get('/lojas');
+    lojasDisponiveis.value = (data.items || []).filter((loja) => loja.ativa !== false);
+
+    const lojaDaRota = typeof route.query.lojaId === 'string' ? route.query.lojaId : '';
+    const lojaSalva = localStorage.getItem(COLABORADORES_LOJA_STORAGE_KEY) || '';
+    const lojaInicial =
+      lojasDisponiveis.value.find((loja) => loja._id === lojaDaRota)
+      || lojasDisponiveis.value.find((loja) => loja._id === lojaSalva)
+      || null;
+
+    lojaSelecionadaId.value = lojaInicial?._id || '';
+    persistirLojaSelecionada();
+    await sincronizarRotaLoja();
+  } catch (error) {
+    erroLojas.value = error?.response?.data?.error || 'Não foi possível carregar as lojas.';
+    lojasDisponiveis.value = [];
+    lojaSelecionadaId.value = '';
+    persistirLojaSelecionada();
+    await sincronizarRotaLoja();
+  } finally {
+    carregandoLojas.value = false;
+  }
+}
 
 async function carregar() {
   carregando.value = true;
   try {
-    const { data } = await api.get('/colaboradores', { params: { q: q.value || undefined, limit: 200 } });
+    const { data } = await api.get('/colaboradores', {
+      params: paramsEscopoLoja({ q: q.value || undefined, limit: 200 }),
+    });
     items.value = data.items;
   } finally { carregando.value = false; }
 }
-onMounted(carregar);
 
-function abrirNovo() { novo.value = { nome: '', codigoExterno: '', cargo: '', setor: '' }; }
+onMounted(async () => {
+  if (auth.isSuperAdmin) await carregarLojas();
+  await carregar();
+});
+
+watch(() => route.query.lojaId, async (novoValor) => {
+  if (!auth.isSuperAdmin || sincronizandoRotaLoja.value || carregandoLojas.value) return;
+
+  const lojaDaRota = typeof novoValor === 'string' ? novoValor : '';
+  const lojaValida = lojaDaRota && lojasDisponiveis.value.some((loja) => loja._id === lojaDaRota);
+  const proximaLojaId = lojaValida ? lojaDaRota : '';
+  if (proximaLojaId === lojaSelecionadaId.value) return;
+
+  lojaSelecionadaId.value = proximaLojaId;
+  persistirLojaSelecionada();
+  await sincronizarRotaLoja();
+  if (novo.value && !podeCriarColaborador.value) novo.value = null;
+  await carregar();
+});
+
+async function trocarLojaSelecionada() {
+  persistirLojaSelecionada();
+  await sincronizarRotaLoja();
+  if (novo.value && !podeCriarColaborador.value) novo.value = null;
+  await carregar();
+}
+
+function rotaColaborador(colaboradorId) {
+  if (auth.isSuperAdmin && lojaSelecionadaId.value) {
+    return { path: `/colaboradores/${colaboradorId}`, query: { lojaId: lojaSelecionadaId.value } };
+  }
+  return { path: `/colaboradores/${colaboradorId}` };
+}
+
+function abrirNovo() {
+  if (!podeCriarColaborador.value) {
+    ui.info('Selecione uma loja para cadastrar um colaborador.');
+    return;
+  }
+  novo.value = { nome: '', codigoExterno: '', cargo: '', setor: '' };
+}
 
 async function salvar() {
   try {
-    await api.post('/colaboradores', novo.value);
+    await api.post('/colaboradores', paramsEscopoLoja(novo.value));
     ui.sucesso('Colaborador criado');
     novo.value = null;
     carregar();
@@ -42,14 +163,38 @@ async function salvar() {
     <div class="row">
       <div class="row" style="gap:8px;">
         <input v-model="q" placeholder="Buscar nome ou código..." style="background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:white;width:280px;" @keyup.enter="carregar" />
+        <select
+          v-if="auth.isSuperAdmin"
+          v-model="lojaSelecionadaId"
+          class="btn ghost"
+          style="padding: 10px 14px; min-width: 220px"
+          :disabled="carregandoLojas"
+          @change="trocarLojaSelecionada"
+        >
+          <option value="">Todas as lojas</option>
+          <option v-for="loja in lojasDisponiveis" :key="loja._id" :value="loja._id">{{ loja.nome }}</option>
+        </select>
         <button class="btn ghost" @click="carregar"><fa icon="magnifying-glass" /></button>
       </div>
+      <span v-if="auth.isSuperAdmin && erroLojas" class="badge bad">{{ erroLojas }}</span>
       <span class="spacer" />
-      <button v-if="auth.podeGerenciar" class="btn primary" @click="abrirNovo"><fa icon="plus" /> Novo colaborador</button>
+      <button
+        v-if="auth.podeGerenciar"
+        class="btn primary"
+        :disabled="!podeCriarColaborador"
+        @click="abrirNovo"
+      ><fa icon="plus" /> Novo colaborador</button>
+    </div>
+
+    <div v-if="auth.isSuperAdmin && !podeCriarColaborador" class="muted" style="font-size: 13px; margin-top: -6px;">
+      Escolha uma loja para cadastrar um colaborador. Com “Todas as lojas”, a tela mostra a lista completa em modo de consulta.
     </div>
 
     <div v-if="novo" class="card glow">
       <h3 class="mt-0">Novo colaborador</h3>
+      <div v-if="auth.isSuperAdmin && lojaSelecionada" class="row mb-2">
+        <span class="badge dim"><fa icon="store" /> {{ lojaSelecionada.nome }}</span>
+      </div>
       <div class="form-grid">
         <div class="field"><label>Nome</label><input v-model="novo.nome" required /></div>
         <div class="field"><label>Código (matrícula)</label><input v-model="novo.codigoExterno" required /></div>
@@ -69,15 +214,18 @@ async function salvar() {
       <RouterLink
         v-for="c in items"
         :key="c._id"
-        :to="`/colaboradores/${c._id}`"
+        :to="rotaColaborador(c._id)"
         class="card"
         style="display: block; text-decoration: none; color: inherit;"
       >
         <div class="row">
-          <div class="avatar" style="width: 44px; height: 44px;">{{ (c.nome || '?').slice(0,2) }}</div>
+          <ColaboradorAvatar :nome="c.nome" :avatar-url="c.avatarUrl" :size="44" :font-size="16" />
           <div style="flex:1; min-width:0;">
             <div style="font-weight:700;">{{ c.nome }}</div>
             <div class="muted" style="font-size: 12px;">#{{ c.codigoExterno }}</div>
+            <div v-if="auth.isSuperAdmin && c.loja?.nome" class="muted" style="font-size: 12px; margin-top: 2px;">
+              <fa icon="store" /> {{ c.loja.nome }}
+            </div>
           </div>
           <span class="badge info">N{{ c.nivel }}</span>
         </div>

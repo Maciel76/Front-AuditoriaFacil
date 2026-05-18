@@ -1,29 +1,28 @@
 <script setup>
-import { computed, ref, onMounted, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { RouterLink } from "vue-router";
 import api from "@/services/api";
 import Loader from "@/components/Loader.vue";
 import PeriodoSelector from "@/components/PeriodoSelector.vue";
+import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
 import { useAuthStore } from "@/stores/auth";
-import StoreAvatar from "@/components/StoreAvatar.vue";
-import { RouterLink } from "vue-router";
-import { resolverUrlMidia } from "@/utils/media";
+import { exportarAreaComoImagem, slugArquivo } from "@/utils/captureExport";
 
 const auth = useAuthStore();
-const aba = ref("colaboradores");
+
+const RANKING_COLABORADORES_LOJA_STORAGE_KEY =
+  "na_ranking_colaboradores_superadmin_loja";
+
 const periodo = ref("1d");
 const dataInicio = ref("");
 const dataFim = ref("");
 const tipo = ref("");
 const carregando = ref(true);
 const items = ref([]);
-
-function tipoSugeridoHoje() {
-  const diaSemana = new Date().getDay(); // 0=Dom, 1=Seg, ...
-  if (diaSemana === 1 || diaSemana === 4) return "ETIQUETA";
-  if (diaSemana === 2) return "PRESENCA";
-  if (diaSemana === 3) return "RUPTURA";
-  return "";
-}
+const lojas = ref([]);
+const lojaSelecionada = ref("");
+const captureArea = ref(null);
+const exportando = ref(false);
 
 const labelsPeriodo = {
   "1d": "Hoje",
@@ -40,22 +39,53 @@ const labelsTipo = {
   RUPTURA: "Ruptura",
 };
 
+const podeEscolherLoja = computed(() => auth.isSuperAdmin);
+
+const paramsEscopoLoja = computed(() => {
+  if (!podeEscolherLoja.value) return {};
+  if (!lojaSelecionada.value) return {};
+  return { lojaId: lojaSelecionada.value };
+});
+
+function tipoSugeridoHoje() {
+  const diaSemana = new Date().getDay();
+  if (diaSemana === 1 || diaSemana === 4) return "ETIQUETA";
+  if (diaSemana === 2) return "PRESENCA";
+  if (diaSemana === 3) return "RUPTURA";
+  return "";
+}
+
+async function carregarLojas() {
+  if (!podeEscolherLoja.value) return;
+  try {
+    const { data } = await api.get("/lojas");
+    lojas.value = (data?.items || []).filter((loja) => loja?.ativa !== false);
+  } catch {
+    lojas.value = [];
+  }
+}
+
 async function carregar() {
   carregando.value = true;
   try {
-    const url =
-      aba.value === "lojas"
-        ? "/metricas/ranking/lojas"
-        : "/metricas/ranking/colaboradores";
-    const paramsBase = { periodo: periodo.value };
+    const paramsBase = {
+      periodo: periodo.value,
+      ...paramsEscopoLoja.value,
+    };
+
     if (periodo.value === "custom" && dataInicio.value && dataFim.value) {
       paramsBase.dataInicio = dataInicio.value;
       paramsBase.dataFim = dataFim.value;
     }
 
     const carregarRanking = async (tipoSelecionado) => {
-      const params = { ...paramsBase, tipo: tipoSelecionado || undefined };
-      const { data } = await api.get(url, { params });
+      const params = {
+        ...paramsBase,
+        tipo: tipoSelecionado || undefined,
+      };
+      const { data } = await api.get("/metricas/ranking/colaboradores", {
+        params,
+      });
       return data.items || [];
     };
 
@@ -80,20 +110,35 @@ async function carregar() {
 
 onMounted(async () => {
   tipo.value = tipoSugeridoHoje();
+  if (podeEscolherLoja.value) {
+    lojaSelecionada.value =
+      localStorage.getItem(RANKING_COLABORADORES_LOJA_STORAGE_KEY) || "";
+    await carregarLojas();
+
+    if (
+      lojaSelecionada.value &&
+      !lojas.value.some((loja) => String(loja._id) === lojaSelecionada.value)
+    ) {
+      lojaSelecionada.value = "";
+      localStorage.removeItem(RANKING_COLABORADORES_LOJA_STORAGE_KEY);
+    }
+  }
+
   await carregar();
 });
 
-watch([aba, periodo, tipo, dataInicio, dataFim], () => {
-  if (periodo.value !== "custom" || (dataInicio.value && dataFim.value))
-    carregar();
-});
+watch([periodo, tipo, dataInicio, dataFim, lojaSelecionada], () => {
+  if (podeEscolherLoja.value) {
+    localStorage.setItem(
+      RANKING_COLABORADORES_LOJA_STORAGE_KEY,
+      lojaSelecionada.value || "",
+    );
+  }
 
-function medalha(i) {
-  if (i === 0) return { ico: "trophy", cor: "#fbbf24" };
-  if (i === 1) return { ico: "medal", cor: "#94a3b8" };
-  if (i === 2) return { ico: "medal", cor: "#a16207" };
-  return null;
-}
+  if (periodo.value !== "custom" || (dataInicio.value && dataFim.value)) {
+    carregar();
+  }
+});
 
 const topItems = computed(() => items.value.slice(0, 3));
 const itensRestantes = computed(() => items.value.slice(3));
@@ -113,34 +158,6 @@ function podioMeta(rank) {
   return { ico: "medal", cor: "#f97316", titulo: "3º" };
 }
 
-function avatarStyle(item) {
-  return item?.avatarUrl
-    ? {
-        backgroundImage: `url(${resolverUrlMidia(item.avatarUrl)})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }
-    : {};
-}
-
-function iniciais(nome) {
-  return (nome || "?")
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((parte) => parte[0])
-    .join("")
-    .toUpperCase();
-}
-
-function detalhePodio(item) {
-  if (aba.value === "lojas") {
-    const local = [item.cidade, item.estado].filter(Boolean).join(" / ");
-    return local || `Nivel ${item.nivel}`;
-  }
-  return `#${item.codigoExterno} · Nivel ${item.nivel}`;
-}
-
 function formatarItens(total) {
   return `${(total || 0).toLocaleString("pt-BR")} itens`;
 }
@@ -149,9 +166,40 @@ function formatarPontos(total) {
   return `${Math.round(total || 0).toLocaleString("pt-BR")} pts`;
 }
 
-const tituloPodio = computed(() =>
-  aba.value === "lojas" ? "Top Lojas" : "Top Colaboradores",
-);
+function periodoArquivoAtual() {
+  return (
+    {
+      "1d": "hoje",
+      semana: "semana",
+      mes: "mes",
+      ano: "ano",
+      tudo: "historico",
+      custom: "periodo",
+    }[periodo.value] || periodo.value
+  );
+}
+
+async function compartilhar() {
+  if (!captureArea.value || exportando.value) return;
+
+  exportando.value = true;
+  try {
+    const tipoLabel = tipo.value ? `-${tipo.value.toLowerCase()}` : "";
+    const lojaAtual = lojaSelecionada.value
+      ? lojas.value.find((loja) => String(loja._id) === lojaSelecionada.value)
+      : null;
+    const lojaLabel = lojaAtual?.nome ? `-${slugArquivo(lojaAtual.nome)}` : "";
+
+    await exportarAreaComoImagem({
+      target: captureArea.value,
+      filename: `ranking-colaboradores${lojaLabel}-${periodoArquivoAtual()}${tipoLabel}-${new Date().toISOString().slice(0, 10)}.png`,
+      buttonSelector: ".ranking-share-btn",
+      classesParaRemover: ["ranking-reveal"],
+    });
+  } finally {
+    exportando.value = false;
+  }
+}
 
 const subtituloPodio = computed(() => {
   const tipoLabel = tipo.value
@@ -162,45 +210,66 @@ const subtituloPodio = computed(() => {
       ? `${dataInicio.value || "--"} a ${dataFim.value || "--"}`
       : labelsPeriodo[periodo.value] || periodo.value;
 
-  return `Tipo: ${tipoLabel} · Período: ${periodoLabel}`;
+  const lojaLabel = podeEscolherLoja.value
+    ? lojaSelecionada.value
+      ? lojas.value.find((loja) => String(loja._id) === lojaSelecionada.value)
+          ?.nome || "Loja selecionada"
+      : "Todas as lojas"
+    : "Sua loja";
+
+  return `Loja: ${lojaLabel} · Tipo: ${tipoLabel} · Período: ${periodoLabel}`;
 });
 
 const visualizacaoKey = computed(() => {
   const ids = items.value.map((item) => item._id).join("|");
-  return `${aba.value}-${periodo.value}-${tipo.value}-${dataInicio.value}-${dataFim.value}-${ids}`;
+  return `${periodo.value}-${tipo.value}-${dataInicio.value}-${dataFim.value}-${lojaSelecionada.value}-${ids}`;
 });
+
+const queryPerfilColaborador = computed(() =>
+  podeEscolherLoja.value && lojaSelecionada.value
+    ? { lojaId: lojaSelecionada.value }
+    : undefined,
+);
 </script>
 
 <template>
-  <div class="grid gap-3">
-    <div class="row">
-      <div class="tabs">
-        <button
-          :class="{ active: aba === 'colaboradores' }"
-          @click="aba = 'colaboradores'"
-        >
-          <fa icon="users" /> Colaboradores
-        </button>
-        <button
-          v-if="auth.isSuperAdmin"
-          :class="{ active: aba === 'lojas' }"
-          @click="aba = 'lojas'"
-        >
-          <fa icon="store" /> Lojas
-        </button>
-      </div>
-      <span class="spacer" />
+  <div ref="captureArea" class="grid gap-3">
+    <div class="row toolbar-wrap">
       <PeriodoSelector
         v-model="periodo"
         v-model:dataInicio="dataInicio"
         v-model:dataFim="dataFim"
       />
+
       <select v-model="tipo" class="btn ghost" style="padding: 8px 14px">
         <option value="">Todos os tipos</option>
         <option value="ETIQUETA">Etiqueta</option>
         <option value="PRESENCA">Presença</option>
         <option value="RUPTURA">Ruptura</option>
       </select>
+
+      <select
+        v-if="podeEscolherLoja"
+        v-model="lojaSelecionada"
+        class="btn ghost"
+        style="padding: 8px 14px; min-width: 230px"
+      >
+        <option value="">Todas as lojas</option>
+        <option v-for="loja in lojas" :key="loja._id" :value="String(loja._id)">
+          {{ loja.nome }}
+        </option>
+      </select>
+
+      <span class="spacer" />
+      <button
+        class="btn primary dash-share-btn ranking-share-btn"
+        :disabled="exportando || carregando"
+        :aria-busy="exportando"
+        @click="compartilhar"
+      >
+        <fa icon="share-nodes" />
+        Compartilhar
+      </button>
     </div>
 
     <Transition name="ranking-stage" mode="out-in">
@@ -210,11 +279,11 @@ const visualizacaoKey = computed(() => {
           Sem dados no período selecionado.
         </div>
 
-        <template v-else-if="aba === 'colaboradores'">
+        <template v-else>
           <section v-if="podiumCards.length" class="podium-section">
             <div class="podium-header">
               <div class="podium-headline">
-                <h3 class="mt-0 mb-0">{{ tituloPodio }}</h3>
+                <h3 class="mt-0 mb-0">Top Colaboradores</h3>
                 <p class="muted podium-copy">{{ subtituloPodio }}</p>
               </div>
             </div>
@@ -234,13 +303,17 @@ const visualizacaoKey = computed(() => {
                 >
                   <fa :icon="podioMeta(card.rank).ico" />
                 </div>
-                <div class="podium-avatar" :style="avatarStyle(card.item)">
-                  <span v-if="!card.item.avatarUrl">{{
-                    iniciais(card.item.nome)
-                  }}</span>
-                </div>
+                <ColaboradorAvatar
+                  class="podium-avatar"
+                  :nome="card.item.nome"
+                  :avatar-url="card.item.avatarUrl"
+                  :size="92"
+                  :font-size="30"
+                />
                 <div class="podium-name">{{ card.item.nome }}</div>
-                <div class="podium-detail">{{ detalhePodio(card.item) }}</div>
+                <div class="podium-detail">
+                  #{{ card.item.codigoExterno }} · Nível {{ card.item.nivel }}
+                </div>
                 <div class="podium-chip">
                   <fa icon="chart-bar" />
                   <span>{{ formatarItens(card.item.totalLidos) }}</span>
@@ -266,25 +339,27 @@ const visualizacaoKey = computed(() => {
                 :style="{ animationDelay: `${(i + 1) * 55}ms` }"
               >
                 <div style="width: 40px; text-align: center">
-                  <span class="muted" style="font-weight: 700"
-                    >#{{ i + 4 }}</span
-                  >
+                  <span class="muted" style="font-weight: 700">#{{ i + 4 }}</span>
                 </div>
-                <div class="avatar">{{ (c.nome || "?").slice(0, 2) }}</div>
+                <ColaboradorAvatar
+                  :nome="c.nome"
+                  :avatar-url="c.avatarUrl"
+                  :size="40"
+                  :font-size="14"
+                />
                 <div style="flex: 1; min-width: 0">
                   <div style="font-weight: 600">
-                    <RouterLink :to="`/colaboradores/${c._id}`">{{
-                      c.nome
-                    }}</RouterLink>
+                    <RouterLink
+                      :to="{ path: `/colaboradores/${c._id}`, query: queryPerfilColaborador }"
+                    >
+                      {{ c.nome }}
+                    </RouterLink>
                     <span
                       class="muted"
-                      style="
-                        font-weight: 400;
-                        margin-left: 8px;
-                        font-size: 12px;
-                      "
-                      >#{{ c.codigoExterno }}</span
+                      style="font-weight: 400; margin-left: 8px; font-size: 12px"
                     >
+                      #{{ c.codigoExterno }}
+                    </span>
                   </div>
                   <div class="muted" style="font-size: 12px">
                     Nível {{ c.nivel }} ·
@@ -314,115 +389,18 @@ const visualizacaoKey = computed(() => {
             </div>
           </section>
         </template>
-
-        <template v-else>
-          <section v-if="podiumCards.length" class="podium-section">
-            <div class="podium-header">
-              <div class="podium-headline">
-                <h3 class="mt-0 mb-0">{{ tituloPodio }}</h3>
-                <p class="muted podium-copy">{{ subtituloPodio }}</p>
-              </div>
-            </div>
-
-            <div class="podium-grid" :class="`size-${podiumCards.length}`">
-              <article
-                v-for="card in podiumCards"
-                :key="card.item._id"
-                class="podium-card ranking-reveal"
-                :class="`rank-${card.rank}`"
-                :style="{ animationDelay: `${card.rank * 70}ms` }"
-              >
-                <div class="podium-rank">{{ podioMeta(card.rank).titulo }}</div>
-                <div
-                  class="podium-medal"
-                  :style="{ color: podioMeta(card.rank).cor }"
-                >
-                  <fa :icon="podioMeta(card.rank).ico" />
-                </div>
-                <StoreAvatar
-                  :nome="card.item.nome"
-                  :avatar-url="card.item.avatarUrl"
-                  :size="92"
-                  :font-size="30"
-                  class="podium-avatar podium-avatar-store"
-                />
-                <div class="podium-name">{{ card.item.nome }}</div>
-                <div class="podium-detail">{{ detalhePodio(card.item) }}</div>
-                <div class="podium-chip">
-                  <fa icon="chart-bar" />
-                  <span>{{ formatarItens(card.item.totalLidos) }}</span>
-                </div>
-                <div class="podium-stats">
-                  <strong>{{ card.item.taxaConformidade.toFixed(1) }}%</strong>
-                  <span>{{ formatarPontos(card.item.pontuacao) }}</span>
-                </div>
-              </article>
-            </div>
-          </section>
-
-          <section v-if="itensRestantes.length" class="rankings-list-section">
-            <div class="section-title" style="margin-top: 4px">
-              Demais posições
-            </div>
-            <div class="grid gap-2 rankings-list-grid">
-              <div
-                v-for="(l, i) in itensRestantes"
-                :key="l._id"
-                class="card row ranking-row ranking-reveal"
-                style="padding: 14px 18px"
-                :style="{ animationDelay: `${(i + 1) * 55}ms` }"
-              >
-                <div style="width: 40px; text-align: center">
-                  <span class="muted" style="font-weight: 700"
-                    >#{{ i + 4 }}</span
-                  >
-                </div>
-                <StoreAvatar
-                  :nome="l.nome"
-                  :avatar-url="l.avatarUrl"
-                  :size="36"
-                  :font-size="13"
-                />
-                <div style="flex: 1; min-width: 0">
-                  <div style="font-weight: 600">
-                    {{ l.nome }}
-                    <span
-                      class="muted"
-                      style="font-weight: 400; font-size: 12px"
-                      >{{ l.cidade }} {{ l.estado ? "/" + l.estado : "" }}</span
-                    >
-                  </div>
-                  <div class="muted" style="font-size: 12px">
-                    Nível {{ l.nivel }} ·
-                    {{ l.totalLidos.toLocaleString("pt-BR") }} itens
-                  </div>
-                </div>
-                <div style="width: 130px">
-                  <strong>{{ l.taxaConformidade.toFixed(1) }}%</strong>
-                  <div class="progress mt-1">
-                    <span
-                      :style="{
-                        width: Math.min(100, l.taxaConformidade) + '%',
-                      }"
-                    />
-                  </div>
-                </div>
-                <div style="text-align: right; min-width: 100px">
-                  <div style="font-size: 22px; font-weight: 700">
-                    {{ Math.round(l.pontuacao) }}
-                  </div>
-                  <div class="muted" style="font-size: 11px">pontos</div>
-                </div>
-              </div>
-            </div>
-          </section>
-        </template>
       </div>
     </Transition>
   </div>
 </template>
 
 <style scoped>
+.toolbar-wrap {
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .podium-section {
   display: grid;
   gap: 18px;
@@ -563,24 +541,10 @@ const visualizacaoKey = computed(() => {
 }
 
 .podium-avatar {
-  width: 92px;
-  height: 92px;
   margin: 14px auto 16px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  background: var(--grad-primary);
-  color: white;
-  font-size: 38px;
-  font-weight: 800;
-  text-transform: uppercase;
   box-shadow:
     0 0 0 4px rgba(255, 255, 255, 0.88),
     0 12px 30px rgba(0, 0, 0, 0.18);
-}
-
-.podium-avatar-store {
-  font-size: 34px;
 }
 
 .podium-name {

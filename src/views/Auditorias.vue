@@ -341,10 +341,27 @@ onBeforeUnmount(() => {
 <template>
   <div class="grid gap-3">
     <div v-if="auth.podeGerenciar" class="upload-shell card glow" :class="{ uploading: uploadEmAndamento, ready: !!arquivo, success: etapaUpload === 'success', error: etapaUpload === 'error' }">
-      <div v-if="uploadComPreenchimento" class="upload-liquid" :style="{ height: progressoExibido + '%' }" aria-hidden="true">
+      <div
+        v-if="uploadComPreenchimento"
+        class="upload-liquid"
+        :class="{ complete: etapaUpload === 'success' }"
+        :style="{ '--upload-fill': progressoExibido + '%', height: progressoExibido + '%' }"
+        aria-hidden="true"
+      >
+        <div class="upload-liquid-depth"></div>
+        <div class="upload-caustics"></div>
+        <div class="upload-waterline"></div>
         <div class="upload-wave wave-a"></div>
         <div class="upload-wave wave-b"></div>
         <div class="upload-wave wave-c"></div>
+        <span class="upload-bubble bubble-1"></span>
+        <span class="upload-bubble bubble-2"></span>
+        <span class="upload-bubble bubble-3"></span>
+        <span class="upload-bubble bubble-4"></span>
+        <span class="upload-bubble bubble-5"></span>
+        <span class="upload-bubble bubble-6"></span>
+        <span class="upload-bubble bubble-7"></span>
+        <span class="upload-bubble bubble-8"></span>
       </div>
 
       <div class="upload-shell-inner">
@@ -472,8 +489,24 @@ onBeforeUnmount(() => {
 
             <template v-if="uploadEmAndamento">
               <div class="upload-progress-stage">
-                <div class="upload-progress-value">{{ progressoExibido }}%</div>
-                <div class="upload-progress-label">{{ detalheProcessamento || 'Processando auditoria…' }}</div>
+                <div class="upload-progress-meter" :style="{ '--meter-progress': progressoExibido + '%' }">
+                  <div class="upload-progress-value">{{ progressoExibido }}%</div>
+                  <div class="upload-progress-ripple"></div>
+                </div>
+                <div class="upload-progress-label">{{ statusUploadTitulo }}</div>
+                <div class="upload-stage-display">
+                  <div class="stage-live-label">
+                    <span class="stage-live-dot"></span>
+                    <span>{{ detalheProcessamento || 'Acompanhando processamento' }}</span>
+                  </div>
+                  <div class="stage-name-rotator" aria-hidden="true">
+                    <span>Validando estrutura da planilha</span>
+                    <span>Lendo itens auditados</span>
+                    <span>Classificando situações</span>
+                    <span>Atualizando métricas da loja</span>
+                    <span>Consolidando histórico</span>
+                  </div>
+                </div>
                 <div class="progress upload-progress-bar">
                   <span :style="{ width: progressoExibido + '%' }" />
                 </div>
@@ -616,17 +649,36 @@ onBeforeUnmount(() => {
   overflow: hidden;
   isolation: isolate;
   background:
-    linear-gradient(135deg, rgba(124,92,255,.10), rgba(34,211,238,.08)),
+    linear-gradient(145deg, rgba(124,92,255,.13), rgba(34,211,238,.08) 48%, rgba(34,197,94,.07)),
+    linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0)),
     var(--surface);
+  border-color: rgba(124,92,255,.20);
+  transition: border-color .28s ease, box-shadow .28s ease, transform .28s ease;
+}
+
+.upload-shell.uploading {
+  border-color: rgba(34,211,238,.34);
+  box-shadow: 0 18px 48px rgba(10,25,55,.22), inset 0 1px 0 rgba(255,255,255,.10);
+}
+
+.upload-shell.success {
+  border-color: rgba(34,197,94,.34);
+}
+
+.upload-shell.error {
+  border-color: rgba(239,68,68,.38);
 }
 
 .upload-shell::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,.04), transparent 28%);
+  background:
+    linear-gradient(115deg, transparent 0 28%, rgba(255,255,255,.08) 43%, transparent 58% 100%),
+    linear-gradient(180deg, rgba(255,255,255,.06), transparent 32%);
   pointer-events: none;
   z-index: 0;
+  opacity: .72;
 }
 
 .upload-shell-inner,
@@ -645,47 +697,128 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(180deg, rgba(124,92,255,.10) 0%, rgba(124,92,255,.16) 20%, rgba(34,211,238,.22) 100%);
-  transition: height .38s ease;
+  min-height: 42px;
+  background:
+    linear-gradient(180deg, rgba(236,253,255,.42) 0%, rgba(34,211,238,.30) 16%, rgba(37,99,235,.24) 62%, rgba(124,92,255,.24) 100%),
+    linear-gradient(90deg, rgba(34,211,238,.10), rgba(255,255,255,.13) 46%, rgba(124,92,255,.12));
+  box-shadow:
+    inset 0 28px 48px rgba(255,255,255,.20),
+    inset 0 -34px 72px rgba(15,23,42,.16),
+    0 -18px 48px rgba(34,211,238,.20);
+  transition: height .68s cubic-bezier(.2,.8,.2,1);
   pointer-events: none;
   z-index: 1;
+  transform: translateZ(0);
 }
 
-.upload-liquid::after {
-  content: '';
+.upload-liquid.complete {
+  animation: liquidSettle 1.15s ease both;
+}
+
+.upload-liquid-depth,
+.upload-caustics,
+.upload-waterline {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,.14), transparent 20%, transparent 100%);
-  opacity: .45;
+}
+
+.upload-liquid-depth {
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.16), transparent 16% 72%, rgba(255,255,255,.10)),
+    repeating-linear-gradient(104deg, rgba(255,255,255,.08) 0 2px, transparent 2px 32px);
+  opacity: .42;
+  animation: liquidCurrent 9s linear infinite;
+}
+
+.upload-caustics {
+  background:
+    repeating-linear-gradient(128deg, transparent 0 34px, rgba(255,255,255,.18) 35px 39px, transparent 40px 74px),
+    repeating-linear-gradient(52deg, transparent 0 42px, rgba(34,211,238,.16) 43px 46px, transparent 47px 90px);
+  background-size: 220px 180px, 260px 210px;
+  mix-blend-mode: screen;
+  opacity: .34;
+  animation: causticDrift 10s linear infinite;
+}
+
+.upload-waterline {
+  inset: auto -4% calc(100% - 18px) -4%;
+  height: 34px;
+  background: linear-gradient(180deg, rgba(255,255,255,.64), rgba(236,253,255,.22) 42%, transparent 78%);
+  filter: blur(.2px);
+  opacity: .82;
+  animation: waterlineBreath 3.4s ease-in-out infinite;
 }
 
 .upload-wave {
   position: absolute;
-  left: -8%;
-  width: 116%;
-  height: 54px;
-  top: -24px;
-  border-radius: 43% 57% 58% 42% / 54% 46% 54% 46%;
-  background: rgba(255,255,255,.20);
-  filter: blur(1px);
+  left: -50%;
+  width: 200%;
+  height: 70px;
+  top: -38px;
+  background:
+    radial-gradient(62px 28px at 62px 40px, rgba(255,255,255,.74) 0 54%, transparent 56%) 0 0 / 124px 70px repeat-x,
+    radial-gradient(58px 26px at 62px 33px, rgba(34,211,238,.30) 0 52%, transparent 54%) 0 0 / 124px 70px repeat-x;
+  filter: blur(.4px);
+  transform-origin: center;
+  z-index: 4;
 }
 
 .wave-a {
-  animation: waterDrift 11s linear infinite;
-  opacity: .58;
-}
-
-.wave-b {
-  top: -16px;
-  animation: waterDriftReverse 15s linear infinite;
-  background: rgba(255,255,255,.12);
+  animation: waterDrift 8.5s linear infinite, waterBob 3.1s ease-in-out infinite;
   opacity: .68;
 }
 
+.wave-b {
+  top: -30px;
+  animation: waterDriftReverse 12.5s linear infinite, waterBob 4s ease-in-out infinite reverse;
+  opacity: .42;
+  filter: blur(1px);
+}
+
 .wave-c {
-  top: -10px;
-  animation: waterDrift 19s linear infinite;
-  background: rgba(255,255,255,.10);
+  top: -22px;
+  animation: waterDrift 17s linear infinite, waterBob 5.2s ease-in-out infinite;
+  opacity: .30;
+  filter: blur(1.6px);
+}
+
+.upload-bubble {
+  position: absolute;
+  bottom: -26px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.52);
+  background: rgba(255,255,255,.16);
+  box-shadow: inset 1px 1px 4px rgba(255,255,255,.45);
+  opacity: 0;
+  animation: bubbleRise 7.2s ease-in infinite;
+}
+
+.bubble-1 { left: 7%;  width: 7px;  height: 7px;  animation-delay: -1.2s; animation-duration: 6.8s; }
+.bubble-2 { left: 18%; width: 12px; height: 12px; animation-delay: -4.4s; animation-duration: 8.8s; }
+.bubble-3 { left: 31%; width: 6px;  height: 6px;  animation-delay: -2.8s; animation-duration: 7.4s; }
+.bubble-4 { left: 47%; width: 10px; height: 10px; animation-delay: -5.8s; animation-duration: 9.4s; }
+.bubble-5 { left: 61%; width: 5px;  height: 5px;  animation-delay: -3.3s; animation-duration: 6.2s; }
+.bubble-6 { left: 74%; width: 11px; height: 11px; animation-delay: -6.4s; animation-duration: 10s; }
+.bubble-7 { left: 84%; width: 7px;  height: 7px;  animation-delay: -2s;   animation-duration: 7.8s; }
+.bubble-8 { left: 93%; width: 13px; height: 13px; animation-delay: -7.2s; animation-duration: 9.8s; }
+
+[data-theme="light"] .upload-shell {
+  background:
+    linear-gradient(145deg, rgba(109,92,255,.16), rgba(17,197,255,.11) 48%, rgba(16,185,129,.08)),
+    linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,0)),
+    rgba(255,255,255,.72);
+}
+
+[data-theme="light"] .upload-liquid {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.62) 0%, rgba(103,232,249,.42) 16%, rgba(37,99,235,.21) 62%, rgba(109,92,255,.18) 100%),
+    linear-gradient(90deg, rgba(17,197,255,.14), rgba(255,255,255,.24) 46%, rgba(109,92,255,.13));
+  box-shadow:
+    inset 0 30px 48px rgba(255,255,255,.36),
+    inset 0 -30px 70px rgba(47,88,155,.10),
+    0 -20px 48px rgba(17,197,255,.18);
 }
 
 .upload-topbar {
@@ -724,16 +857,34 @@ onBeforeUnmount(() => {
 }
 
 .upload-status-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 18px;
   border-radius: 18px;
   border: 1px solid var(--border);
-  background: rgba(255,255,255,.12);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.07)),
+    rgba(8,13,26,.10);
   backdrop-filter: blur(6px);
   min-height: 100%;
   overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10);
+}
+
+.upload-status-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 0 34%, rgba(255,255,255,.12) 47%, transparent 60% 100%);
+  opacity: 0;
+  transform: translateX(-45%);
+  pointer-events: none;
+}
+
+.upload-shell.uploading .upload-status-card::before {
+  animation: cardSheen 3.8s ease-in-out infinite;
 }
 
 .upload-status-card.has-fila {
@@ -741,6 +892,8 @@ onBeforeUnmount(() => {
 }
 
 .upload-status-icon {
+  position: relative;
+  overflow: hidden;
   width: 62px;
   height: 62px;
   border-radius: 18px;
@@ -750,6 +903,19 @@ onBeforeUnmount(() => {
   color: var(--text);
   font-size: 24px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.2);
+}
+
+.upload-status-icon::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.24);
+  opacity: .45;
+}
+
+.upload-shell.uploading .upload-status-icon {
+  animation: iconBuoy 2.8s ease-in-out infinite;
 }
 
 .upload-status-copy h4 {
@@ -784,6 +950,24 @@ onBeforeUnmount(() => {
   background: rgba(255,255,255,.08);
   border-width: 2px;
   position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.upload-dropzone::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 0 35%, rgba(255,255,255,.10) 48%, transparent 62% 100%);
+  opacity: 0;
+  transform: translateX(-55%);
+  pointer-events: none;
+}
+
+.upload-shell.uploading .upload-dropzone::before,
+.upload-dropzone.over::before {
+  animation: dropzoneSweep 2.8s ease-in-out infinite;
+  opacity: 1;
 }
 
 .upload-dropzone.active {
@@ -797,6 +981,8 @@ onBeforeUnmount(() => {
 
 .upload-drop-content,
 .upload-progress-stage {
+  position: relative;
+  z-index: 1;
   width: min(100%, 520px);
   display: grid;
   gap: 10px;
@@ -815,17 +1001,126 @@ onBeforeUnmount(() => {
   box-shadow: 0 10px 24px rgba(70,82,126,.14);
 }
 
+.upload-progress-meter {
+  --meter-progress: 0%;
+  position: relative;
+  width: 168px;
+  height: 168px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background:
+    conic-gradient(from -90deg, rgba(34,211,238,.95) var(--meter-progress), rgba(255,255,255,.18) 0),
+    linear-gradient(135deg, rgba(124,92,255,.36), rgba(34,211,238,.24));
+  box-shadow:
+    0 18px 42px rgba(9,18,38,.22),
+    inset 0 1px 0 rgba(255,255,255,.32);
+}
+
+.upload-progress-meter::before {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border-radius: inherit;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,.14)),
+    rgba(8,13,26,.18);
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 0 32px rgba(255,255,255,.10);
+}
+
+.upload-progress-meter::after {
+  content: '';
+  position: absolute;
+  inset: 24px;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255,255,255,.30), transparent 48%);
+  opacity: .58;
+  animation: meterGleam 4s ease-in-out infinite;
+}
+
+.upload-progress-ripple {
+  position: absolute;
+  inset: 17px;
+  border-radius: inherit;
+  border: 1px solid rgba(255,255,255,.32);
+  z-index: 3;
+  animation: meterRipple 2.4s ease-out infinite;
+}
+
 .upload-progress-value {
-  font-size: clamp(40px, 7vw, 74px);
+  position: relative;
+  z-index: 2;
+  font-size: 54px;
   font-weight: 800;
   line-height: 1;
-  letter-spacing: -1.6px;
+  letter-spacing: 0;
+  text-shadow: 0 2px 14px rgba(11,15,26,.18);
 }
 
 .upload-progress-label {
   font-size: 17px;
   font-weight: 700;
 }
+
+.upload-stage-display {
+  width: min(100%, 460px);
+  min-height: 78px;
+  display: grid;
+  gap: 8px;
+  padding: 11px 14px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 16px;
+  background: rgba(255,255,255,.12);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+  backdrop-filter: blur(8px);
+}
+
+.stage-live-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.stage-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(34,211,238,.42);
+  flex: 0 0 auto;
+  animation: stagePulse 1.55s ease-out infinite;
+}
+
+.stage-name-rotator {
+  position: relative;
+  width: 100%;
+  height: 24px;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.stage-name-rotator span {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: stageNameCycle 12.5s ease-in-out infinite;
+}
+
+.stage-name-rotator span:nth-child(2) { animation-delay: 2.5s; }
+.stage-name-rotator span:nth-child(3) { animation-delay: 5s; }
+.stage-name-rotator span:nth-child(4) { animation-delay: 7.5s; }
+.stage-name-rotator span:nth-child(5) { animation-delay: 10s; }
 
 .upload-progress-footnote {
   font-size: 12px;
@@ -1013,13 +1308,103 @@ onBeforeUnmount(() => {
 .fila-item-leave-to     { opacity: 0; }
 
 @keyframes waterDrift {
-  0% { transform: translateX(-4%) rotate(0deg); }
-  100% { transform: translateX(4%) rotate(360deg); }
+  0% { transform: translateX(0); }
+  100% { transform: translateX(124px); }
 }
 
 @keyframes waterDriftReverse {
-  0% { transform: translateX(4%) rotate(0deg); }
-  100% { transform: translateX(-4%) rotate(-360deg); }
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-124px); }
+}
+
+@keyframes waterBob {
+  0%, 100% { margin-top: 0; }
+  50% { margin-top: 5px; }
+}
+
+@keyframes liquidSettle {
+  0% { filter: saturate(1); }
+  42% { filter: saturate(1.16) brightness(1.04); }
+  100% { filter: saturate(1.02); }
+}
+
+@keyframes liquidCurrent {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 160px 0, 240px 0; }
+}
+
+@keyframes causticDrift {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 220px 180px, -260px 210px; }
+}
+
+@keyframes waterlineBreath {
+  0%, 100% { transform: translateY(0) scaleY(1); opacity: .76; }
+  50% { transform: translateY(3px) scaleY(1.12); opacity: .96; }
+}
+
+@keyframes bubbleRise {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) scale(.72); }
+  12% { opacity: .72; }
+  72% { opacity: .46; }
+  100% { opacity: 0; transform: translate3d(18px, -430px, 0) scale(1.18); }
+}
+
+@keyframes cardSheen {
+  0% { opacity: 0; transform: translateX(-55%); }
+  18%, 52% { opacity: .9; }
+  100% { opacity: 0; transform: translateX(64%); }
+}
+
+@keyframes iconBuoy {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes dropzoneSweep {
+  0% { transform: translateX(-65%); }
+  100% { transform: translateX(70%); }
+}
+
+@keyframes meterGleam {
+  0%, 100% { transform: translateY(0); opacity: .44; }
+  50% { transform: translateY(-7px); opacity: .72; }
+}
+
+@keyframes meterRipple {
+  0% { transform: scale(.92); opacity: .68; }
+  100% { transform: scale(1.13); opacity: 0; }
+}
+
+@keyframes stagePulse {
+  0% { box-shadow: 0 0 0 0 rgba(34,211,238,.42); transform: scale(.92); }
+  70% { box-shadow: 0 0 0 9px rgba(34,211,238,0); transform: scale(1); }
+  100% { box-shadow: 0 0 0 0 rgba(34,211,238,0); transform: scale(.92); }
+}
+
+@keyframes stageNameCycle {
+  0% { opacity: 0; transform: translateY(13px); }
+  7%, 18% { opacity: 1; transform: translateY(0); }
+  25%, 100% { opacity: 0; transform: translateY(-13px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upload-liquid,
+  .upload-liquid *,
+  .upload-shell.uploading .upload-status-card::before,
+  .upload-shell.uploading .upload-status-icon,
+  .upload-shell.uploading .upload-dropzone::before,
+  .upload-progress-meter::after,
+  .upload-progress-ripple,
+  .stage-live-dot,
+  .stage-name-rotator span {
+    animation: none !important;
+  }
+
+  .stage-name-rotator span:first-child {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @media (max-width: 980px) {
@@ -1048,6 +1433,25 @@ onBeforeUnmount(() => {
   .upload-dropzone {
     min-height: 220px;
     padding: 24px 18px;
+  }
+
+  .upload-progress-meter {
+    width: 134px;
+    height: 134px;
+  }
+
+  .upload-progress-value {
+    font-size: 42px;
+  }
+
+  .upload-stage-display {
+    min-height: 86px;
+    border-radius: 14px;
+  }
+
+  .stage-live-label {
+    align-items: flex-start;
+    text-align: left;
   }
 
   .upload-footer-actions {

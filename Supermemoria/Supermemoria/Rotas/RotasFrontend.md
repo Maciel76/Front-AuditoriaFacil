@@ -22,7 +22,9 @@ Arquivo fonte: frontend/src/router.js
 | /lojas/:id         | loja-perfil        | Sim        | Nenhum      | LojaPerfil.vue        | Perfil analitico publico de uma loja    |
 | /auditorias        | auditorias         | Sim        | Nenhum      | Auditorias.vue        | Upload e historico                      |
 | /auditorias/:id    | auditoria-detalhe  | Sim        | Nenhum      | AuditoriaDetalhe.vue  | Detalhe e itens da auditoria            |
-| /rankings          | rankings           | Sim        | Nenhum      | Rankings.vue          | Ranking de colaboradores e lojas        |
+| /rankings          | redirect           | Sim        | Nenhum      | redirect              | Redireciona para /rankings/colaboradores |
+| /rankings/colaboradores | ranking-colaboradores | Sim   | SUPER_ADMIN, STORE_ADMIN | RankingColaboradores.vue | Ranking de colaboradores por periodo, tipo e loja opcional |
+| /rankings/lojas    | ranking-lojas      | Sim        | SUPER_ADMIN, STORE_ADMIN | RankingLojas.vue       | Ranking geral de lojas por periodo e tipo |
 | /colaboradores     | colaboradores      | Sim        | Nenhum      | Colaboradores.vue     | Gestao e consulta de colaboradores      |
 | /colaboradores/:id | colaborador-perfil | Sim        | Nenhum      | ColaboradorPerfil.vue | Perfil analitico do colaborador         |
 | /relatorios        | relatorios         | Sim        | Nenhum      | Relatorios.vue        | Relatorios por situacao e setor         |
@@ -41,6 +43,6 @@ Arquivo fonte: frontend/src/router.js
 ## Observacoes importantes
 
 - /portal nao usa a store auth do app principal; ele controla sessao por conta propria.
-- /admin/lojas continua sendo a unica rota explicitamente restrita por meta.roles no frontend.
+- /rankings/colaboradores, /rankings/lojas e /admin/lojas usam meta.roles no frontend.
 - /lojas e /lojas/:id ficam disponiveis para todos os perfis autenticados do app principal.
 - O redirecionamento padrao cai em /dashboard, portanto qualquer nova rota deve considerar esse comportamento.

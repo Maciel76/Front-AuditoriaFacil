@@ -16,11 +16,22 @@ const navegacao = computed(() => {
     { to: "/dashboard", label: "Dashboard", ico: "gauge" },
     { to: "/lojas", label: "Lojas", ico: "store" },
     { to: "/auditorias", label: "Auditorias", ico: "clipboard-check" },
-    { to: "/rankings", label: "Rankings", ico: "ranking-star" },
     { to: "/colaboradores", label: "Colaboradores", ico: "users" },
     { to: "/relatorios", label: "Relatórios", ico: "file-lines" },
     { to: "/configuracoes", label: "Configurações", ico: "gear" },
   ];
+  if (auth.podeGerenciar) {
+    base.splice(3, 0, {
+      to: "/rankings/colaboradores",
+      label: "Ranking colaboradores",
+      ico: "users",
+    });
+    base.splice(4, 0, {
+      to: "/rankings/lojas",
+      label: "Ranking lojas",
+      ico: "ranking-star",
+    });
+  }
   if (auth.isSuperAdmin)
     base.push({
       to: "/admin/lojas",
@@ -38,7 +49,8 @@ const titulo = computed(() => {
     "loja-perfil": "Perfil da loja",
     auditorias: "Auditorias",
     "auditoria-detalhe": "Detalhe da auditoria",
-    rankings: "Rankings",
+    "ranking-colaboradores": "Ranking de colaboradores",
+    "ranking-lojas": "Ranking de lojas",
     colaboradores: "Colaboradores",
     "colaborador-perfil": "Perfil do colaborador",
     relatorios: "Relatórios",

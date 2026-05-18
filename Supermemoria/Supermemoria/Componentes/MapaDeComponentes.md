@@ -8,7 +8,7 @@
 - Recebe type, data, options e height.
 - Aplica defaults visuais por tipo de grafico, merge profundo de opcoes, normalizacao de datasets e leitura do tema atual.
 - Reage a mudancas de tema para manter legibilidade no modo claro e escuro.
-- E reutilizado em dashboard, auditoria detalhe, relatorios, rankings, perfil do colaborador e portal.
+- E reutilizado em dashboard, auditoria detalhe, relatorios, ranking de colaboradores, ranking de lojas, perfil do colaborador e portal.
 
 ### KpiCard.vue
 
@@ -24,6 +24,12 @@
 
 - Componente visual reutilizavel para representar lojas.
 - Renderiza foto publica da loja quando houver avatarUrl e usa iniciais como fallback.
+
+### ColaboradorAvatar.vue
+
+- Componente visual reutilizavel para representar colaboradores.
+- Renderiza a foto do colaborador quando houver avatarUrl e cai para iniciais somente como fallback.
+- Usa resolverUrlMidia para normalizar URLs relativas de uploads antes de renderizar a imagem.
 
 ### PeriodoSelector.vue
 
@@ -65,11 +71,19 @@
 - Faz drill-down do upload em nivel de item auditado.
 - Explica a composicao de uma auditoria ja processada.
 
-### Rankings.vue
+### RankingColaboradores.vue
 
-- Interface de comparacao.
+- Interface de comparacao exclusiva para colaboradores.
 - Implementa podium para as tres primeiras posicoes e lista para as demais.
-- Recebe filtro de tipo e periodo, com transicoes visuais entre estados.
+- Recebe filtro de tipo e periodo e, para SUPER_ADMIN, filtro adicional de loja.
+- Tambem exporta um print fiel da tela atual por meio do util compartilhado de captura.
+
+### RankingLojas.vue
+
+- Interface de comparacao exclusiva para lojas.
+- Implementa podium para as tres primeiras posicoes e lista para as demais.
+- Recebe filtro de tipo e periodo, sem filtro de loja.
+- Tambem exporta um print fiel da tela atual por meio do util compartilhado de captura.
 
 ### Lojas.vue
 
@@ -90,6 +104,7 @@
 
 - Drill-down analitico de um colaborador especifico.
 - Usa serie por dia e totais por tipo.
+- Agora tambem concentra edicao administrativa de dados cadastrais e foto do colaborador.
 
 ### Relatorios.vue
 
@@ -118,7 +133,7 @@
 
 - App.vue envolve o router e o sistema de toast.
 - AppLayout.vue envolve todas as views autenticadas.
-- PeriodoSelector.vue alimenta Dashboard, Relatorios, Rankings, ColaboradorPerfil e portal do colaborador.
+- PeriodoSelector.vue alimenta Dashboard, Relatorios, RankingColaboradores, RankingLojas, ColaboradorPerfil e portal do colaborador.
 - AppChart.vue aparece em todas as views analiticas.
 
 ## Dependencias funcionais importantes
@@ -126,5 +141,5 @@
 - PeriodoSelector depende de contratos de periodo aceitos pelo backend.
 - ColaboradorPortal depende de rotas exclusivas do portal e nao deve reutilizar store auth.
 - Configuracoes depende de /lojas/me e /usuarios.
-- Rankings e Dashboard dependem da integridade de MetricaDiaria.
+- RankingColaboradores, RankingLojas e Dashboard dependem da integridade de MetricaDiaria.
 - LojaPerfil depende de /metricas/lojas/:id/perfil e combina MetricaDiaria, Auditoria e AuditItem em uma unica tela.
