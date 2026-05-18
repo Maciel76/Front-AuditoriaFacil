@@ -1,0 +1,931 @@
+[{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee33e"
+  },
+  "achievementId": "first-audit",
+  "title": "Primeira Auditoria",
+  "description": "Fez sua primeira auditoria",
+  "icon": "🎉",
+  "category": "audits",
+  "difficulty": "easy",
+  "points": 10,
+  "criteria": {
+    "type": "count",
+    "target": 1,
+    "description": "Realizar 1 auditoria completa"
+  },
+  "sourceField": "contadoresAuditorias.totalGeral",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 1,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.100Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.100Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee341"
+  },
+  "achievementId": "audit-enthusiast",
+  "title": "Entusiasta de Auditoria",
+  "description": "Concluiu 10 auditorias atualizadas",
+  "icon": "📊",
+  "category": "audits",
+  "difficulty": "medium",
+  "points": 25,
+  "criteria": {
+    "type": "count",
+    "target": 10,
+    "description": "Realizar 10 auditorias atualizadas"
+  },
+  "sourceField": "contadoresAuditorias.totalGeral",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 2,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.110Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.110Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee344"
+  },
+  "achievementId": "audit-master",
+  "title": "Mestre de Auditoria",
+  "description": "Concluiu 50 auditorias atualizadas",
+  "icon": "🏆",
+  "category": "audits",
+  "difficulty": "hard",
+  "points": 50,
+  "criteria": {
+    "type": "count",
+    "target": 50,
+    "description": "Realizar 50 auditorias atualizadas"
+  },
+  "sourceField": "contadoresAuditorias.totalGeral",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 3,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.116Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.116Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee347"
+  },
+  "achievementId": "detetive",
+  "title": "Detetive",
+  "description": "Identificou 10 ou mais itens faltantes",
+  "icon": "🔍",
+  "category": "audits",
+  "difficulty": "medium",
+  "points": 20,
+  "criteria": {
+    "type": "count",
+    "target": 10,
+    "description": "Identificar 10 itens faltantes"
+  },
+  "sourceField": "rupturas.itensSemEstoque",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 4,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.121Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.121Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee34a"
+  },
+  "achievementId": "guardiao-presenca",
+  "title": "Guardião da Presença",
+  "description": "Completou setor com cobertura e precisão totais",
+  "icon": "🛡️",
+  "category": "audits",
+  "difficulty": "hard",
+  "points": 75,
+  "criteria": {
+    "type": "percentage",
+    "target": 100,
+    "description": "Completar setor com 100% de cobertura e precisão"
+  },
+  "sourceField": "presencas.percentualPresenca",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 5,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.125Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.125Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee34d"
+  },
+  "achievementId": "meta-100",
+  "title": "Centena",
+  "description": "Leu 100 itens em auditorias",
+  "icon": "💯",
+  "category": "performance",
+  "difficulty": "easy",
+  "points": 15,
+  "criteria": {
+    "type": "count",
+    "target": 100,
+    "description": "Ler 100 itens"
+  },
+  "sourceField": "totaisAcumulados.itensLidosTotal",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 6,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.130Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.130Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee350"
+  },
+  "achievementId": "meta-500",
+  "title": "Meta Batida",
+  "description": "Leu mais de 500 itens",
+  "icon": "🎯",
+  "category": "performance",
+  "difficulty": "medium",
+  "points": 50,
+  "criteria": {
+    "type": "count",
+    "target": 500,
+    "description": "Ler 500 itens"
+  },
+  "sourceField": "totaisAcumulados.itensLidosTotal",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 7,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.134Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.134Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee352"
+  },
+  "achievementId": "maratona",
+  "title": "Maratona",
+  "description": "Leu mais de 1000 itens",
+  "icon": "🏅",
+  "category": "performance",
+  "difficulty": "hard",
+  "points": 100,
+  "criteria": {
+    "type": "count",
+    "target": 1000,
+    "description": "Ler 1000 itens"
+  },
+  "sourceField": "totaisAcumulados.itensLidosTotal",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 8,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.137Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.137Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee354"
+  },
+  "achievementId": "perfect-accuracy",
+  "title": "Precisão Perfeita",
+  "description": "Manteve 95% de precisão",
+  "icon": "🎯",
+  "category": "performance",
+  "difficulty": "hard",
+  "points": 40,
+  "criteria": {
+    "type": "percentage",
+    "target": 95,
+    "description": "Manter 95% de precisão"
+  },
+  "sourceField": "totais.percentualConclusaoGeral",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 9,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.139Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.139Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee356"
+  },
+  "achievementId": "relampago",
+  "title": "Relâmpago",
+  "description": "Verificou 50 itens rapidamente (em menos de 1 hora)",
+  "icon": "⚡",
+  "category": "performance",
+  "difficulty": "medium",
+  "points": 35,
+  "criteria": {
+    "type": "custom",
+    "target": 50,
+    "description": "Verificar 50 itens em menos de 1 hora"
+  },
+  "sourceField": "totaisAcumulados.itensLidosTotal",
+  "repeticao": "diaria",
+  "ativo": true,
+  "ordem": 10,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.142Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.142Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee358"
+  },
+  "achievementId": "zero-faltas",
+  "title": "Zero Faltas",
+  "description": "Completou auditoria sem itens faltantes",
+  "icon": "🛡️",
+  "category": "performance",
+  "difficulty": "medium",
+  "points": 30,
+  "criteria": {
+    "type": "custom",
+    "target": 0,
+    "description": "Completar auditoria sem itens faltantes"
+  },
+  "sourceField": "rupturas.itensSemEstoque",
+  "repeticao": "diaria",
+  "ativo": true,
+  "ordem": 11,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.144Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.144Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee35a"
+  },
+  "achievementId": "top-performer",
+  "title": "Top Performer",
+  "description": "Acima da média geral de desempenho",
+  "icon": "⭐",
+  "category": "performance",
+  "difficulty": "hard",
+  "points": 100,
+  "criteria": {
+    "type": "custom",
+    "target": 100,
+    "description": "Estar acima da média em múltiplos critérios"
+  },
+  "sourceField": "totais.percentualConclusaoGeral",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 12,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.146Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.146Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee35c"
+  },
+  "achievementId": "consistencia",
+  "title": "Consistência",
+  "description": "Manteve 75% ou mais de conclusão",
+  "icon": "📈",
+  "category": "consistency",
+  "difficulty": "medium",
+  "points": 25,
+  "criteria": {
+    "type": "percentage",
+    "target": 75,
+    "description": "Manter 75% de conclusão"
+  },
+  "sourceField": "totais.percentualConclusaoGeral",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 13,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.148Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.148Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee35e"
+  },
+  "achievementId": "consistent-auditor",
+  "title": "Auditor Consistente",
+  "description": "Realizou auditorias por 5 dias consecutivos",
+  "icon": "📅",
+  "category": "consistency",
+  "difficulty": "medium",
+  "points": 30,
+  "criteria": {
+    "type": "streak",
+    "target": 5,
+    "description": "Realizar auditorias por 5 dias consecutivos"
+  },
+  "sourceField": "tendencias.currentStreak",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 14,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.149Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.149Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee360"
+  },
+  "achievementId": "weekly-warrior",
+  "title": "Guerreiro Semanal",
+  "description": "Realizou 5 auditorias em uma semana",
+  "icon": "🔥",
+  "category": "consistency",
+  "difficulty": "medium",
+  "points": 20,
+  "criteria": {
+    "type": "count",
+    "target": 5,
+    "description": "Realizar 5 auditorias em uma semana",
+    "period": 7
+  },
+  "sourceField": "tendencias.weeklyAudits",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 15,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.151Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.151Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee362"
+  },
+  "achievementId": "o-invencivel",
+  "title": "O Invencível",
+  "description": "Manteve 4 semanas consecutivas como Top Performer",
+  "icon": "💪",
+  "category": "consistency",
+  "difficulty": "hard",
+  "points": 500,
+  "criteria": {
+    "type": "custom",
+    "target": 4,
+    "description": "Manter 4 semanas consecutivas como Top Performer"
+  },
+  "sourceField": "tendencias.currentStreak",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 16,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.153Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.153Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee364"
+  },
+  "achievementId": "explorador",
+  "title": "Explorador",
+  "description": "Cobriu 5 ou mais setores diferentes",
+  "icon": "🗺️",
+  "category": "participation",
+  "difficulty": "easy",
+  "points": 25,
+  "criteria": {
+    "type": "count",
+    "target": 5,
+    "description": "Cobrir 5 setores diferentes"
+  },
+  "sourceField": "ContadorLocais",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 17,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.155Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.155Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee366"
+  },
+  "achievementId": "corredor-mestre",
+  "title": "Corredor Mestre",
+  "description": "Cobriu 10 ou mais setores diferentes",
+  "icon": "🏆",
+  "category": "participation",
+  "difficulty": "medium",
+  "points": 50,
+  "criteria": {
+    "type": "count",
+    "target": 10,
+    "description": "Cobrir 10 setores diferentes"
+  },
+  "sourceField": "ContadorLocais",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 18,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.157Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.157Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee368"
+  },
+  "achievementId": "team-player",
+  "title": "Jogador de Equipe",
+  "description": "Trabalhou em 3 setores diferentes",
+  "icon": "🤝",
+  "category": "participation",
+  "difficulty": "easy",
+  "points": 20,
+  "criteria": {
+    "type": "count",
+    "target": 3,
+    "description": "Trabalhar em 3 setores diferentes"
+  },
+  "sourceField": "ContadorLocais",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 19,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.159Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.159Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee36a"
+  },
+  "achievementId": "mestre-corredores",
+  "title": "Mestre dos Corredores",
+  "description": "Domínio total - cobriu todos os corredores da loja",
+  "icon": "🏆",
+  "category": "participation",
+  "difficulty": "hard",
+  "points": 500,
+  "criteria": {
+    "type": "custom",
+    "target": 100,
+    "description": "Cobrir todos os corredores disponíveis na loja"
+  },
+  "sourceField": "ContadorLocais",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 20,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.161Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.161Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee36c"
+  },
+  "achievementId": "pioneiro-dia",
+  "title": "Pioneiro do Dia",
+  "description": "Primeira leitura do dia na auditoria",
+  "icon": "🌅",
+  "category": "participation",
+  "difficulty": "medium",
+  "points": 25,
+  "criteria": {
+    "type": "custom",
+    "target": 1,
+    "description": "Ser o primeiro a fazer leitura no dia"
+  },
+  "sourceField": "contadoresAuditorias.totalGeral",
+  "repeticao": "diaria",
+  "ativo": true,
+  "ordem": 21,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.162Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.162Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee36e"
+  },
+  "achievementId": "lenda-viva-iniciante",
+  "title": "Iniciante Dedicado",
+  "description": "Realizou auditorias em 5 dias diferentes",
+  "icon": "🌱",
+  "category": "consistency",
+  "difficulty": "easy",
+  "points": 25,
+  "criteria": {
+    "type": "count",
+    "target": 5,
+    "description": "Auditar em 5 dias diferentes"
+  },
+  "sourceField": "tendencias.diasAtivos",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 22,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.164Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.164Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee370"
+  },
+  "achievementId": "lenda-viva-ativo",
+  "title": "Auditor Ativo",
+  "description": "Realizou auditorias em 10 dias diferentes",
+  "icon": "🚀",
+  "category": "consistency",
+  "difficulty": "easy",
+  "points": 50,
+  "criteria": {
+    "type": "count",
+    "target": 10,
+    "description": "Auditar em 10 dias diferentes"
+  },
+  "sourceField": "tendencias.diasAtivos",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 23,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.166Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.166Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee372"
+  },
+  "achievementId": "lenda-viva-veterano",
+  "title": "Veterano",
+  "description": "Realizou auditorias em 25 dias diferentes",
+  "icon": "🛡️",
+  "category": "consistency",
+  "difficulty": "medium",
+  "points": 100,
+  "criteria": {
+    "type": "count",
+    "target": 25,
+    "description": "Auditar em 25 dias diferentes"
+  },
+  "sourceField": "tendencias.diasAtivos",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 24,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.169Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.169Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee374"
+  },
+  "achievementId": "lenda-viva",
+  "title": "Lenda Viva",
+  "description": "Realizou auditorias em 50 dias diferentes",
+  "icon": "🏛️",
+  "category": "consistency",
+  "difficulty": "hard",
+  "points": 250,
+  "criteria": {
+    "type": "count",
+    "target": 50,
+    "description": "Auditar em 50 dias diferentes"
+  },
+  "sourceField": "tendencias.diasAtivos",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 25,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.171Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.171Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee376"
+  },
+  "achievementId": "lenda-viva-mestre",
+  "title": "Mestre Lendário",
+  "description": "Realizou auditorias em 75 dias diferentes",
+  "icon": "👑",
+  "category": "consistency",
+  "difficulty": "hard",
+  "points": 400,
+  "criteria": {
+    "type": "count",
+    "target": 75,
+    "description": "Auditar em 75 dias diferentes"
+  },
+  "sourceField": "tendencias.diasAtivos",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 26,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.173Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.173Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee378"
+  },
+  "achievementId": "lenda-viva-icone",
+  "title": "Ícone dos Auditores",
+  "description": "Realizou auditorias em 100 dias diferentes",
+  "icon": "🌟",
+  "category": "consistency",
+  "difficulty": "hard",
+  "points": 600,
+  "criteria": {
+    "type": "count",
+    "target": 100,
+    "description": "Auditar em 100 dias diferentes"
+  },
+  "sourceField": "tendencias.diasAtivos",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 27,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.175Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.175Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee37a"
+  },
+  "achievementId": "lenda-imortal",
+  "title": "Lenda Imortal",
+  "description": "Realizou auditorias em 200 dias diferentes",
+  "icon": "💫",
+  "category": "consistency",
+  "difficulty": "hard",
+  "points": 1000,
+  "criteria": {
+    "type": "count",
+    "target": 200,
+    "description": "Auditar em 200 dias diferentes"
+  },
+  "sourceField": "tendencias.diasAtivos",
+  "repeticao": null,
+  "ativo": true,
+  "ordem": 28,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.177Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.177Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee37c"
+  },
+  "achievementId": "lider-podio-ouro",
+  "title": "🥇 Líder do Pódio",
+  "description": "1º lugar no ranking - Maior número de itens lidos!",
+  "icon": "🥇",
+  "category": "performance",
+  "difficulty": "hard",
+  "points": 100,
+  "criteria": {
+    "type": "custom",
+    "target": 1,
+    "description": "Alcançar 1º lugar no ranking"
+  },
+  "sourceField": "ranking.posicaoGeral",
+  "repeticao": "diaria",
+  "ativo": true,
+  "ordem": 29,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.179Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.179Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee37e"
+  },
+  "achievementId": "lider-podio-prata",
+  "title": "🥈 Vice-Líder",
+  "description": "2º lugar no ranking - Excelente desempenho!",
+  "icon": "🥈",
+  "category": "performance",
+  "difficulty": "medium",
+  "points": 50,
+  "criteria": {
+    "type": "custom",
+    "target": 2,
+    "description": "Alcançar 2º lugar no ranking"
+  },
+  "sourceField": "ranking.posicaoGeral",
+  "repeticao": "diaria",
+  "ativo": true,
+  "ordem": 30,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.182Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.182Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691e82b97c4d7dd2292ee380"
+  },
+  "achievementId": "lider-podio-bronze",
+  "title": "🥉 Top 3",
+  "description": "3º lugar no ranking - Entre os melhores!",
+  "icon": "🥉",
+  "category": "performance",
+  "difficulty": "medium",
+  "points": 25,
+  "criteria": {
+    "type": "custom",
+    "target": 3,
+    "description": "Alcançar 3º lugar no ranking"
+  },
+  "sourceField": "ranking.posicaoGeral",
+  "repeticao": "diaria",
+  "ativo": true,
+  "ordem": 31,
+  "criadoPor": "system",
+  "atualizadoPor": "system",
+  "createdAt": {
+    "$date": "2025-11-20T02:53:45.184Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-20T02:53:45.184Z"
+  },
+  "__v": 0
+}]

@@ -87,6 +87,12 @@ const routes = [
         component: () => import("@/views/AdminLojas.vue"),
         meta: { roles: ["SUPER_ADMIN"] },
       },
+      {
+        path: "admin/conquistas",
+        name: "admin-conquistas",
+        component: () => import("@/views/AdminConquistas.vue"),
+        meta: { roles: ["SUPER_ADMIN"] },
+      },
     ],
   },
   { path: "/:pathMatch(.*)*", redirect: "/dashboard" },

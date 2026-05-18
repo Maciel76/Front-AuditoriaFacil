@@ -1,15 +1,56 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 import api from "@/services/api";
 import Loader from "@/components/Loader.vue";
 import { useAuthStore } from "@/stores/auth";
 import StoreAvatar from "@/components/StoreAvatar.vue";
+import PeriodoSelector from "@/components/PeriodoSelector.vue";
 
 const auth = useAuthStore();
 const carregando = ref(true);
+const atualizando = ref(false);
+const erro = ref("");
 const busca = ref("");
+const periodo = ref("1d");
+const dataInicio = ref("");
+const dataFim = ref("");
+const periodoApi = ref(null);
 const items = ref([]);
+
+const labelsTipo = {
+  ETIQUETA: "Etiqueta",
+  PRESENCA: "Presença",
+  RUPTURA: "Ruptura",
+};
+
+const labelsPeriodo = {
+  "1d": "Hoje",
+  semana: "Semana",
+  mes: "Mês",
+  ano: "Ano",
+  tudo: "Histórico",
+  custom: "Período personalizado",
+};
+
+const resumoVazio = {
+  totalAuditorias: 0,
+  tiposComAuditoria: 0,
+  totalItens: 0,
+  totalItensAuditaveis: 0,
+  totalLidos: 0,
+  totalConformes: 0,
+  totalNaoConformes: 0,
+  pontuacao: 0,
+  custoRuptura: 0,
+  taxaConformidade: 0,
+  ultimaAuditoriaEm: null,
+  porTipo: {
+    ETIQUETA: { totalAuditorias: 0 },
+    PRESENCA: { totalAuditorias: 0 },
+    RUPTURA: { totalAuditorias: 0 },
+  },
+};
 
 function normalizar(valor = "") {
   return valor
@@ -19,25 +60,141 @@ function normalizar(valor = "") {
     .toLowerCase();
 }
 
-function metasResumo(loja) {
-  return [
-    `Etiqueta ${Math.round(loja?.metas?.conformidadeEtiqueta ?? 95)}%`,
-    `Presença ${Math.round(loja?.metas?.conformidadePresenca ?? 90)}%`,
-    `Ruptura ${Math.round(loja?.metas?.conformidadeRuptura ?? 95)}%`,
-  ].join(" · ");
+function formatarInteiro(valor = 0) {
+  return Number(valor || 0).toLocaleString("pt-BR");
+}
+
+function formatarPontos(valor = 0) {
+  return Math.round(Number(valor || 0)).toLocaleString("pt-BR");
+}
+
+function formatarPercentual(valor = 0) {
+  return `${Number(valor || 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })}%`;
+}
+
+function formatarMoeda(valor = 0) {
+  return `R$ ${Number(valor || 0).toLocaleString("pt-BR", {
+    maximumFractionDigits: 0,
+  })}`;
+}
+
+function formatarData(valor) {
+  if (!valor) return "Sem auditoria no período";
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return "Sem auditoria no período";
+  return data.toLocaleDateString("pt-BR");
+}
+
+function resumoLoja(loja) {
+  return loja?.resumoPeriodo || resumoVazio;
+}
+
+function auditoriasPorTipo(loja) {
+  const resumo = resumoLoja(loja);
+  return Object.entries(labelsTipo).map(([key, label]) => ({
+    key,
+    label,
+    total: Number(resumo.porTipo?.[key]?.totalAuditorias || 0),
+  }));
+}
+
+function larguraConformidade(loja) {
+  return `${Math.max(0, Math.min(100, Number(resumoLoja(loja).taxaConformidade || 0)))}%`;
+}
+
+function statusLoja(loja) {
+  const resumo = resumoLoja(loja);
+  if (!resumo.totalAuditorias) return { label: "Sem leitura", classe: "dim" };
+  const taxa = Number(resumo.taxaConformidade || 0);
+  if (taxa >= 92) return { label: "Excelente", classe: "ok" };
+  if (taxa >= 80) return { label: "Bom", classe: "info" };
+  if (taxa >= 65) return { label: "Atenção", classe: "warn" };
+  return { label: "Crítico", classe: "bad" };
 }
 
 async function carregar() {
-  carregando.value = true;
+  const primeiraCarga = !periodoApi.value;
+  carregando.value = primeiraCarga;
+  atualizando.value = !primeiraCarga;
+  erro.value = "";
+
   try {
-    const { data } = await api.get("/lojas/catalogo");
+    const params = { periodo: periodo.value };
+    if (periodo.value === "custom" && dataInicio.value && dataFim.value) {
+      params.dataInicio = dataInicio.value;
+      params.dataFim = dataFim.value;
+    }
+
+    const { data } = await api.get("/lojas/catalogo", { params });
     items.value = data.items || [];
+    periodoApi.value = data.periodo || null;
+  } catch (error) {
+    erro.value =
+      error?.response?.data?.error || "Não foi possível carregar as lojas.";
   } finally {
     carregando.value = false;
+    atualizando.value = false;
   }
 }
 
 onMounted(carregar);
+watch([periodo, dataInicio, dataFim], () => {
+  if (periodo.value !== "custom" || (dataInicio.value && dataFim.value)) {
+    carregar();
+  }
+});
+
+const periodoAtivoLabel = computed(() => {
+  if (periodo.value === "custom") {
+    return `${dataInicio.value || "--"} a ${dataFim.value || "--"}`;
+  }
+  return labelsPeriodo[periodo.value] || periodo.value;
+});
+
+const resumoCatalogo = computed(() => {
+  const base = items.value.reduce(
+    (acc, loja) => {
+      const resumo = resumoLoja(loja);
+      acc.totalLojas += 1;
+      acc.totalAuditorias += Number(resumo.totalAuditorias || 0);
+      acc.totalLidos += Number(resumo.totalLidos || 0);
+      acc.totalConformes += Number(resumo.totalConformes || 0);
+      acc.totalNaoConformes += Number(resumo.totalNaoConformes || 0);
+      acc.totalItensAuditaveis += Number(resumo.totalItensAuditaveis || 0);
+      acc.lojasComAuditoria += Number(resumo.totalAuditorias || 0) > 0 ? 1 : 0;
+
+      const etiqueta = resumo.porTipo?.ETIQUETA || {};
+      acc.numeradorConformidade += Number(etiqueta.totalLidos || 0);
+      acc.denominadorConformidade += Number(etiqueta.totalItensAuditaveis || 0);
+
+      for (const tipo of ["PRESENCA", "RUPTURA"]) {
+        const tipoResumo = resumo.porTipo?.[tipo] || {};
+        acc.numeradorConformidade += Number(tipoResumo.totalConformes || 0);
+        acc.denominadorConformidade += Number(tipoResumo.totalLidos || 0);
+      }
+      return acc;
+    },
+    {
+      totalLojas: 0,
+      lojasComAuditoria: 0,
+      totalAuditorias: 0,
+      totalItensAuditaveis: 0,
+      totalLidos: 0,
+      totalConformes: 0,
+      totalNaoConformes: 0,
+      numeradorConformidade: 0,
+      denominadorConformidade: 0,
+    },
+  );
+
+  base.taxaConformidade = base.denominadorConformidade > 0
+    ? (base.numeradorConformidade / base.denominadorConformidade) * 100
+    : 0;
+  return base;
+});
 
 const lojasFiltradas = computed(() => {
   const termo = normalizar(busca.value);
@@ -55,6 +212,15 @@ const lojasFiltradas = computed(() => {
       const aPropria = String(a._id) === String(auth.loja?._id || "");
       const bPropria = String(b._id) === String(auth.loja?._id || "");
       if (aPropria !== bPropria) return aPropria ? -1 : 1;
+
+      const resumoA = resumoLoja(a);
+      const resumoB = resumoLoja(b);
+      if (resumoA.totalAuditorias !== resumoB.totalAuditorias) {
+        return resumoB.totalAuditorias - resumoA.totalAuditorias;
+      }
+      if (resumoA.totalLidos !== resumoB.totalLidos) {
+        return resumoB.totalLidos - resumoA.totalLidos;
+      }
       return a.nome.localeCompare(b.nome, "pt-BR");
     });
 });
@@ -66,11 +232,15 @@ const lojasFiltradas = computed(() => {
       <div>
         <h3 class="mt-0 mb-0">Catálogo de lojas</h3>
         <p class="muted stores-copy">
-          Abra o perfil de qualquer loja para comparar desempenho, metas e
-          histórico recente.
+          Leituras, auditorias por tipo e resultado das lojas no período.
         </p>
       </div>
       <span class="spacer" />
+      <PeriodoSelector
+        v-model="periodo"
+        v-model:dataInicio="dataInicio"
+        v-model:dataFim="dataFim"
+      />
       <input
         v-model="busca"
         class="stores-search"
@@ -81,13 +251,46 @@ const lojasFiltradas = computed(() => {
       </RouterLink>
     </div>
 
+    <div v-if="!carregando && !erro" class="stores-summary-grid">
+      <article class="stores-summary-item">
+        <span class="muted">Período</span>
+        <strong>{{ periodoAtivoLabel }}</strong>
+      </article>
+      <article class="stores-summary-item">
+        <span class="muted">Lojas com auditoria</span>
+        <strong>
+          {{ formatarInteiro(resumoCatalogo.lojasComAuditoria) }} /
+          {{ formatarInteiro(resumoCatalogo.totalLojas) }}
+        </strong>
+      </article>
+      <article class="stores-summary-item">
+        <span class="muted">Auditorias</span>
+        <strong>{{ formatarInteiro(resumoCatalogo.totalAuditorias) }}</strong>
+      </article>
+      <article class="stores-summary-item">
+        <span class="muted">Itens lidos</span>
+        <strong>{{ formatarInteiro(resumoCatalogo.totalLidos) }}</strong>
+      </article>
+      <article class="stores-summary-item">
+        <span class="muted">Conformidade</span>
+        <strong>{{ formatarPercentual(resumoCatalogo.taxaConformidade) }}</strong>
+      </article>
+      <span v-if="atualizando" class="badge info stores-refresh">
+        Atualizando...
+      </span>
+    </div>
+
     <Loader v-if="carregando" />
+
+    <div v-else-if="erro" class="empty">
+      {{ erro }}
+    </div>
 
     <div v-else-if="!lojasFiltradas.length" class="empty">
       Nenhuma loja encontrada para o filtro informado.
     </div>
 
-    <div v-else class="stores-grid">
+    <div v-else class="stores-grid" :class="{ 'is-refreshing': atualizando }">
       <RouterLink
         v-for="loja in lojasFiltradas"
         :key="loja._id"
@@ -126,19 +329,57 @@ const lojasFiltradas = computed(() => {
             >Código {{ loja.codigo }}</span
           >
           <span class="badge info">Nível {{ loja.nivel || 1 }}</span>
+          <span class="badge" :class="statusLoja(loja).classe">
+            {{ statusLoja(loja).label }}
+          </span>
         </div>
 
         <div class="store-card-stats">
-          <div>
-            <span class="muted">Pontuação acumulada</span>
-            <strong>{{
-              Math.round(loja.pontuacao || 0).toLocaleString("pt-BR")
-            }}</strong>
+          <div class="store-card-stat store-card-stat-main">
+            <span class="muted">Itens lidos</span>
+            <strong>{{ formatarInteiro(resumoLoja(loja).totalLidos) }}</strong>
           </div>
-          <div>
-            <span class="muted">Metas base</span>
-            <strong>{{ metasResumo(loja) }}</strong>
+          <div class="store-card-stat">
+            <span class="muted">Auditorias</span>
+            <strong>{{ formatarInteiro(resumoLoja(loja).totalAuditorias) }}</strong>
           </div>
+          <div class="store-card-stat">
+            <span class="muted">Conformidade</span>
+            <strong>{{ formatarPercentual(resumoLoja(loja).taxaConformidade) }}</strong>
+          </div>
+          <div class="store-card-stat">
+            <span class="muted">Pontos no período</span>
+            <strong>{{ formatarPontos(resumoLoja(loja).pontuacao) }}</strong>
+          </div>
+        </div>
+
+        <div class="store-card-progress">
+          <span :style="{ width: larguraConformidade(loja) }" />
+        </div>
+
+        <div class="store-card-types">
+          <span
+            v-for="tipoItem in auditoriasPorTipo(loja)"
+            :key="tipoItem.key"
+            class="store-type-pill"
+            :class="`tipo-${tipoItem.key}`"
+          >
+            <span>{{ tipoItem.label }}</span>
+            <strong>{{ formatarInteiro(tipoItem.total) }}</strong>
+          </span>
+        </div>
+
+        <div class="store-card-insights">
+          <span class="muted">
+            Última: {{ formatarData(resumoLoja(loja).ultimaAuditoriaEm) }}
+          </span>
+          <span v-if="resumoLoja(loja).custoRuptura" class="muted">
+            Ruptura {{ formatarMoeda(resumoLoja(loja).custoRuptura) }}
+          </span>
+          <span v-if="resumoLoja(loja).tiposComAuditoria" class="muted">
+            {{ formatarInteiro(resumoLoja(loja).tiposComAuditoria) }} tipos com
+            auditoria
+          </span>
         </div>
 
         <div class="row store-card-footer">
@@ -177,15 +418,48 @@ const lojasFiltradas = computed(() => {
   color: var(--text);
 }
 
+.stores-summary-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.stores-summary-item {
+  display: grid;
+  gap: 4px;
+  min-height: 74px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.stores-summary-item strong {
+  font-size: 18px;
+}
+
+.stores-refresh {
+  position: absolute;
+  right: 8px;
+  top: -32px;
+}
+
 .stores-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
+}
+
+.stores-grid.is-refreshing {
+  opacity: 0.72;
+  filter: blur(1px);
+  pointer-events: none;
 }
 
 .store-card {
   display: grid;
-  gap: 16px;
+  gap: 14px;
   color: inherit;
   text-decoration: none;
   transition:
@@ -209,6 +483,7 @@ const lojasFiltradas = computed(() => {
 
 .store-card-head {
   align-items: flex-start;
+  gap: 12px;
 }
 
 .store-card-title {
@@ -232,16 +507,102 @@ const lojasFiltradas = computed(() => {
 
 .store-card-stats {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.store-card-stats > div {
+.store-card-stat {
   display: grid;
   gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.store-card-stat-main {
+  grid-column: span 3;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.store-card-stat-main .muted {
+  grid-column: 1;
+}
+
+.store-card-stat-main strong {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  font-size: 24px;
 }
 
 .store-card-stats strong {
   font-size: 14px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.store-card-progress {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.store-card-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--grad-primary);
+  min-width: 0;
+}
+
+.store-card-types {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.store-type-pill {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.store-type-pill span {
+  color: var(--text-dim);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.store-type-pill strong {
+  font-size: 16px;
+}
+
+.store-type-pill.tipo-ETIQUETA {
+  border-color: rgba(124, 92, 255, 0.28);
+}
+
+.store-type-pill.tipo-PRESENCA {
+  border-color: rgba(34, 211, 238, 0.26);
+}
+
+.store-type-pill.tipo-RUPTURA {
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+.store-card-insights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 12px;
 }
 
 .store-card-footer {
@@ -252,6 +613,29 @@ const lojasFiltradas = computed(() => {
 @media (max-width: 720px) {
   .stores-search {
     width: 100%;
+  }
+
+  .stores-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .store-card-stats,
+  .store-card-types {
+    grid-template-columns: 1fr;
+  }
+
+  .store-card-stat-main {
+    grid-column: span 1;
+  }
+
+  .store-card-stat-main strong {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .stores-refresh {
+    position: static;
+    width: fit-content;
   }
 }
 </style>

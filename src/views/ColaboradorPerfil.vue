@@ -16,7 +16,9 @@ const route = useRoute();
 const periodo = ref('1d');
 const dataInicio = ref('');
 const dataFim = ref('');
+const tipo = ref('');
 const carregando = ref(true);
+const erro = ref('');
 const salvandoPerfil = ref(false);
 const enviandoAvatar = ref(false);
 const dados = ref(null);
@@ -86,6 +88,8 @@ const paramsEscopoEdicao = computed(() => {
 });
 
 const podeEditar = computed(() => auth.podeGerenciar && !!dados.value?.colaborador?._id);
+const tiposAuditoria = ['ETIQUETA', 'PRESENCA', 'RUPTURA'];
+const labelsTipo = { ETIQUETA: 'Etiqueta', PRESENCA: 'Presença', RUPTURA: 'Ruptura' };
 
 function preencherFormulario(colaborador) {
   formulario.value = {
@@ -98,8 +102,13 @@ function preencherFormulario(colaborador) {
 
 async function carregar() {
   carregando.value = true;
+  erro.value = '';
   try {
-    const params = { ...escopoLojaParams.value, periodo: periodo.value };
+    const params = {
+      ...escopoLojaParams.value,
+      periodo: periodo.value,
+      tipo: tipo.value || undefined,
+    };
     if (periodo.value === 'custom' && dataInicio.value && dataFim.value) {
       params.dataInicio = dataInicio.value;
       params.dataFim = dataFim.value;
@@ -107,33 +116,70 @@ async function carregar() {
     const { data } = await api.get(`/metricas/colaboradores/${route.params.id}/perfil`, { params });
     dados.value = data;
     preencherFormulario(data.colaborador);
+  } catch (error) {
+    dados.value = null;
+    erro.value = error?.response?.data?.error || 'Não foi possível carregar o perfil do colaborador.';
   } finally { carregando.value = false; }
 }
 
 onMounted(carregar);
 onBeforeUnmount(() => destruirCropper());
 
-watch([periodo, dataInicio, dataFim], () => {
+watch([periodo, tipo, dataInicio, dataFim], () => {
   if (periodo.value !== 'custom' || (dataInicio.value && dataFim.value)) carregar();
 });
 
 const corPorTipo = { ETIQUETA: '#7c5cff', PRESENCA: '#22d3ee', RUPTURA: '#f59e0b' };
 
-const serieComoColunas = computed(() => (dados.value?.serie?.length || 0) <= 12);
+const serieFiltrada = computed(() => {
+  const serie = dados.value?.serie || [];
+  return tipo.value ? serie.filter((item) => item._id.tipo === tipo.value) : serie;
+});
+
+const tiposDaSerie = computed(() => {
+  if (tipo.value) return serieFiltrada.value.length ? [tipo.value] : [];
+  return tiposAuditoria.filter((tipoAtual) =>
+    serieFiltrada.value.some((item) => item._id.tipo === tipoAtual && Number(item.totalLidos || 0) > 0),
+  );
+});
+
+const serieComoColunas = computed(() => (serieFiltrada.value.length || 0) <= 12);
+
+const temDadosSerie = computed(() =>
+  serieFiltrada.value.some((item) => Number(item.totalLidos || 0) > 0),
+);
+
+const mensagemSemSerie = computed(() => {
+  const tipoLabel = tipo.value ? labelsTipo[tipo.value] || tipo.value : 'auditorias';
+  return `Sem dados de ${tipoLabel} no período selecionado.`;
+});
+
+const tiposResumo = computed(() => {
+  const mapa = new Map((dados.value?.porTipo || []).map((item) => [item._id, item]));
+  const tipos = tipo.value ? [tipo.value] : tiposAuditoria;
+
+  return tipos.map((tipoAtual) => ({
+    _id: tipoAtual,
+    totalLidos: 0,
+    totalConformes: 0,
+    totalNaoConformes: 0,
+    pontuacao: 0,
+    ...(mapa.get(tipoAtual) || {}),
+  }));
+});
 
 const serieChart = computed(() => {
   if (!dados.value) return { labels: [], datasets: [] };
-  const dias = [...new Set(dados.value.serie.map((x) => x._id.dia))].sort();
-  const tipos = ['ETIQUETA', 'PRESENCA', 'RUPTURA'];
+  const dias = [...new Set(serieFiltrada.value.map((x) => x._id.dia))].sort();
   return {
     labels: dias.map((d) => d.slice(5)),
-    datasets: tipos.map((t) => {
+    datasets: tiposDaSerie.value.map((t) => {
       const mapa = new Map();
-      dados.value.serie.filter((x) => x._id.tipo === t).forEach((x) => mapa.set(x._id.dia, x.totalLidos));
+      serieFiltrada.value.filter((x) => x._id.tipo === t).forEach((x) => mapa.set(x._id.dia, x.totalLidos));
 
       if (serieComoColunas.value) {
         return {
-          label: t,
+          label: labelsTipo[t] || t,
           data: dias.map((d) => mapa.get(d) ?? 0),
           backgroundColor: corPorTipo[t],
           borderColor: corPorTipo[t],
@@ -144,7 +190,7 @@ const serieChart = computed(() => {
       }
 
       return {
-        label: t,
+        label: labelsTipo[t] || t,
         data: dias.map((d) => mapa.get(d) ?? null),
         borderColor: corPorTipo[t],
         tension: 0.35,
@@ -330,6 +376,9 @@ async function confirmarCropAvatar() {
 
 <template>
   <Loader v-if="carregando" />
+  <div v-else-if="erro" class="empty">
+    {{ erro }}
+  </div>
   <div v-else-if="dados" class="grid gap-3">
     <RouterLink :to="rotaVoltar" class="btn ghost" style="width: fit-content;"><fa icon="chevron-right" style="transform: rotate(180deg);" /> Voltar</RouterLink>
 
@@ -393,21 +442,28 @@ async function confirmarCropAvatar() {
       </div>
     </div>
 
-    <div class="row">
+    <div class="row colaborador-filtros">
       <PeriodoSelector
         v-model="periodo"
         v-model:dataInicio="dataInicio"
         v-model:dataFim="dataFim"
       />
+
+      <select v-model="tipo" class="btn ghost colaborador-tipo-select">
+        <option value="">Todos os tipos</option>
+        <option value="ETIQUETA">Etiqueta</option>
+        <option value="PRESENCA">Presença</option>
+        <option value="RUPTURA">Ruptura</option>
+      </select>
     </div>
 
     <div class="kpi-grid">
-      <div v-for="t in dados.porTipo" :key="t._id" class="kpi">
+      <div v-for="t in tiposResumo" :key="t._id" class="kpi" :class="Number(t.totalLidos || 0) === 0 ? 'dim-card' : ''">
         <div class="ico" :style="{ background: corPorTipo[t._id] }"><fa icon="clipboard-check" /></div>
-        <div class="label">{{ t._id }}</div>
-        <div class="value">{{ t.totalLidos.toLocaleString('pt-BR') }}</div>
+        <div class="label">{{ labelsTipo[t._id] || t._id }}</div>
+        <div class="value">{{ Number(t.totalLidos || 0).toLocaleString('pt-BR') }}</div>
         <div class="muted" style="font-size: 12px; margin-top: 4px;">
-          {{ t.totalConformes }} conformes · {{ Math.round(t.pontuacao) }} pts
+          {{ Number(t.totalConformes || 0).toLocaleString('pt-BR') }} conformes · {{ Math.round(t.pontuacao || 0).toLocaleString('pt-BR') }} pts
         </div>
       </div>
     </div>
@@ -417,7 +473,10 @@ async function confirmarCropAvatar() {
         <h3 class="mt-0 mb-0">Itens lidos por dia</h3>
         <span class="spacer" /><fa :icon="serieComoColunas ? 'chart-bar' : 'chart-line'" class="muted" />
       </div>
-      <AppChart :type="serieComoColunas ? 'bar' : 'line'" :data="serieChart" :height="320" :options="serieChartOptions" />
+      <AppChart v-if="temDadosSerie" :type="serieComoColunas ? 'bar' : 'line'" :data="serieChart" :height="320" :options="serieChartOptions" />
+      <div v-else class="empty colaborador-chart-empty">
+        {{ mensagemSemSerie }}
+      </div>
     </div>
 
     <Transition name="crop-modal">
@@ -464,6 +523,23 @@ async function confirmarCropAvatar() {
   align-items: flex-start;
   gap: 24px;
   flex-wrap: wrap;
+}
+
+.colaborador-filtros {
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.colaborador-tipo-select {
+  min-height: 38px;
+  padding: 8px 14px;
+}
+
+.colaborador-chart-empty {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
 }
 
 .colaborador-hero-avatar-wrap {
@@ -619,6 +695,14 @@ async function confirmarCropAvatar() {
 }
 
 @media (max-width: 720px) {
+  .colaborador-filtros {
+    align-items: stretch;
+  }
+
+  .colaborador-tipo-select {
+    width: 100%;
+  }
+
   .crop-dialog {
     padding: 18px;
   }

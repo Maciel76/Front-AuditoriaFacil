@@ -1,16 +1,17 @@
 <script setup>
 /**
- * Portal self-service do colaborador.
- * Acesso: /portal
- * Fluxo:
- *  1. Usuário informa matrícula
- *  2. Sistema localiza as lojas em que essa matrícula possui dados
- *  3. Usuário escolhe a loja desejada
- *  4. Primeiro acesso → define senha
- *  5. Login → JWT de colaborador → exibe perfil completo
+ * Portal self-service do colaborador (rota /portal).
+ *
+ * Acesso público: o colaborador autentica via matrícula + senha (token
+ * próprio do portal, distinto do app principal). Após login, navega
+ * entre quatro abas: Visão geral, Conquistas, Corredores e Configurações.
+ *
+ * O design é mobile-first com bottom navigation, focado no uso pelo
+ * celular. A página principal exibe nível, XP, KPIs por tipo, gráfico
+ * de itens lidos por dia e um carrossel de conquistas em destaque.
  */
 import Cropper from "cropperjs";
-import { ref, computed, nextTick, onBeforeUnmount, onMounted } from "vue";
+import { ref, computed, nextTick, onBeforeUnmount, onMounted, defineComponent, h } from "vue";
 import { useRoute } from "vue-router";
 import api from "@/services/api";
 import AppChart from "@/components/AppChart.vue";
@@ -18,7 +19,7 @@ import StoreAvatar from "@/components/StoreAvatar.vue";
 
 const route = useRoute();
 
-// ---- Estado de autenticação do portal ----
+// ---- Estado de autenticação ----
 const lojaPreferencial = ref(String(route.query.loja || "").trim());
 const lojaSlug = ref("");
 const lojaSelecionada = ref(null);
@@ -33,9 +34,15 @@ const erro = ref("");
 const token = ref(localStorage.getItem("na_portal_token") || "");
 const temaPortal = ref(localStorage.getItem("na_portal_tema") || "light");
 
-// ---- Dados do perfil ----
+// ---- Estado do portal ----
+const abaAtiva = ref("inicio"); // inicio | conquistas | corredores | configuracoes
 const perfil = ref(null);
 const metricas = ref(null);
+const conquistasResolvidas = ref([]);
+const corredores = ref([]);
+const filtroCategoriaConq = ref("todas");
+const filtroStatusConq = ref("todas");
+
 const avatarInput = ref(null);
 const enviandoAvatar = ref(false);
 const cropperImage = ref("");
@@ -51,6 +58,108 @@ const sucessoConfig = ref("");
 
 let cropper;
 let temaAnterior = "";
+
+const TIER_INFO = {
+  comum: { label: "Comum", cor: "#94a3b8" },
+  raro: { label: "Raro", cor: "#3b82f6" },
+  epico: { label: "Épico", cor: "#a855f7" },
+  lendario: { label: "Lendário", cor: "#f59e0b" },
+  mitico: { label: "Mítico", cor: "#ef4444" },
+};
+
+const CATEGORIA_LABELS = {
+  ITENS: "Itens",
+  AUDITORIAS: "Auditorias",
+  CONFORMIDADE: "Conformidade",
+  PONTUACAO: "Pontuação",
+  NIVEL: "Nível",
+  ESPECIAL: "Especial",
+  todas: "Todas",
+};
+
+const corPorTipo = {
+  ETIQUETA: "#7c5cff",
+  PRESENCA: "#22d3ee",
+  RUPTURA: "#f59e0b",
+};
+
+// ConquistaCard como componente local definido via render function (sem template parser em runtime).
+const ConquistaCard = defineComponent({
+  name: "ConquistaCard",
+  props: {
+    c: { type: Object, required: true },
+    compact: { type: Boolean, default: false },
+  },
+  setup(props) {
+    return () => {
+      const c = props.c;
+      const tierCor = c.tierAtualCor || "#94a3b8";
+      const cls = [
+        "conq-card",
+        c.desbloqueada ? "" : "locked",
+        props.compact ? "compact" : "",
+        "tier-" + (c.tierAtual || "locked"),
+      ].filter(Boolean).join(" ");
+
+      return h("div", {
+        class: cls,
+        style: { "--tier-cor": tierCor },
+      }, [
+        h("div", { class: "conq-card-bg" }),
+        h("div", { class: "conq-card-icon" }, [
+          c.desbloqueada
+            ? c.icone
+            : h("i", { class: "fa-solid fa-lock" }),
+        ]),
+        h("div", { class: "conq-card-body" }, [
+          c.tierAtual
+            ? h("div", { class: "conq-card-tier" }, [
+                h("span", { class: "conq-tier-dot", style: { background: tierCor } }),
+                c.tierAtualLabel,
+              ])
+            : h("div", { class: "conq-card-tier locked-label" }, [
+                h("i", { class: "fa-solid fa-lock" }),
+                " Bloqueada",
+              ]),
+          h("strong", { class: "conq-card-nome" }, c.nome),
+          props.compact ? null : h("p", { class: "muted conq-card-desc" }, c.descricao || ""),
+          c.proximoTier
+            ? h("div", { class: "conq-progress" }, [
+                h("div", { class: "conq-progress-head" }, [
+                  h("span", { class: "muted" }, [
+                    "Próx.: ",
+                    h("strong", c.proximoTier.label),
+                  ]),
+                  h("span", { class: "conq-progress-meta" },
+                    `${Number(c.progresso).toLocaleString("pt-BR")} / ${Number(c.proximoTier.meta).toLocaleString("pt-BR")}`),
+                ]),
+                h("div", { class: "progress conq-bar" }, [
+                  h("span", { style: { width: c.progressoPct + "%", background: c.proximoTier.cor } }),
+                ]),
+              ])
+            : h("div", { class: "conq-progress-max" }, [
+                h("i", { class: "fa-solid fa-medal" }),
+                " Tier máximo alcançado!",
+              ]),
+          props.compact || !c.tiers?.length
+            ? null
+            : h("div", { class: "conq-tiers" },
+                c.tiers.map((t) =>
+                  h("span", {
+                    key: t.nivel,
+                    class: ["conq-tier-pill", t.desbloqueado ? "unlocked" : ""],
+                    style: t.desbloqueado ? { borderColor: t.cor, color: t.cor } : {},
+                    title: `${t.titulo || ""} · meta ${t.meta}`,
+                  }, [
+                    h("i", { class: t.desbloqueado ? "fa-solid fa-check" : "fa-solid fa-lock" }),
+                    " " + t.label,
+                  ])),
+              ),
+        ]),
+      ]);
+    };
+  },
+});
 
 function apiPortal() {
   return {
@@ -119,6 +228,8 @@ function voltarParaBusca() {
   primeiroNome.value = "";
   perfil.value = null;
   metricas.value = null;
+  conquistasResolvidas.value = [];
+  corredores.value = [];
   limparFormularioSenha();
   etapa.value = "buscar";
 }
@@ -128,7 +239,6 @@ function voltarParaSelecao() {
   etapa.value = "selecionar";
 }
 
-// ---- Verificar matrícula ----
 async function verificar() {
   if (!matricula.value.trim()) {
     erro.value = "Informe sua matrícula.";
@@ -154,7 +264,6 @@ async function verificar() {
   }
 }
 
-// ---- Primeiro acesso: definir senha ----
 async function configurarSenha() {
   if (!lojaSlug.value.trim()) {
     erro.value = "Selecione uma loja para continuar.";
@@ -187,7 +296,6 @@ async function configurarSenha() {
   }
 }
 
-// ---- Login ----
 async function login() {
   if (!lojaSlug.value.trim()) {
     erro.value = "Selecione uma loja para continuar.";
@@ -216,7 +324,6 @@ async function login() {
   }
 }
 
-// ---- Carregar perfil ----
 async function carregarPerfil() {
   const { data: perfilData } = await apiPortal().get(
     "/colaboradores/portal/me",
@@ -241,6 +348,8 @@ async function carregarPerfil() {
 
   const { data } = await apiPortal().get("/metricas/portal/me?periodo=tudo");
   metricas.value = data;
+  conquistasResolvidas.value = data.conquistas || [];
+  corredores.value = data.corredores || [];
 }
 
 function sair() {
@@ -249,7 +358,6 @@ function sair() {
   voltarParaBusca();
 }
 
-// Avatar
 function abrirAvatar() {
   avatarInput.value?.click();
 }
@@ -268,7 +376,6 @@ async function iniciarCropper() {
   await nextTick();
   if (!cropperImageRef.value) return;
   if (cropper) cropper.destroy();
-
   cropper = new Cropper(cropperImageRef.value, {
     aspectRatio: 1,
     viewMode: 1,
@@ -307,7 +414,6 @@ async function confirmarCropAvatar() {
   if (!perfil.value || !cropper) return;
   limparMensagensConfig();
   enviandoAvatar.value = true;
-
   try {
     const canvas = cropper.getCroppedCanvas({
       width: 640,
@@ -316,12 +422,10 @@ async function confirmarCropAvatar() {
       imageSmoothingEnabled: true,
       imageSmoothingQuality: "high",
     });
-
     const blob = await new Promise((resolve) =>
       canvas.toBlob(resolve, "image/jpeg", 0.92),
     );
     if (!blob) throw new Error("Não foi possível recortar a imagem");
-
     const fd = new FormData();
     fd.append(
       "avatar",
@@ -329,15 +433,11 @@ async function confirmarCropAvatar() {
         type: "image/jpeg",
       }),
     );
-
     const res = await apiPortal().post(
       `/colaboradores/${perfil.value._id}/avatar`,
       fd,
-      {
-        headers: { "Content-Type": "multipart/form-data" },
-      },
+      { headers: { "Content-Type": "multipart/form-data" } },
     );
-
     perfil.value.avatarUrl = res.data.avatarUrl;
     sucessoConfig.value = "Foto atualizada com sucesso.";
     fecharCropper();
@@ -363,7 +463,6 @@ async function alterarSenhaConta() {
     erroConfig.value = "A confirmação da nova senha não confere.";
     return;
   }
-
   alterandoSenha.value = true;
   try {
     await apiPortal().post("/colaboradores/portal/password", {
@@ -382,25 +481,76 @@ async function alterarSenhaConta() {
   }
 }
 
-// --- Conquistas emojis ---
-const conquistaIco = {
-  PRIMEIRA_AUDITORIA: "🏁",
-  CEM_LIDOS: "💯",
-  MIL_LIDOS: "🔢",
-  DEZ_MIL_LIDOS: "⭐",
-  CONFORMIDADE_95: "🥇",
-  NIVEL_5: "🎖️",
-};
+const iniciais = computed(() => {
+  const n = perfil.value?.nome || "?";
+  return n.split(" ").slice(0, 2).map((s) => s[0]).join("");
+});
 
-// --- Charts ---
-const corPorTipo = {
-  ETIQUETA: "#7c5cff",
-  PRESENCA: "#22d3ee",
-  RUPTURA: "#f59e0b",
-};
+const resumoLojaSelecionada = computed(() => {
+  if (!lojaSelecionada.value) return "";
+  const local = localidadeLoja(lojaSelecionada.value);
+  return [lojaSelecionada.value.nomeLoja, local].filter(Boolean).join(" · ");
+});
+
+const nivel = computed(() => perfil.value?.nivel || 1);
+const pontuacaoProxNivel = computed(() => nivel.value * 500);
+const pctNivel = computed(() => {
+  const pts = perfil.value?.pontuacao || 0;
+  const base = (nivel.value - 1) * 500;
+  return Math.min(100, ((pts - base) / 500) * 100);
+});
+
+const totaisConquistas = computed(() => {
+  const desbl = conquistasResolvidas.value.filter((c) => c.desbloqueada).length;
+  const tiersDesbl = conquistasResolvidas.value.reduce(
+    (acc, c) => acc + (c.totalTiersDesbloqueados || 0),
+    0,
+  );
+  const totalTiers = conquistasResolvidas.value.reduce(
+    (acc, c) => acc + (c.totalTiers || 0),
+    0,
+  );
+  return {
+    total: conquistasResolvidas.value.length,
+    desbloqueadas: desbl,
+    tiersDesbl,
+    totalTiers,
+  };
+});
+
+const categoriasDisponiveis = computed(() => {
+  const cats = new Set(conquistasResolvidas.value.map((c) => c.categoria));
+  return ["todas", ...Array.from(cats)];
+});
+
+const conquistasFiltradas = computed(() => {
+  let lista = [...conquistasResolvidas.value];
+  if (filtroCategoriaConq.value !== "todas")
+    lista = lista.filter((c) => c.categoria === filtroCategoriaConq.value);
+  if (filtroStatusConq.value === "desbloqueadas")
+    lista = lista.filter((c) => c.desbloqueada);
+  else if (filtroStatusConq.value === "bloqueadas")
+    lista = lista.filter((c) => !c.desbloqueada);
+  return lista.sort((a, b) => {
+    if (a.desbloqueada !== b.desbloqueada) return a.desbloqueada ? -1 : 1;
+    return (b.totalTiersDesbloqueados || 0) - (a.totalTiersDesbloqueados || 0);
+  });
+});
+
+const conquistasDestaque = computed(() =>
+  conquistasResolvidas.value
+    .slice()
+    .sort((a, b) => {
+      if (a.desbloqueada !== b.desbloqueada) return a.desbloqueada ? -1 : 1;
+      return (b.totalTiersDesbloqueados || 0) - (a.totalTiersDesbloqueados || 0);
+    })
+    .slice(0, 4),
+);
+
 const serieComoColunas = computed(
   () => (metricas.value?.serie?.length || 0) <= 12,
 );
+
 const serieChart = computed(() => {
   const m = metricas.value;
   if (!m?.serie?.length) return { labels: [], datasets: [] };
@@ -410,10 +560,7 @@ const serieChart = computed(() => {
     labels: dias.map((d) => d.slice(5)),
     datasets: tipos.map((t) => {
       const map = new Map();
-      m.serie
-        .filter((x) => x._id.tipo === t)
-        .forEach((x) => map.set(x._id.dia, x.totalLidos));
-
+      m.serie.filter((x) => x._id.tipo === t).forEach((x) => map.set(x._id.dia, x.totalLidos));
       if (serieComoColunas.value) {
         return {
           label: t,
@@ -422,10 +569,9 @@ const serieChart = computed(() => {
           borderColor: corPorTipo[t],
           borderRadius: 12,
           borderSkipped: false,
-          maxBarThickness: 34,
+          maxBarThickness: 30,
         };
       }
-
       return {
         label: t,
         data: dias.map((d) => map.get(d) ?? null),
@@ -444,29 +590,26 @@ const serieChartOptions = computed(() => ({
   plugins: {
     tooltip: {
       callbacks: {
-        label: (context) =>
-          `${context.dataset.label}: ${Number(context.raw ?? context.parsed?.y ?? 0).toLocaleString("pt-BR")} itens`,
+        label: (ctx) =>
+          `${ctx.dataset.label}: ${Number(ctx.raw ?? ctx.parsed?.y ?? 0).toLocaleString("pt-BR")} itens`,
       },
     },
   },
-  scales: {
-    y: {
-      beginAtZero: true,
-      ticks: {
-        precision: 0,
-      },
-    },
-  },
+  scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
 }));
 
-// Restaurar sessão ao carregar
+const corredoresTop = computed(() => corredores.value.slice(0, 30));
+
+function formatNum(n) {
+  return Number(n || 0).toLocaleString("pt-BR");
+}
+
 onMounted(async () => {
   temaAnterior =
     document.documentElement.getAttribute("data-theme") ||
     localStorage.getItem("na_tema") ||
     "dark";
   aplicarTemaPortal(localStorage.getItem("na_portal_tema") || "light");
-
   if (token.value) {
     try {
       await carregarPerfil();
@@ -484,56 +627,26 @@ onBeforeUnmount(() => {
     localStorage.getItem("na_tema") || temaAnterior || "dark",
   );
 });
-
-const iniciais = computed(() => {
-  const n = perfil.value?.nome || "?";
-  return n
-    .split(" ")
-    .slice(0, 2)
-    .map((s) => s[0])
-    .join("");
-});
-
-const resumoLojaSelecionada = computed(() => {
-  if (!lojaSelecionada.value) return "";
-  const local = localidadeLoja(lojaSelecionada.value);
-  return [lojaSelecionada.value.nomeLoja, local].filter(Boolean).join(" · ");
-});
-
-const nivel = computed(() => perfil.value?.nivel || 1);
-const pontuacaoProxNivel = computed(() => nivel.value * 500);
-const pctNivel = computed(() => {
-  const pts = perfil.value?.pontuacao || 0;
-  const base = (nivel.value - 1) * 500;
-  return Math.min(100, ((pts - base) / 500) * 100);
-});
 </script>
 
 <template>
   <div class="portal-shell">
-    <!-- ======= HEADER DO PORTAL ======= -->
-    <header class="portal-header">
+    <header v-if="etapa !== 'portal'" class="portal-header">
       <div class="portal-brand">
         <div class="brand-mark"><fa icon="bolt" /></div>
         <span class="brand-name"
           >NovaAuditoria <small>Portal do Colaborador</small></span
         >
       </div>
-      <button v-if="etapa === 'portal'" class="btn ghost" @click="sair">
-        <fa icon="right-from-bracket" /> Sair
-      </button>
     </header>
 
-    <!-- ======= ETAPA: BUSCAR MATRÍCULA ======= -->
+    <!-- Buscar matrícula -->
     <div v-if="etapa === 'buscar'" class="portal-card">
       <div class="center mb-4">
         <div class="brand-mark big"><fa icon="id-badge" /></div>
       </div>
-      <h2 style="text-align: center; margin: 0 0 6px">Acesse seu perfil</h2>
-      <p
-        class="muted"
-        style="text-align: center; font-size: 14px; margin: 0 0 24px"
-      >
+      <h2 class="auth-title">Acesse seu perfil</h2>
+      <p class="auth-sub">
         Informe sua matrícula para localizar as lojas em que você possui
         auditorias.
       </p>
@@ -543,21 +656,15 @@ const pctNivel = computed(() => {
           <input
             v-model="matricula"
             placeholder="ex.: 2692473"
+            inputmode="numeric"
             @keyup.enter="verificar"
           />
         </div>
-        <div
-          v-if="erro"
-          class="badge bad"
-          style="width: 100%; justify-content: center"
-        >
-          {{ erro }}
-        </div>
+        <div v-if="erro" class="badge bad full-w">{{ erro }}</div>
         <button
-          class="btn primary"
+          class="btn primary full-w"
           :disabled="carregando"
           @click="verificar"
-          style="width: 100%"
         >
           <fa
             :icon="carregando ? 'spinner' : 'arrow-right'"
@@ -568,7 +675,7 @@ const pctNivel = computed(() => {
       </div>
     </div>
 
-    <!-- ======= ETAPA: ESCOLHER LOJA ======= -->
+    <!-- Selecionar loja -->
     <div
       v-else-if="etapa === 'selecionar'"
       class="portal-card portal-card-wide"
@@ -576,14 +683,11 @@ const pctNivel = computed(() => {
       <div class="center mb-4">
         <div class="brand-mark big"><fa icon="store" /></div>
       </div>
-      <h2 style="text-align: center; margin: 0 0 6px">Escolha a loja</h2>
-      <p
-        class="muted"
-        style="text-align: center; font-size: 14px; margin: 0 0 24px"
-      >
+      <h2 class="auth-title">Escolha a loja</h2>
+      <p class="auth-sub">
         {{ primeiroNome }}, encontramos {{ lojasDisponiveis.length }}
-        {{ lojasDisponiveis.length === 1 ? "loja" : "lojas" }} para a matrícula
-        {{ matricula }}.
+        {{ lojasDisponiveis.length === 1 ? "loja" : "lojas" }} para a
+        matrícula {{ matricula }}.
       </p>
       <div class="store-options">
         <button
@@ -617,28 +721,26 @@ const pctNivel = computed(() => {
                       : "Senha já cadastrada"
                   }}
                 </span>
-                <span v-if="loja.slug === lojaPreferencial" class="badge dim"
-                  >link atual</span
-                >
               </div>
             </div>
           </div>
-          <div class="store-option-meta">
-            <fa icon="chevron-right" />
-          </div>
+          <fa icon="chevron-right" class="muted" />
         </button>
       </div>
       <button
-        class="btn ghost"
+        class="btn ghost full-w"
         @click="voltarParaBusca"
-        style="width: 100%; margin-top: 16px"
+        style="margin-top: 16px"
       >
         Informar outra matrícula
       </button>
     </div>
 
-    <!-- ======= ETAPA: PRIMEIRO ACESSO ======= -->
-    <div v-else-if="etapa === 'setup'" class="portal-card">
+    <!-- Setup / Login -->
+    <div
+      v-else-if="etapa === 'setup' || etapa === 'login'"
+      class="portal-card"
+    >
       <div v-if="lojaSelecionada" class="selected-store">
         <div class="selected-store-chip">
           <StoreAvatar
@@ -653,21 +755,32 @@ const pctNivel = computed(() => {
           resumoLojaSelecionada
         }}</span>
       </div>
-      <h2 style="margin: 0 0 4px">Olá, {{ primeiroNome }}!</h2>
-      <p class="muted" style="font-size: 14px; margin: 0 0 24px">
-        Defina sua senha para acessar o portal.
+      <h2 class="auth-title-small">
+        {{ etapa === "setup" ? "Olá," : "Bem-vindo," }}
+        {{ primeiroNome }}!
+      </h2>
+      <p class="auth-sub">
+        {{
+          etapa === "setup"
+            ? "Defina sua senha para acessar o portal."
+            : "Informe sua senha para entrar."
+        }}
       </p>
       <div class="grid gap-3">
         <div class="field">
-          <label>Nova senha (mínimo 6 caracteres)</label>
+          <label>{{
+            etapa === "setup"
+              ? "Nova senha (mínimo 6 caracteres)"
+              : "Senha"
+          }}</label>
           <input
             type="password"
             v-model="senha"
             placeholder="••••••"
-            @keyup.enter="configurarSenha"
+            @keyup.enter="etapa === 'setup' ? configurarSenha() : login()"
           />
         </div>
-        <div class="field">
+        <div v-if="etapa === 'setup'" class="field">
           <label>Confirmar senha</label>
           <input
             type="password"
@@ -676,116 +789,44 @@ const pctNivel = computed(() => {
             @keyup.enter="configurarSenha"
           />
         </div>
-        <div
-          v-if="erro"
-          class="badge bad"
-          style="width: 100%; justify-content: center"
-        >
-          {{ erro }}
-        </div>
+        <div v-if="erro" class="badge bad full-w">{{ erro }}</div>
         <button
-          class="btn primary"
+          class="btn primary full-w"
           :disabled="carregando"
-          @click="configurarSenha"
-          style="width: 100%"
-        >
-          <fa :icon="carregando ? 'spinner' : 'check'" :spin="carregando" />
-          Definir senha e entrar
-        </button>
-        <button
-          class="btn ghost"
-          @click="voltarParaSelecao"
-          style="width: 100%"
-        >
-          Trocar loja
-        </button>
-      </div>
-    </div>
-
-    <!-- ======= ETAPA: LOGIN ======= -->
-    <div v-else-if="etapa === 'login'" class="portal-card">
-      <div v-if="lojaSelecionada" class="selected-store">
-        <div class="selected-store-chip">
-          <StoreAvatar
-            :nome="lojaSelecionada.nomeLoja"
-            :avatar-url="lojaSelecionada.avatarUrl"
-            :size="28"
-            :font-size="11"
-          />
-          <span class="badge info">{{ lojaSelecionada.nomeLoja }}</span>
-        </div>
-        <span class="muted" style="font-size: 12px">{{
-          resumoLojaSelecionada
-        }}</span>
-      </div>
-      <h2 style="margin: 0 0 4px">Bem-vindo, {{ primeiroNome }}!</h2>
-      <p class="muted" style="font-size: 14px; margin: 0 0 24px">
-        Informe sua senha para entrar.
-      </p>
-      <div class="grid gap-3">
-        <div class="field">
-          <label>Senha</label>
-          <input
-            type="password"
-            v-model="senha"
-            placeholder="••••••"
-            autofocus
-            @keyup.enter="login"
-          />
-        </div>
-        <div
-          v-if="erro"
-          class="badge bad"
-          style="width: 100%; justify-content: center"
-        >
-          {{ erro }}
-        </div>
-        <button
-          class="btn primary"
-          :disabled="carregando"
-          @click="login"
-          style="width: 100%"
+          @click="etapa === 'setup' ? configurarSenha() : login()"
         >
           <fa
-            :icon="carregando ? 'spinner' : 'right-to-bracket'"
+            :icon="
+              carregando
+                ? 'spinner'
+                : etapa === 'setup'
+                  ? 'check'
+                  : 'right-to-bracket'
+            "
             :spin="carregando"
           />
-          Entrar
+          {{
+            etapa === "setup" ? "Definir senha e entrar" : "Entrar"
+          }}
         </button>
-        <button
-          class="btn ghost"
-          @click="voltarParaSelecao"
-          style="width: 100%"
-        >
+        <button class="btn ghost full-w" @click="voltarParaSelecao">
           Trocar loja
         </button>
       </div>
     </div>
 
-    <!-- ======= PORTAL: PERFIL COMPLETO ======= -->
-    <div v-else-if="etapa === 'portal' && perfil" class="portal-content">
-      <!-- Hero do colaborador -->
-      <div class="card glow portal-hero">
-        <div class="hero-avatar">
-          <div
-            class="avatar-big"
-            @click="abrirAvatar"
-            title="Trocar foto"
-            style="cursor: pointer"
-          >
+    <!-- ============== PORTAL AUTENTICADO ============== -->
+    <div v-else-if="etapa === 'portal' && perfil" class="portal-app">
+      <header class="app-topbar">
+        <div class="topbar-left">
+          <div class="topbar-avatar" @click="abrirAvatar">
             <img
               v-if="perfil.avatarUrl"
               :src="perfil.avatarUrl"
               alt="foto"
-              style="
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-                border-radius: 50%;
-              "
             />
             <span v-else>{{ iniciais }}</span>
-            <div class="avatar-overlay"><fa icon="camera" /></div>
+            <div class="avatar-edit"><fa icon="camera" /></div>
           </div>
           <input
             ref="avatarInput"
@@ -794,85 +835,313 @@ const pctNivel = computed(() => {
             hidden
             @change="enviarAvatar"
           />
-          <div
-            v-if="enviandoAvatar"
-            class="muted"
-            style="font-size: 12px; margin-top: 6px"
-          >
-            Enviando…
+          <div class="topbar-greet">
+            <small class="muted">Bem-vindo</small>
+            <strong>{{ primeiroNome }}</strong>
           </div>
         </div>
-        <div class="hero-info">
-          <h2 style="margin: 0 0 4px">{{ perfil.nome }}</h2>
-          <div class="row gap-2 mb-2" style="flex-wrap: wrap">
-            <span class="badge dim">Matrícula {{ perfil.codigoExterno }}</span>
-            <span v-if="perfil.cargo" class="badge info">{{
-              perfil.cargo
-            }}</span>
-            <span v-if="perfil.setor" class="badge dim">{{
-              perfil.setor
-            }}</span>
-          </div>
-          <!-- Nível e progresso -->
-          <div class="row gap-3">
-            <div class="nivel-badge">Nível {{ nivel }}</div>
-            <div style="flex: 1">
-              <div class="row mb-1" style="font-size: 12px">
-                <span class="muted"
-                  >{{ perfil.pontuacao.toLocaleString("pt-BR") }} pts</span
+        <button class="btn ghost icon-btn" @click="sair" title="Sair">
+          <fa icon="right-from-bracket" />
+        </button>
+      </header>
+
+      <!-- ABA INÍCIO -->
+      <main v-if="abaAtiva === 'inicio'" class="app-content">
+        <section class="card glow nivel-card">
+          <div class="nivel-card-head">
+            <div class="nivel-emblema">
+              <div class="nivel-num">{{ nivel }}</div>
+              <small>Nível</small>
+            </div>
+            <div class="nivel-info">
+              <h3 class="nome">{{ perfil.nome }}</h3>
+              <div class="muted nome-sub">
+                <fa icon="id-badge" /> {{ perfil.codigoExterno }}
+                <span v-if="perfil.cargo"> · {{ perfil.cargo }}</span>
+              </div>
+              <div class="xp-row">
+                <span class="xp-pts"
+                  >{{ formatNum(perfil.pontuacao) }} XP</span
                 >
-                <span class="spacer" />
-                <span class="muted"
-                  >Próx. nível:
-                  {{ pontuacaoProxNivel.toLocaleString("pt-BR") }}</span
+                <span class="muted xp-target"
+                  >Próx.: {{ formatNum(pontuacaoProxNivel) }}</span
                 >
               </div>
-              <div class="progress">
+              <div class="progress xp-bar">
                 <span :style="{ width: pctNivel + '%' }" />
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div class="portal-settings-grid">
-        <div class="card portal-settings-card">
-          <h3 class="section-title">Configurações</h3>
-          <div class="settings-block">
-            <div class="settings-title">Tema do portal</div>
-            <p class="muted settings-copy">
-              O portal abre em tema claro por padrão. Você pode trocar quando
-              quiser.
-            </p>
-            <div class="theme-toggle-group">
-              <button
-                class="theme-toggle"
-                :class="{ active: temaPortal === 'light' }"
-                @click="aplicarTemaPortal('light')"
+          <div class="nivel-stats">
+            <div>
+              <strong>{{ formatNum(perfil.totalItensLidos) }}</strong>
+              <small class="muted">itens lidos</small>
+            </div>
+            <div>
+              <strong>{{ formatNum(perfil.totalAuditorias) }}</strong>
+              <small class="muted">auditorias</small>
+            </div>
+            <div>
+              <strong
+                >{{ totaisConquistas.tiersDesbl }}/{{
+                  totaisConquistas.totalTiers
+                }}</strong
               >
-                <fa icon="sun" /> Claro
-              </button>
-              <button
-                class="theme-toggle"
-                :class="{ active: temaPortal === 'dark' }"
-                @click="aplicarTemaPortal('dark')"
-              >
-                <fa icon="moon" /> Escuro
-              </button>
+              <small class="muted">tiers</small>
             </div>
           </div>
+        </section>
 
-          <form
-            class="settings-block grid gap-3"
-            @submit.prevent="alterarSenhaConta"
+        <section v-if="metricas?.porTipo?.length" class="kpis-tipos">
+          <div
+            v-for="t in metricas.porTipo"
+            :key="t._id"
+            class="kpi-tipo card"
+            :style="{ borderTopColor: corPorTipo[t._id] }"
           >
-            <div>
-              <div class="settings-title">Segurança</div>
-              <p class="muted settings-copy">
-                Atualize sua senha sempre que quiser, usando sua senha atual
-                para confirmar.
-              </p>
+            <span class="badge" :class="'tipo-' + t._id">{{ t._id }}</span>
+            <div class="kpi-valor">
+              {{
+                t.totalLidos
+                  ? ((t.totalConformes / t.totalLidos) * 100).toFixed(1)
+                  : 0
+              }}%
             </div>
+            <small class="muted">conformidade</small>
+            <div class="kpi-foot">
+              <span
+                ><fa icon="boxes-stacked" />
+                {{ formatNum(t.totalLidos) }}</span
+              >
+              <span><fa icon="bolt" /> {{ Math.round(t.pontuacao) }}</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card destaque-conquistas">
+          <div class="row justify-between items-center mb-2">
+            <h3 class="section-title">
+              <fa icon="trophy" /> Conquistas
+            </h3>
+            <button
+              class="btn ghost small"
+              @click="abaAtiva = 'conquistas'"
+            >
+              Ver todas <fa icon="chevron-right" />
+            </button>
+          </div>
+          <div v-if="!conquistasResolvidas.length" class="empty mini">
+            Continue auditando para desbloquear suas primeiras conquistas!
+          </div>
+          <div v-else class="destaque-grid">
+            <ConquistaCard
+              v-for="c in conquistasDestaque"
+              :key="c.codigo"
+              :c="c"
+              compact
+            />
+          </div>
+        </section>
+
+        <section v-if="metricas?.serie?.length" class="card">
+          <div class="row mb-2">
+            <h3 class="section-title">Itens por dia</h3>
+            <span class="spacer" />
+            <fa
+              :icon="serieComoColunas ? 'chart-bar' : 'chart-line'"
+              class="muted"
+            />
+          </div>
+          <AppChart
+            :type="serieComoColunas ? 'bar' : 'line'"
+            :data="serieChart"
+            :height="240"
+            :options="serieChartOptions"
+          />
+        </section>
+
+        <div v-if="!metricas?.serie?.length" class="empty card">
+          Suas auditorias ainda não foram processadas. Volte aqui em breve!
+        </div>
+      </main>
+
+      <!-- ABA CONQUISTAS -->
+      <main
+        v-else-if="abaAtiva === 'conquistas'"
+        class="app-content"
+      >
+        <section class="card conquistas-summary">
+          <div class="conq-summary-num">
+            <fa icon="trophy" class="conq-summary-ico" />
+            <div>
+              <strong
+                >{{ totaisConquistas.tiersDesbl }} /
+                {{ totaisConquistas.totalTiers }}</strong
+              >
+              <small class="muted">tiers desbloqueados</small>
+            </div>
+          </div>
+          <p class="muted conq-summary-help">
+            Cada conquista evolui em até 5 tiers — Comum, Raro, Épico,
+            Lendário e Mítico. Continue auditando para ganhar XP bônus!
+          </p>
+        </section>
+
+        <div class="conq-filters">
+          <div class="chip-row">
+            <button
+              v-for="cat in categoriasDisponiveis"
+              :key="cat"
+              class="chip"
+              :class="{ active: filtroCategoriaConq === cat }"
+              @click="filtroCategoriaConq = cat"
+            >
+              {{ CATEGORIA_LABELS[cat] || cat }}
+            </button>
+          </div>
+          <div class="chip-row">
+            <button
+              class="chip"
+              :class="{ active: filtroStatusConq === 'todas' }"
+              @click="filtroStatusConq = 'todas'"
+            >
+              Todas
+            </button>
+            <button
+              class="chip"
+              :class="{ active: filtroStatusConq === 'desbloqueadas' }"
+              @click="filtroStatusConq = 'desbloqueadas'"
+            >
+              <fa icon="unlock" /> Desbloqueadas
+            </button>
+            <button
+              class="chip"
+              :class="{ active: filtroStatusConq === 'bloqueadas' }"
+              @click="filtroStatusConq = 'bloqueadas'"
+            >
+              <fa icon="lock" /> Bloqueadas
+            </button>
+          </div>
+        </div>
+
+        <div v-if="!conquistasFiltradas.length" class="empty card">
+          Nenhuma conquista neste filtro.
+        </div>
+        <div v-else class="conq-grid">
+          <ConquistaCard
+            v-for="c in conquistasFiltradas"
+            :key="c.codigo"
+            :c="c"
+          />
+        </div>
+      </main>
+
+      <!-- ABA CORREDORES -->
+      <main
+        v-else-if="abaAtiva === 'corredores'"
+        class="app-content"
+      >
+        <section class="card">
+          <h3 class="section-title">
+            <fa icon="boxes-stacked" /> Seus corredores
+          </h3>
+          <p
+            class="muted"
+            style="font-size: 13px; margin: 4px 0 12px"
+          >
+            Onde você atuou nas auditorias. As cores indicam o tipo de
+            auditoria realizado.
+          </p>
+          <div v-if="!corredoresTop.length" class="empty mini">
+            Nenhum corredor registrado ainda.
+          </div>
+          <div v-else class="corredores-list">
+            <div
+              v-for="c in corredoresTop"
+              :key="c.local"
+              class="corredor-row"
+            >
+              <div class="corredor-info">
+                <strong>{{ c.local }}</strong>
+                <div class="corredor-tipos">
+                  <span
+                    v-for="(qtd, tipo) in c.porTipo"
+                    :key="tipo"
+                    class="badge"
+                    :class="'tipo-' + tipo"
+                  >
+                    {{ tipo }} · {{ formatNum(qtd) }}
+                  </span>
+                </div>
+              </div>
+              <div class="corredor-stats">
+                <strong>{{ formatNum(c.totalLidos) }}</strong>
+                <small class="muted"
+                  >{{ c.taxaConformidade }}% conf.</small
+                >
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- ABA CONFIGURAÇÕES -->
+      <main
+        v-else-if="abaAtiva === 'configuracoes'"
+        class="app-content"
+      >
+        <section class="card">
+          <h3 class="section-title">
+            <fa icon="user-circle" /> Sua conta
+          </h3>
+          <div class="config-account">
+            <div class="config-avatar" @click="abrirAvatar">
+              <img
+                v-if="perfil.avatarUrl"
+                :src="perfil.avatarUrl"
+                alt="foto"
+              />
+              <span v-else>{{ iniciais }}</span>
+              <div class="avatar-edit"><fa icon="camera" /></div>
+            </div>
+            <div>
+              <strong>{{ perfil.nome }}</strong>
+              <div class="muted">Matrícula {{ perfil.codigoExterno }}</div>
+              <div class="muted" v-if="perfil.cargo">
+                {{ perfil.cargo }}
+              </div>
+              <div class="muted" v-if="lojaSelecionada?.nomeLoja">
+                <fa icon="store" /> {{ lojaSelecionada.nomeLoja }}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3 class="section-title">
+            <fa icon="sun" /> Tema do portal
+          </h3>
+          <div class="theme-toggle-group">
+            <button
+              class="theme-toggle"
+              :class="{ active: temaPortal === 'light' }"
+              @click="aplicarTemaPortal('light')"
+            >
+              <fa icon="sun" /> Claro
+            </button>
+            <button
+              class="theme-toggle"
+              :class="{ active: temaPortal === 'dark' }"
+              @click="aplicarTemaPortal('dark')"
+            >
+              <fa icon="moon" /> Escuro
+            </button>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3 class="section-title"><fa icon="lock" /> Segurança</h3>
+          <form class="grid gap-3" @submit.prevent="alterarSenhaConta">
             <div class="field">
               <label>Senha atual</label>
               <input
@@ -900,14 +1169,14 @@ const pctNivel = computed(() => {
                 autocomplete="new-password"
               />
             </div>
-            <div v-if="erroConfig" class="badge bad settings-feedback">
+            <div v-if="erroConfig" class="badge bad full-w">
               {{ erroConfig }}
             </div>
-            <div v-else-if="sucessoConfig" class="badge ok settings-feedback">
+            <div v-else-if="sucessoConfig" class="badge ok full-w">
               {{ sucessoConfig }}
             </div>
             <button
-              class="btn primary"
+              class="btn primary full-w"
               type="submit"
               :disabled="alterandoSenha"
             >
@@ -918,86 +1187,47 @@ const pctNivel = computed(() => {
               Atualizar senha
             </button>
           </form>
-        </div>
-      </div>
+        </section>
 
-      <!-- Conquistas -->
-      <div class="card" v-if="perfil.conquistas?.length">
-        <h3 class="section-title">Conquistas</h3>
-        <div class="conquistas-grid">
-          <div
-            v-for="c in perfil.conquistas"
-            :key="c.codigo"
-            class="conquista-item"
-          >
-            <span class="conquista-ico">{{
-              conquistaIco[c.codigo] || "🏆"
-            }}</span>
-            <span class="conquista-nome">{{ c.nome }}</span>
-            <span class="muted" style="font-size: 10px">{{
-              new Date(c.conquistadaEm).toLocaleDateString("pt-BR")
-            }}</span>
-          </div>
-        </div>
-      </div>
+        <button class="btn ghost full-w danger" @click="sair">
+          <fa icon="right-from-bracket" /> Sair do portal
+        </button>
+      </main>
 
-      <!-- KPIs por tipo -->
-      <div
-        v-if="metricas?.porTipo?.length"
-        class="grid"
-        style="
-          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-          gap: 16px;
-        "
-      >
-        <div v-for="t in metricas.porTipo" :key="t._id" class="card glow">
-          <span
-            class="badge"
-            :class="'tipo-' + t._id"
-            style="margin-bottom: 12px"
-            >{{ t._id }}</span
-          >
-          <div style="font-size: 26px; font-weight: 700">
-            {{
-              t.totalLidos
-                ? ((t.totalConformes / t.totalLidos) * 100).toFixed(1)
-                : 0
-            }}%
-          </div>
-          <div class="muted" style="font-size: 12px">conformidade</div>
-          <div class="row mt-2" style="font-size: 12px">
-            <span class="muted">Itens:</span
-            ><strong>{{ t.totalLidos?.toLocaleString("pt-BR") }}</strong>
-            <span class="spacer" />
-            <span class="muted">Pts:</span
-            ><strong>{{ Math.round(t.pontuacao) }}</strong>
-          </div>
-        </div>
-      </div>
-
-      <!-- Gráfico histórico -->
-      <div class="card" v-if="metricas?.serie?.length">
-        <div class="row mb-2">
-          <h3 class="section-title" style="margin-bottom: 0">
-            Itens auditados por dia
-          </h3>
-          <span class="spacer" /><fa
-            :icon="serieComoColunas ? 'chart-bar' : 'chart-line'"
-            class="muted"
-          />
-        </div>
-        <AppChart
-          :type="serieComoColunas ? 'bar' : 'line'"
-          :data="serieChart"
-          :height="260"
-          :options="serieChartOptions"
-        />
-      </div>
-
-      <div v-if="!metricas?.serie?.length" class="empty" style="padding: 40px">
-        Nenhuma auditoria registrada ainda. Seus dados aparecerão aqui após o
-        processamento das planilhas.
-      </div>
+      <nav class="bottom-nav">
+        <button
+          class="nav-btn"
+          :class="{ active: abaAtiva === 'inicio' }"
+          @click="abaAtiva = 'inicio'"
+        >
+          <fa icon="gauge" />
+          <span>Início</span>
+        </button>
+        <button
+          class="nav-btn"
+          :class="{ active: abaAtiva === 'conquistas' }"
+          @click="abaAtiva = 'conquistas'"
+        >
+          <fa icon="trophy" />
+          <span>Conquistas</span>
+        </button>
+        <button
+          class="nav-btn"
+          :class="{ active: abaAtiva === 'corredores' }"
+          @click="abaAtiva = 'corredores'"
+        >
+          <fa icon="boxes-stacked" />
+          <span>Corredores</span>
+        </button>
+        <button
+          class="nav-btn"
+          :class="{ active: abaAtiva === 'configuracoes' }"
+          @click="abaAtiva = 'configuracoes'"
+        >
+          <fa icon="gear" />
+          <span>Ajustes</span>
+        </button>
+      </nav>
     </div>
 
     <Transition name="crop-modal">
@@ -1011,29 +1241,29 @@ const pctNivel = computed(() => {
             <div>
               <h3 class="mt-0 mb-0">Ajustar foto do perfil</h3>
               <p class="muted crop-copy">
-                Arraste a imagem e defina o enquadramento do jeito que preferir.
+                Arraste a imagem e defina o enquadramento.
               </p>
             </div>
             <button class="btn ghost" @click="fecharCropper">
-              <fa icon="xmark" /> Fechar
+              <fa icon="xmark" />
             </button>
           </div>
-
           <div class="crop-stage">
             <img
               ref="cropperImageRef"
               :src="cropperImage"
-              :alt="cropperNomeArquivo || 'Prévia do avatar'"
+              :alt="cropperNomeArquivo || 'Prévia'"
               class="crop-image"
             />
           </div>
-
           <div class="row justify-between items-center crop-footer">
             <button class="btn ghost" @click="resetarCropper">
-              Reiniciar corte
+              Reiniciar
             </button>
             <div class="row gap-2">
-              <button class="btn ghost" @click="fecharCropper">Cancelar</button>
+              <button class="btn ghost" @click="fecharCropper">
+                Cancelar
+              </button>
               <button
                 class="btn primary"
                 :disabled="enviandoAvatar"
@@ -1057,25 +1287,18 @@ const pctNivel = computed(() => {
 .portal-shell {
   min-height: 100vh;
   background:
-    radial-gradient(
-      900px 600px at 5% -5%,
-      rgba(124, 92, 255, 0.18),
-      transparent 60%
-    ),
-    radial-gradient(
-      800px 600px at 100% 15%,
-      rgba(34, 211, 238, 0.12),
-      transparent 60%
-    ),
+    radial-gradient(900px 600px at 5% -5%, rgba(124, 92, 255, 0.18), transparent 60%),
+    radial-gradient(800px 600px at 100% 15%, rgba(34, 211, 238, 0.12), transparent 60%),
     var(--bg-0);
   font-family: var(--font-sans);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .portal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 32px;
+  padding: 18px 22px;
   border-bottom: 1px solid var(--border);
   background: rgba(11, 15, 26, 0.55);
   backdrop-filter: blur(10px);
@@ -1083,12 +1306,7 @@ const pctNivel = computed(() => {
   top: 0;
   z-index: 10;
 }
-
-.portal-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+.portal-brand { display: flex; align-items: center; gap: 12px; }
 .brand-mark {
   width: 36px;
   height: 36px;
@@ -1107,276 +1325,314 @@ const pctNivel = computed(() => {
   font-size: 28px;
   margin: 0 auto;
 }
-.brand-name {
-  font-weight: 700;
-  color: var(--text);
-}
+.brand-name { font-weight: 700; color: var(--text); }
 .brand-name small {
   display: block;
   font-size: 11px;
   color: var(--text-dim);
   font-weight: 400;
 }
-
 .portal-card {
   max-width: 440px;
-  margin: 60px auto;
+  margin: 40px auto;
   background: var(--surface-strong);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
-  padding: 36px;
+  padding: 28px 22px;
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(10px);
 }
-
-.portal-card-wide {
-  max-width: 560px;
+.portal-card-wide { max-width: 560px; }
+.auth-title { text-align: center; margin: 0 0 6px; font-size: 22px; }
+.auth-title-small { margin: 0 0 4px; font-size: 20px; }
+.auth-sub {
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-dim);
+  margin: 0 0 20px;
 }
-
-.selected-store {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 18px;
-}
-
-.selected-store-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.store-options {
-  display: grid;
-  gap: 12px;
-}
-
+.full-w { width: 100%; justify-content: center; }
+.selected-store { display: grid; gap: 8px; margin-bottom: 18px; }
+.selected-store-chip { display: inline-flex; align-items: center; gap: 8px; }
+.store-options { display: grid; gap: 10px; }
 .store-option {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 16px 18px;
-  border-radius: 16px;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    background-color 0.18s ease,
-    box-shadow 0.18s ease;
 }
+.store-option:hover { border-color: var(--border-strong); }
+.store-option.preferred { border-color: rgba(124, 92, 255, 0.32); }
+.store-option-main { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.store-option-icon { flex-shrink: 0; }
+.store-option-copy { display: grid; gap: 2px; text-align: left; }
+.store-option-copy strong { font-size: 14px; }
 
-.store-option:hover {
-  transform: translateY(-2px);
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-sm);
+.portal-app {
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding-bottom: 84px;
+  display: flex;
+  flex-direction: column;
 }
-
-.store-option.preferred {
-  border-color: rgba(124, 92, 255, 0.32);
-  box-shadow: 0 0 0 1px rgba(124, 92, 255, 0.16);
-}
-
-.store-option-main {
+.app-topbar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-width: 0;
+  justify-content: space-between;
+  padding: 14px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: linear-gradient(180deg, var(--bg-0) 70%, transparent);
+  backdrop-filter: blur(8px);
 }
-
-.store-option-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-avatar {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
   background: var(--grad-primary);
   color: #fff;
-  flex-shrink: 0;
-}
-
-.store-option-copy {
   display: grid;
-  gap: 4px;
-  text-align: left;
-}
-
-.store-option-copy strong {
-  font-size: 15px;
-}
-
-.store-option-meta {
-  color: var(--text-dim);
-  flex-shrink: 0;
-}
-
-.portal-settings-grid {
-  display: grid;
-  gap: 20px;
-}
-
-.portal-settings-card {
-  display: grid;
-  gap: 18px;
-}
-
-.settings-block {
-  display: grid;
-  gap: 12px;
-  padding-top: 6px;
-}
-
-.settings-block + .settings-block {
-  border-top: 1px solid var(--border);
-  padding-top: 20px;
-}
-
-.settings-title {
-  font-size: 15px;
+  place-items: center;
   font-weight: 700;
-  color: var(--text);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(124, 92, 255, 0.3);
 }
+.topbar-avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.topbar-greet { display: grid; line-height: 1.2; }
+.topbar-greet strong { font-size: 15px; }
+.icon-btn { padding: 10px 12px; }
 
-.settings-copy {
-  margin: 4px 0 0;
+.app-content { display: grid; gap: 14px; padding: 4px 16px 20px; }
+
+.nivel-card { padding: 18px; }
+.nivel-card-head { display: flex; gap: 14px; align-items: center; }
+.nivel-emblema {
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+  border-radius: 22px;
+  background: var(--grad-primary);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  box-shadow: 0 12px 28px rgba(124, 92, 255, 0.38);
+}
+.nivel-num { font-size: 30px; font-weight: 800; line-height: 1; }
+.nivel-emblema small {
+  font-size: 10px;
+  opacity: 0.85;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.nivel-info { flex: 1; min-width: 0; }
+.nivel-info .nome { margin: 0; font-size: 17px; }
+.nome-sub { font-size: 12px; margin: 2px 0 8px; }
+.xp-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.xp-pts { font-weight: 700; color: var(--text); }
+.xp-target { font-size: 11px; }
+.xp-bar { height: 8px; }
+.nivel-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.nivel-stats > div { display: grid; }
+.nivel-stats strong { font-size: 17px; }
+.nivel-stats small { font-size: 11px; }
+
+.kpis-tipos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.kpi-tipo { padding: 14px; border-top: 3px solid; display: grid; gap: 4px; }
+.kpi-valor { font-size: 22px; font-weight: 800; line-height: 1; }
+.kpi-foot {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+.kpi-foot span { display: inline-flex; gap: 4px; align-items: center; }
+
+.destaque-conquistas { padding: 16px; }
+.btn.small { padding: 4px 10px; font-size: 12px; }
+.destaque-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+.empty.mini {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-dim);
   font-size: 13px;
 }
+.empty.card { padding: 24px; text-align: center; color: var(--text-dim); }
 
-.theme-toggle-group {
+.conquistas-summary {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+}
+.conq-summary-num { display: flex; align-items: center; gap: 14px; }
+.conq-summary-ico { font-size: 28px; color: #f59e0b; }
+.conq-summary-num strong { font-size: 20px; line-height: 1; }
+.conq-summary-num small { display: block; font-size: 11px; }
+.conq-summary-help { font-size: 12px; margin: 0; }
+
+.conq-filters { display: grid; gap: 8px; }
+.chip-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.chip-row::-webkit-scrollbar { display: none; }
+.chip {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.chip.active {
+  border-color: rgba(124, 92, 255, 0.5);
+  background: linear-gradient(135deg, rgba(124, 92, 255, 0.18), rgba(34, 211, 238, 0.1));
 }
 
+.conq-grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+
+.corredores-list { display: grid; gap: 8px; }
+.corredor-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.corredor-info { display: grid; gap: 6px; min-width: 0; }
+.corredor-tipos { display: flex; flex-wrap: wrap; gap: 4px; }
+.corredor-stats { text-align: right; }
+.corredor-stats strong { display: block; font-size: 16px; }
+
+.config-account { display: flex; gap: 14px; align-items: center; }
+.config-avatar {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 22px;
+  overflow: hidden;
+  background: var(--grad-primary);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.config-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.avatar-edit {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: #fff;
+  border: 2px solid var(--bg-0);
+}
+.theme-toggle-group { display: flex; gap: 10px; }
 .theme-toggle {
-  min-width: 140px;
+  flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
   font-weight: 700;
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    background-color 0.18s ease;
 }
-
-.theme-toggle:hover {
-  transform: translateY(-1px);
-  border-color: var(--border-strong);
-}
-
 .theme-toggle.active {
   border-color: rgba(124, 92, 255, 0.35);
-  background: linear-gradient(
-    180deg,
-    rgba(124, 92, 255, 0.16),
-    rgba(34, 211, 238, 0.08)
-  );
-  box-shadow: 0 0 0 1px rgba(124, 92, 255, 0.12);
+  background: linear-gradient(180deg, rgba(124, 92, 255, 0.18), rgba(34, 211, 238, 0.08));
 }
+.btn.danger { color: #ef4444; }
 
-.settings-feedback {
-  width: 100%;
-  justify-content: center;
-}
-
-.portal-content {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 28px 20px 60px;
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: grid;
-  gap: 20px;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--surface-strong);
+  border-top: 1px solid var(--border-strong);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  z-index: 30;
+  backdrop-filter: blur(10px);
 }
-
-.portal-hero {
-  display: flex;
-  gap: 28px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
-.hero-avatar {
-  text-align: center;
-}
-.avatar-big {
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  background: var(--grad-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  font-weight: 700;
-  color: #fff;
-  overflow: hidden;
-  position: relative;
-  box-shadow: 0 8px 24px rgba(124, 92, 255, 0.4);
-  transition: transform 0.15s;
-}
-.avatar-big:hover {
-  transform: scale(1.04);
-}
-.avatar-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+.nav-btn {
   display: grid;
   place-items: center;
-  font-size: 18px;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-.avatar-big:hover .avatar-overlay {
-  opacity: 1;
-}
-.hero-info {
-  flex: 1;
-  min-width: 200px;
-}
-
-.nivel-badge {
-  background: var(--grad-primary);
-  color: #fff;
-  font-weight: 700;
-  font-size: 13px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.conquistas-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.conquista-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 18px;
-  min-width: 110px;
-  text-align: center;
-  gap: 4px;
-}
-.conquista-ico {
-  font-size: 28px;
-}
-.conquista-nome {
-  font-size: 12px;
+  gap: 2px;
+  background: transparent;
+  border: 0;
+  color: var(--text-dim);
+  font-size: 10px;
   font-weight: 600;
+  padding: 8px 4px;
+  border-radius: 14px;
+  cursor: pointer;
+}
+.nav-btn :deep(svg) { font-size: 18px; }
+.nav-btn.active {
   color: var(--text);
+  background: linear-gradient(180deg, rgba(124, 92, 255, 0.22), rgba(34, 211, 238, 0.1));
+  box-shadow: inset 0 0 0 1px rgba(124, 92, 255, 0.25);
 }
 
 .crop-backdrop {
@@ -1389,7 +1645,6 @@ const pctNivel = computed(() => {
   padding: 20px;
   z-index: 60;
 }
-
 .crop-dialog {
   width: min(100%, 860px);
   background: var(--bg-2);
@@ -1398,12 +1653,7 @@ const pctNivel = computed(() => {
   padding: 22px;
   box-shadow: var(--shadow-lg);
 }
-
-.crop-copy {
-  margin: 6px 0 0;
-  font-size: 13px;
-}
-
+.crop-copy { margin: 6px 0 0; font-size: 13px; }
 .crop-stage {
   margin-top: 12px;
   min-height: 360px;
@@ -1413,74 +1663,127 @@ const pctNivel = computed(() => {
   border: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.28);
 }
-
-.crop-image {
-  display: block;
-  max-width: 100%;
-}
-
-.crop-footer {
-  margin-top: 18px;
-}
-
+.crop-image { display: block; max-width: 100%; }
+.crop-footer { margin-top: 18px; }
 .crop-modal-enter-active,
-.crop-modal-leave-active {
-  transition:
-    opacity 0.22s ease,
-    transform 0.22s ease;
-}
-
+.crop-modal-leave-active { transition: opacity 0.22s ease; }
 .crop-modal-enter-from,
-.crop-modal-leave-to {
-  opacity: 0;
-}
+.crop-modal-leave-to { opacity: 0; }
 
-:global([data-theme="light"]) .crop-dialog {
-  background: rgba(255, 255, 255, 0.98);
-}
-
+:global([data-theme="light"]) .crop-dialog { background: rgba(255, 255, 255, 0.98); }
 :global([data-theme="light"]) .theme-toggle.active {
-  background: linear-gradient(
-    180deg,
-    rgba(109, 92, 255, 0.14),
-    rgba(17, 197, 255, 0.08)
-  );
+  background: linear-gradient(180deg, rgba(109, 92, 255, 0.14), rgba(17, 197, 255, 0.08));
 }
+:global([data-theme="light"]) .bottom-nav { background: rgba(255, 255, 255, 0.92); }
 
-@media (max-width: 640px) {
-  .portal-card,
-  .portal-card-wide {
-    margin: 30px 16px;
-    padding: 24px;
-  }
-
-  .portal-header {
-    padding: 16px 18px;
-  }
-
-  .store-option {
-    align-items: flex-start;
-    padding: 14px;
-  }
-
-  .store-option-main {
-    align-items: flex-start;
-  }
-
-  .theme-toggle {
-    flex: 1 1 100%;
-  }
-
-  .crop-dialog {
-    padding: 16px;
-  }
-
-  .crop-stage {
-    min-height: 260px;
-  }
-
-  .crop-footer {
-    align-items: stretch;
-  }
+@media (min-width: 720px) {
+  .conq-grid { grid-template-columns: repeat(2, 1fr); }
+  .destaque-grid { grid-template-columns: repeat(4, 1fr); }
 }
+@media (min-width: 980px) {
+  .portal-app { max-width: 880px; }
+  .conq-grid { grid-template-columns: repeat(3, 1fr); }
+}
+</style>
+
+<style>
+/* ConquistaCard styles (não-scoped pois o componente é registrado via render h() e não recebe class hash do scoped) */
+.conq-card {
+  position: relative;
+  border-radius: 18px;
+  padding: 16px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-strong);
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 14px;
+  align-items: start;
+  --tier-cor: #94a3b8;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.conq-card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18); }
+.conq-card.locked { opacity: 0.78; filter: grayscale(0.55); }
+.conq-card-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 0% 0%, var(--tier-cor) -100%, transparent 70%);
+  opacity: 0.18;
+}
+.conq-card-icon {
+  position: relative;
+  z-index: 1;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  font-size: 32px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--tier-cor), color-mix(in srgb, var(--tier-cor) 55%, #000));
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--tier-cor) 45%, transparent);
+}
+.conq-card.locked .conq-card-icon {
+  background: linear-gradient(135deg, #475569, #1f2937);
+  box-shadow: none;
+  font-size: 24px;
+}
+.conq-card-body { position: relative; z-index: 1; min-width: 0; }
+.conq-card-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--tier-cor);
+  margin-bottom: 4px;
+}
+.conq-tier-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.conq-card-tier.locked-label { color: var(--text-dim); }
+.conq-card-nome { display: block; font-size: 15px; }
+.conq-card-desc { font-size: 12px; margin: 4px 0 8px; color: var(--text-dim); }
+.conq-progress { display: grid; gap: 4px; }
+.conq-progress-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+.conq-progress-meta { font-variant-numeric: tabular-nums; }
+.conq-bar { height: 8px; background: rgba(148, 163, 184, 0.18); }
+.conq-progress-max {
+  font-size: 12px;
+  color: #f59e0b;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.conq-tiers { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.conq-tier-pill {
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px dashed var(--border);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.conq-tier-pill.unlocked { border-style: solid; }
+.conq-card.compact {
+  padding: 12px;
+  grid-template-columns: 48px 1fr;
+  gap: 10px;
+}
+.conq-card.compact .conq-card-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 24px;
+  border-radius: 14px;
+}
+.conq-card.compact .conq-card-nome { font-size: 13px; }
 </style>

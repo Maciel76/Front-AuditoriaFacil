@@ -29,7 +29,7 @@
 | ------ | --------------------- | ------------------ | ------------------ | ----------------------------------------- | ------------------------------------------------------------------ |
 | GET    | /api/lojas            | Usuario            | Role-dependente    | -                                         | SUPER_ADMIN recebe todas; demais recebem a propria                 |
 | GET    | /api/lojas/me         | Usuario            | Loja obrigatoria   | lojaId opcional para super admin          | Retorna loja do escopo                                             |
-| GET    | /api/lojas/catalogo   | Usuario            | Global autenticado | -                                         | Lista lojas ativas com campos publicos para navegacao e descoberta |
+| GET    | /api/lojas/catalogo   | Usuario            | Global autenticado | periodo, dataInicio, dataFim             | Lista lojas ativas com campos publicos e resumo operacional por periodo |
 | POST   | /api/lojas/:id/avatar | Usuario autorizado | Role/tenant        | multipart avatar                          | Atualiza a foto publica da loja                                    |
 | POST   | /api/lojas            | SUPER_ADMIN        | Nenhum             | nome, slug, codigo, cidade, estado, metas | Cria loja                                                          |
 | PUT    | /api/lojas/:id        | Usuario autorizado | Role/tenant        | campos parciais de loja                   | Atualiza loja; nao super admin so pode a propria                   |
@@ -79,7 +79,7 @@
 | GET    | /api/metricas/ranking/colaboradores    | Usuario           | Loja ou global conforme escopo | periodo, tipo, dataInicio, dataFim | Ranking de colaboradores                      |
 | GET    | /api/metricas/ranking/lojas            | Usuario           | Global                         | periodo, tipo, dataInicio, dataFim | Ranking de lojas                              |
 | GET    | /api/metricas/lojas/:id/perfil         | Usuario           | Loja explicita por id          | periodo, tipo, dataInicio, dataFim | Perfil analitico publico de uma loja          |
-| GET    | /api/metricas/colaboradores/:id/perfil | Usuario           | Loja opcional                  | periodo, dataInicio, dataFim       | Perfil analitico do colaborador               |
+| GET    | /api/metricas/colaboradores/:id/perfil | Usuario           | Loja opcional                  | periodo, tipo, dataInicio, dataFim | Perfil analitico do colaborador               |
 | GET    | /api/metricas/relatorios/situacoes     | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio por situacao                        |
 | GET    | /api/metricas/relatorios/classes       | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio agregado por classe                 |
 | GET    | /api/metricas/relatorios/corredores    | Usuario           | Loja ou global                 | periodo, tipo, dataInicio, dataFim, lojaId opcional | Relatorio agregado por corredor/local         |
@@ -102,6 +102,7 @@
 
 - A ancora temporal usa a ultima data existente na base para evitar telas vazias quando nao ha dados do dia atual.
 - GET /api/metricas/dashboard retorna `cardsResumo` para os cinco KPIs do topo. `cardsResumo.mediaConclusao` e media simples de `Auditoria.taxaConformidade` no periodo filtrado; `cardsResumo.custoRupturaRuptura` sempre soma apenas auditorias do tipo RUPTURA no periodo; `cardsResumo.totalColaboradores` ignora o filtro de tipo e conta colaboradores distintos com leitura no periodo.
+- GET /api/lojas/catalogo retorna `periodo` e `items`; cada loja ativa recebe `resumoPeriodo` com total de auditorias, auditorias por tipo, itens lidos, conformidade, pontuacao, custo ruptura e ultima auditoria dentro do periodo filtrado.
 - /api/metricas/ranking/lojas permanece sem exigirRole explicito na rota, mas o retorno agora e global para SUPER_ADMIN e STORE_ADMIN; perfis fora desse escopo continuam restritos a propria loja.
 - /api/metricas/lojas/:id/perfil nao depende de escopoLoja; ele recebe a loja por id, mas continua exigindo autenticacao no app principal.
 - As rotas do portal em colaboradores.routes.js estao posicionadas antes de router.use(autenticar) para aceitar o token proprio do colaborador.

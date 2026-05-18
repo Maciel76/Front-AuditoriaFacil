@@ -146,7 +146,9 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 ### Lojas.vue
 
 - Catalogo autenticado de lojas ativas.
-- Consulta GET /lojas/catalogo.
+- Consulta GET /lojas/catalogo com filtro de periodo, usando PeriodoSelector no topo.
+- A lista exibe nome, localizacao, nivel, status operacional, total de auditorias por tipo, itens lidos, conformidade, pontuacao do periodo, custo de ruptura quando existir e ultima auditoria dentro do recorte ativo.
+- A tela nao exibe mais metas base nos cards do catalogo; metas continuam no perfil analitico da loja e nas configuracoes.
 - Permite buscar por nome, codigo, cidade ou slug e abrir o perfil analitico de qualquer loja.
 
 ### LojaPerfil.vue
@@ -172,7 +174,8 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Quando aberto a partir da listagem filtrada de SUPER_ADMIN, preserva `lojaId` na query para manter o retorno coerente ao contexto anterior.
 - Para STORE_ADMIN e SUPER_ADMIN, a tela tambem permite editar nome, matricula, cargo, setor e foto do colaborador no proprio perfil.
 - O upload da foto do colaborador usa recorte previo com Cropper.js 2.1.1 e guia visual circular para manter o avatar padronizado.
-- Exibe resumo do colaborador, conquistas, pontos, nivel e grafico por periodo com alternancia automatica entre colunas e linha conforme a densidade da serie.
+- Exibe resumo do colaborador, conquistas, pontos, nivel e grafico por periodo, com filtro adicional por tipo de auditoria (`Todos os tipos`, ETIQUETA, PRESENCA e RUPTURA) e alternancia automatica entre colunas e linha conforme a densidade da serie.
+- Quando um tipo selecionado nao possui leituras para o colaborador no periodo, a tela mostra o KPI daquele tipo zerado e um estado vazio no grafico, evitando reutilizar visualmente dados de outro tipo.
 
 ### Relatorios.vue
 

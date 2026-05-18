@@ -89,6 +89,8 @@
 
 - Catalogo autenticado de lojas ativas.
 - Funciona como diretorio de entrada para os perfis analiticos publicos das lojas.
+- Usa PeriodoSelector para filtrar o resumo operacional dos cards por periodo.
+- Cada card resume auditorias por tipo, itens lidos, conformidade, pontuacao do periodo, ultima auditoria e custo de ruptura quando houver.
 
 ### LojaPerfil.vue
 
@@ -103,7 +105,7 @@
 ### ColaboradorPerfil.vue
 
 - Drill-down analitico de um colaborador especifico.
-- Usa serie por dia e totais por tipo.
+- Usa serie por dia e totais por tipo, com filtros de periodo e tipo de auditoria.
 - Agora tambem concentra edicao administrativa de dados cadastrais e foto do colaborador.
 
 ### Relatorios.vue

@@ -32,13 +32,20 @@ const navegacao = computed(() => {
       ico: "ranking-star",
     });
   }
-  if (auth.isSuperAdmin)
+  if (auth.isSuperAdmin) {
     base.push({
       to: "/admin/lojas",
       label: "Admin lojas",
       ico: "gear",
       sup: true,
     });
+    base.push({
+      to: "/admin/conquistas",
+      label: "Conquistas",
+      ico: "trophy",
+      sup: true,
+    });
+  }
   return base;
 });
 
@@ -56,6 +63,7 @@ const titulo = computed(() => {
     relatorios: "Relatórios",
     configuracoes: "Configurações",
     "admin-lojas": "Administração de lojas",
+    "admin-conquistas": "Conquistas e gamificação",
   };
   return m[route.name] || "NovaAuditoria";
 });
