@@ -1,0 +1,312 @@
+[{
+  "_id": {
+    "$oid": "69fa80aeb84a067400375926"
+  },
+  "nome": "Loja 347 - Araguaina",
+  "slug": "loja-347-araguaina",
+  "codigo": "347",
+  "cidade": "Araguaina",
+  "estado": "TO",
+  "ativa": true,
+  "metas": {
+    "conformidadeEtiqueta": 95,
+    "conformidadePresenca": 90,
+    "conformidadeRuptura": 95
+  },
+  "pontuacao": 112219.1,
+  "nivel": 225,
+  "createdAt": {
+    "$date": "2026-05-05T23:43:42.105Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-16T00:22:42.228Z"
+  },
+  "__v": 0,
+  "avatarUrl": "/uploads/avatares/1778714601947-4fm8ap21eoh.jpeg"
+},
+{
+  "_id": {
+    "$oid": "6a050877a99a10999ef23e2b"
+  },
+  "nome": "Buritis",
+  "slug": "buritis",
+  "codigo": "056",
+  "cidade": "Goaiania",
+  "estado": "GO",
+  "ativa": true,
+  "metas": {
+    "conformidadeEtiqueta": 95,
+    "conformidadePresenca": 90,
+    "conformidadeRuptura": 95
+  },
+  "pontuacao": 0,
+  "nivel": 1,
+  "createdAt": {
+    "$date": "2026-05-13T23:25:43.204Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-13T23:25:50.195Z"
+  },
+  "__v": 0,
+  "avatarUrl": "/uploads/avatares/1778714750191-f1nugvt2j77.jpg"
+},
+{
+  "_id": {
+    "$oid": "6a0508baa99a10999ef23e3e"
+  },
+  "nome": "Independência",
+  "slug": "independencia",
+  "codigo": "84",
+  "cidade": "Goaiania",
+  "estado": "GO",
+  "ativa": true,
+  "metas": {
+    "conformidadeEtiqueta": 95,
+    "conformidadePresenca": 90,
+    "conformidadeRuptura": 95
+  },
+  "pontuacao": 0,
+  "nivel": 1,
+  "createdAt": {
+    "$date": "2026-05-13T23:26:50.704Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-13T23:26:59.474Z"
+  },
+  "__v": 0,
+  "avatarUrl": "/uploads/avatares/1778714819471-yzt47isn6tg.jpg"
+},
+{
+  "_id": {
+    "$oid": "6a0508f3a99a10999ef23e4d"
+  },
+  "nome": "Goiania t9",
+  "slug": "goiania-t9",
+  "codigo": "105",
+  "cidade": "Goaiania",
+  "estado": "GO",
+  "ativa": true,
+  "metas": {
+    "conformidadeEtiqueta": 95,
+    "conformidadePresenca": 90,
+    "conformidadeRuptura": 95
+  },
+  "pontuacao": 0,
+  "nivel": 1,
+  "createdAt": {
+    "$date": "2026-05-13T23:27:47.415Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-13T23:27:57.266Z"
+  },
+  "__v": 0,
+  "avatarUrl": "/uploads/avatares/1778714877262-ms6qbtd04a.jpg"
+},
+{
+  "_id": {
+    "$oid": "6a0509e0a99a10999ef23e80"
+  },
+  "nome": "Rio Verde",
+  "slug": "rio-verde",
+  "codigo": "111",
+  "cidade": "Rio verde",
+  "estado": "GO",
+  "ativa": true,
+  "metas": {
+    "conformidadeEtiqueta": 95,
+    "conformidadePresenca": 90,
+    "conformidadeRuptura": 95
+  },
+  "pontuacao": 0,
+  "nivel": 1,
+  "createdAt": {
+    "$date": "2026-05-13T23:31:44.069Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-13T23:40:35.441Z"
+  },
+  "__v": 0,
+  "avatarUrl": "/uploads/avatares/1778715635438-u7ophkkkaw8.jpg"
+},
+{
+  "_id": {
+    "$oid": "6a050a12a99a10999ef23e8a"
+  },
+  "nome": "Perimetral",
+  "slug": "perimetral",
+  "codigo": "140",
+  "cidade": "Goaiania",
+  "estado": "GO",
+  "ativa": true,
+  "metas": {
+    "conformidadeEtiqueta": 95,
+    "conformidadePresenca": 90,
+    "conformidadeRuptura": 95
+  },
+  "pontuacao": 0,
+  "nivel": 1,
+  "createdAt": {
+    "$date": "2026-05-13T23:32:34.710Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-13T23:40:14.896Z"
+  },
+  "__v": 0,
+  "avatarUrl": "/uploads/avatares/1778715614894-dr2rb11fwc7.jpg"
+},
+{
+  "_id": {
+    "$oid": "6a050a39a99a10999ef23e94"
+  },
+  "nome": "Caldas Novas",
+  "slug": "caldas-novas",
+  "codigo": "214",
+  "cidade": "Caldas Novas",
+  "estado": "GO",
+  "ativa": true,
+  "metas": {
+    "conformidadeEtiqueta": 95,
+    "conformidadePresenca": 90,
+    "conformidadeRuptura": 95
+  },
+  "pontuacao": 0,
+  "nivel": 1,
+  "createdAt": {
+    "$date": "2026-05-13T23:33:13.814Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-13T23:39:43.970Z"
+  },
+  "__v": 0,
+  "avatarUrl": "/uploads/avatares/1778715583967-dt7usa68aw7.jpg"
+},
+{
+  "_id": {
+    "$oid": "6a050a56a99a10999ef23e9e"
+  },
+  "nome": "Palmas Teotônio",
+  "slug": "palmas-teotonio",
+  "codigo": "176",
+  "cidade": "Palmas",
+  "estado": "TO",
+  "ativa": true,
+  "metas": {
+    "conformidadeEtiqueta": 95,
+    "conformidadePresenca": 90,
+    "conformidadeRuptura": 95
+  },
+  "pontuacao": 0,
+  "nivel": 1,
+  "createdAt": {
+    "$date": "2026-05-13T23:33:42.502Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-13T23:40:01.975Z"
+  },
+  "__v": 0,
+  "avatarUrl": "/uploads/avatares/1778715601971-cjaewgkbbu.jpg"
+},
+{
+  "_id": {
+    "$oid": "6a050a7ba99a10999ef23ea8"
+  },
+  "nome": "Anápolis",
+  "slug": "anapolis",
+  "codigo": "194",
+  "cidade": "anapolis",
+  "estado": "GO",
+  "ativa": true,
+  "metas": {
+    "conformidadeEtiqueta": 95,
+    "conformidadePresenca": 90,
+    "conformidadeRuptura": 95
+  },
+  "pontuacao": 0,
+  "nivel": 1,
+  "createdAt": {
+    "$date": "2026-05-13T23:34:19.102Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-13T23:39:05.445Z"
+  },
+  "__v": 0,
+  "avatarUrl": "/uploads/avatares/1778715545441-o8kwo2lqyc.jpg"
+},
+{
+  "_id": {
+    "$oid": "6a050aeda99a10999ef23ef4"
+  },
+  "nome": "portugal",
+  "slug": "portugal",
+  "codigo": "310",
+  "cidade": "goiania",
+  "estado": "GO",
+  "ativa": true,
+  "metas": {
+    "conformidadeEtiqueta": 95,
+    "conformidadePresenca": 90,
+    "conformidadeRuptura": 95
+  },
+  "pontuacao": 0,
+  "nivel": 1,
+  "createdAt": {
+    "$date": "2026-05-13T23:36:13.062Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-13T23:40:48.400Z"
+  },
+  "__v": 0,
+  "avatarUrl": "/uploads/avatares/1778715648398-w26cyj29vth.jpg"
+},
+{
+  "_id": {
+    "$oid": "6a050b56a99a10999ef23f18"
+  },
+  "nome": "Palmas Cesamar",
+  "slug": "palmas-cesamar",
+  "codigo": "320",
+  "cidade": "palmas",
+  "estado": "TO",
+  "ativa": true,
+  "metas": {
+    "conformidadeEtiqueta": 95,
+    "conformidadePresenca": 90,
+    "conformidadeRuptura": 95
+  },
+  "pontuacao": 0,
+  "nivel": 1,
+  "createdAt": {
+    "$date": "2026-05-13T23:37:58.486Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-13T23:39:52.779Z"
+  },
+  "__v": 0,
+  "avatarUrl": "/uploads/avatares/1778715592774-1ayv90ioum4.jpg"
+},
+{
+  "_id": {
+    "$oid": "6a050b89a99a10999ef23f22"
+  },
+  "nome": "Aparecida",
+  "slug": "aparecida",
+  "codigo": "348",
+  "cidade": "Aparecida",
+  "estado": "GO",
+  "ativa": true,
+  "metas": {
+    "conformidadeEtiqueta": 95,
+    "conformidadePresenca": 90,
+    "conformidadeRuptura": 95
+  },
+  "pontuacao": 0,
+  "nivel": 1,
+  "createdAt": {
+    "$date": "2026-05-13T23:38:49.757Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-13T23:39:15.894Z"
+  },
+  "__v": 0,
+  "avatarUrl": "/uploads/avatares/1778715555891-03ja6h0lieif.jpg"
+}]
