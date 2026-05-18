@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import api from '@/services/api';
+import AnimatedNumber from '@/components/AnimatedNumber.vue';
 import KpiCard from '@/components/KpiCard.vue';
 import AppChart from '@/components/AppChart.vue';
 import Loader from '@/components/Loader.vue';
@@ -60,25 +61,80 @@ watch([dataInicio, dataFim], () => { if (periodo.value === 'custom') carregar();
 
 const corPorTipo = { ETIQUETA: '#7c5cff', PRESENCA: '#22d3ee', RUPTURA: '#f59e0b' };
 
+function formatarInteiro(valor = 0) {
+  return Number(valor || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+}
+
+function formatarDecimal(valor = 0, casas = 1) {
+  return Number(valor || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: casas,
+    maximumFractionDigits: casas,
+  });
+}
+
+function formatarMoedaCompacta(valor = 0) {
+  const numero = Number(valor || 0);
+  const sinal = numero < 0 ? '-' : '';
+  const absoluto = Math.abs(numero);
+
+  if (absoluto >= 1_000_000_000) {
+    const compacto = absoluto / 1_000_000_000;
+    return `R$ ${sinal}${compacto.toLocaleString('pt-BR', { maximumFractionDigits: 1 }).replace(/,0$/, '')} bi`;
+  }
+
+  if (absoluto >= 1_000_000) {
+    const compacto = absoluto / 1_000_000;
+    return `R$ ${sinal}${compacto.toLocaleString('pt-BR', { maximumFractionDigits: 1 }).replace(/,0$/, '')} mi`;
+  }
+
+  if (absoluto >= 1_000) {
+    const compacto = absoluto / 1_000;
+    return `R$ ${sinal}${compacto.toLocaleString('pt-BR', { maximumFractionDigits: 1 }).replace(/,0$/, '')} mil`;
+  }
+
+  return `R$ ${sinal}${absoluto.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
+}
+
+function formatarMoedaSemCentavos(valor = 0) {
+  return `R$ ${Number(valor || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
+}
+
 const kpis = computed(() => {
   const d = dados.value;
   if (!d) return [];
-  const isEtiqueta = tipo.value === 'ETIQUETA';
-  const cardItens = isEtiqueta
-    ? { label: 'Etiquetas lidas', value: d.totalGeral.totalLidos.toLocaleString('pt-BR'), icon: 'clipboard-check' }
-    : { label: 'Itens auditados', value: d.totalGeral.totalLidos.toLocaleString('pt-BR'), icon: 'clipboard-check' };
-  const cardPontuacao = isEtiqueta
-    ? { label: 'Desatualizadas', value: Number(d.totalDesatualizados || 0).toLocaleString('pt-BR'), icon: 'tag' }
-    : { label: 'Pontuação total', value: Math.round(d.totalGeral.pontuacao).toLocaleString('pt-BR'), icon: 'star' };
-  const cardRuptura = isEtiqueta
-    ? { label: 'Não lidas c/ estoque', value: Number(d.totalNaoLidos || 0).toLocaleString('pt-BR'), icon: 'eye-slash' }
-    : { label: 'Custo ruptura', value: 'R$\u00a0' + d.totalGeral.custoRuptura.toLocaleString('pt-BR', { maximumFractionDigits: 0 }), icon: 'triangle-exclamation' };
+  const resumo = d.cardsResumo || {};
   return [
-    cardItens,
-    { label: 'Conformidade', value: d.totalGeral.taxaConformidade.toFixed(1), suffix: '%', icon: 'shield-halved' },
-    cardPontuacao,
-    cardRuptura,
-    { label: 'Colaboradores ativos', value: d.colaboradoresAtivos, icon: 'users' },
+    {
+      label: 'Produtos auditados',
+      value: Number(resumo.produtosAuditados || 0),
+      formatter: formatarInteiro,
+      icon: 'clipboard-check',
+    },
+    {
+      label: 'Conclusão',
+      value: Number(resumo.mediaConclusao || 0),
+      formatter: (valor) => formatarDecimal(valor, 1),
+      suffix: '%',
+      icon: 'shield-halved',
+    },
+    {
+      label: 'Produtos n/auditados',
+      value: Number(resumo.produtosNaoAuditados || 0),
+      formatter: formatarInteiro,
+      icon: 'eye-slash',
+    },
+    {
+      label: 'Custo ruptura',
+      value: Number(resumo.custoRupturaRuptura || 0),
+      formatter: formatarMoedaCompacta,
+      icon: 'triangle-exclamation',
+    },
+    {
+      label: 'Total colaboradores',
+      value: Number(resumo.totalColaboradores || 0),
+      formatter: formatarInteiro,
+      icon: 'users',
+    },
   ];
 });
 
@@ -158,6 +214,38 @@ const distribTipo = computed(() => {
       borderWidth: 3,
     }],
   };
+});
+
+function formatarDataCurta(valor) {
+  if (!valor) return '';
+  const data = new Date(`${valor}T00:00:00`);
+  if (Number.isNaN(data.getTime())) return '';
+  return data.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+  });
+}
+
+const tituloCardTipo = computed(() => {
+  if (tipo.value === 'ETIQUETA') return 'Etiqueta';
+  if (tipo.value === 'PRESENCA') return 'Presença';
+  if (tipo.value === 'RUPTURA') return 'Ruptura';
+
+  if (periodo.value === '1d') return 'Auditoria de hoje';
+  if (periodo.value === 'semana') return 'Média Auditoria semanal';
+  if (periodo.value === 'mes') return 'Média Auditoria mensal';
+  if (periodo.value === 'ano') return 'Média Auditoria anual';
+  if (periodo.value === 'tudo') return 'Todo período';
+
+  if (periodo.value === 'custom') {
+    const inicio = formatarDataCurta(dataInicio.value);
+    const fim = formatarDataCurta(dataFim.value);
+    if (inicio && fim && inicio !== fim) return `${inicio} a ${fim}`;
+    if (inicio) return inicio;
+    return 'Período';
+  }
+
+  return 'Média geral';
 });
 
 async function esperarCapturaEstavel() {
@@ -399,7 +487,7 @@ const taxaCentro = computed(() => {
         </div>
         <div class="card">
           <div class="row mb-2">
-            <h3 class="mt-0 mb-0">Por tipo</h3>
+            <h3 class="mt-0 mb-0">{{ tituloCardTipo }}</h3>
             <span class="spacer" /><fa icon="chart-pie" class="muted" />
           </div>
           <div style="position: relative;">
@@ -413,7 +501,7 @@ const taxaCentro = computed(() => {
                 align-items: center; justify-content: center;
                 pointer-events: none;
               ">
-                <span style="font-size: 26px; font-weight: 800; line-height: 1;">{{ (100 - taxaCentro).toFixed(1) }}%</span>
+                <span style="font-size: 26px; font-weight: 800; line-height: 1;"><AnimatedNumber :value="100 - taxaCentro" :formatter="(valor) => formatarDecimal(valor, 1)" :duration="420" />%</span>
                 <span style="font-size: 11px; opacity: .55; margin-top: 3px;">restante</span>
               </div>
             </Transition>
@@ -431,22 +519,22 @@ const taxaCentro = computed(() => {
           </div>
           <div v-if="t.totalLidos === 0" class="muted" style="font-size: 13px; padding: 8px 0;">Sem dados neste período</div>
           <template v-else>
-            <div style="font-size: 30px; font-weight: 700;">{{ t.taxaConformidade.toFixed(1) }}%</div>
+            <div style="font-size: 30px; font-weight: 700;"><AnimatedNumber :value="t.taxaConformidade" :formatter="(valor) => formatarDecimal(valor, 1)" :duration="420" />%</div>
             <div class="muted" style="font-size: 12px; margin-top: 2px;">
               <template v-if="key === 'ETIQUETA'">
-                {{ t.totalLidos.toLocaleString('pt-BR') }} de {{ t.totalItensAuditaveis.toLocaleString('pt-BR') }} lidos
+                <AnimatedNumber :value="t.totalLidos" :formatter="formatarInteiro" :duration="420" /> de <AnimatedNumber :value="t.totalItensAuditaveis" :formatter="formatarInteiro" :duration="420" /> lidos
               </template>
               <template v-else>
-                {{ t.totalConformes.toLocaleString('pt-BR') }} de {{ t.totalLidos.toLocaleString('pt-BR') }} conformes
+                <AnimatedNumber :value="t.totalConformes" :formatter="formatarInteiro" :duration="420" /> de <AnimatedNumber :value="t.totalLidos" :formatter="formatarInteiro" :duration="420" /> conformes
               </template>
             </div>
             <div class="progress mt-2"><span :style="{ width: Math.min(100, t.taxaConformidade) + '%' }" /></div>
             <div class="row mt-2" style="font-size: 12px;">
               <span class="muted">Pts</span>
-              <strong>{{ Math.round(t.pontuacao) }}</strong>
+              <strong><AnimatedNumber :value="Math.round(t.pontuacao)" :formatter="formatarInteiro" :duration="420" /></strong>
               <span class="spacer" />
               <span v-if="t.custoRuptura > 0" class="badge bad">
-                R$ {{ t.custoRuptura.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) }}
+                <AnimatedNumber :value="t.custoRuptura" :formatter="formatarMoedaSemCentavos" :duration="420" />
               </span>
             </div>
           </template>

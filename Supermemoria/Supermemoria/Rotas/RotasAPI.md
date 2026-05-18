@@ -101,6 +101,7 @@
 ## Observacoes criticas
 
 - A ancora temporal usa a ultima data existente na base para evitar telas vazias quando nao ha dados do dia atual.
+- GET /api/metricas/dashboard retorna `cardsResumo` para os cinco KPIs do topo. `cardsResumo.mediaConclusao` e media simples de `Auditoria.taxaConformidade` no periodo filtrado; `cardsResumo.custoRupturaRuptura` sempre soma apenas auditorias do tipo RUPTURA no periodo; `cardsResumo.totalColaboradores` ignora o filtro de tipo e conta colaboradores distintos com leitura no periodo.
 - /api/metricas/ranking/lojas nao esta explicitamente protegida por exigirRole no backend; a restricao principal hoje aparece no frontend.
 - /api/metricas/lojas/:id/perfil nao depende de escopoLoja; ele recebe a loja por id, mas continua exigindo autenticacao no app principal.
 - As rotas do portal em colaboradores.routes.js estao posicionadas antes de router.use(autenticar) para aceitar o token proprio do colaborador.

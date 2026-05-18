@@ -23,6 +23,7 @@
 - `totalLidos` = itens com `conta:true` = Atualizado + Desatualizado + Lido sem estoque + Lido nao pertence (itens fisicamente lidos)
 - `totalItensAuditaveis` = itens com `conforme != null` = totalLidos + Nao lidos com estoque (exclui Sem Estoque)
 - `taxaConformidade` = `totalLidos / totalItensAuditaveis * 100` = **% de cobertura: qual fracao dos itens auditaveis foi efetivamente lida**
+- Em KPIs operacionais de produtos n/auditados, ETIQUETA deve contar apenas a situacao `Nao lidos com estoque`.
 
 ### Presenca
 
@@ -36,6 +37,7 @@
 
 **Calculo da taxaConformidade PRESENCA:**
 - `taxaConformidade` = `totalConformes / totalLidos * 100` = % de itens lidos que estao conformes
+- Em KPIs operacionais de produtos n/auditados, PRESENCA deve contar a situacao `Sem Presenca e Com Estoque`; `Sem Presenca e Sem Estoque` nao entra.
 
 ### Ruptura
 
@@ -49,6 +51,7 @@
 
 **Calculo da taxaConformidade RUPTURA:**
 - `taxaConformidade` = `totalConformes / totalLidos * 100` = % de itens lidos que estao conformes
+- Em KPIs operacionais de produtos n/auditados, RUPTURA deve contar a situacao `Sem Presenca e Com Estoque`; `Sem Presenca e Sem Estoque` nao entra.
 
 ## Regra de tipo da auditoria
 

@@ -20,6 +20,7 @@ const props = defineProps({
 });
 
 const canvas = ref(null);
+const themeVersion = ref(0);
 let chart = null;
 let themeObserver = null;
 
@@ -84,17 +85,20 @@ function tooltipValue(context) {
   return context.raw;
 }
 
-const theme = computed(() => ({
-  text: cssVar('--text', '#e7ecff'),
-  textDim: cssVar('--text-dim', '#9aa3c7'),
-  border: cssVar('--border', 'rgba(255,255,255,.08)'),
-  borderStrong: cssVar('--border-strong', 'rgba(255,255,255,.16)'),
-  surfaceStrong: cssVar('--surface-strong', 'rgba(255,255,255,.07)'),
-  panel: cssVar('--bg-2', '#161c30'),
-  primary: cssVar('--primary', '#7c5cff'),
-  accent: cssVar('--accent', '#22d3ee'),
-  warning: cssVar('--warning', '#f59e0b'),
-}));
+const theme = computed(() => {
+  themeVersion.value;
+  return {
+    text: cssVar('--text', '#e7ecff'),
+    textDim: cssVar('--text-dim', '#9aa3c7'),
+    border: cssVar('--border', 'rgba(255,255,255,.08)'),
+    borderStrong: cssVar('--border-strong', 'rgba(255,255,255,.16)'),
+    surfaceStrong: cssVar('--surface-strong', 'rgba(255,255,255,.07)'),
+    panel: cssVar('--bg-2', '#161c30'),
+    primary: cssVar('--primary', '#7c5cff'),
+    accent: cssVar('--accent', '#22d3ee'),
+    warning: cssVar('--warning', '#f59e0b'),
+  };
+});
 
 const palette = computed(() => [
   theme.value.primary,
@@ -189,8 +193,8 @@ const chartOptions = computed(() => mergeDeep({
   responsive: true,
   maintainAspectRatio: false,
   animation: {
-    duration: 480,
-    easing: 'easeOutQuart',
+    duration: 520,
+    easing: 'easeOutCubic',
   },
   interaction: props.type === 'doughnut'
     ? { mode: 'nearest', intersect: true }
@@ -264,25 +268,35 @@ const chartOptions = computed(() => mergeDeep({
 }, props.options || {}));
 
 function montar() {
-  if (chart) chart.destroy();
   if (!canvas.value) return;
-  chart = new Chart(canvas.value, {
-    type: props.type,
-    data: chartData.value,
-    options: chartOptions.value,
-  });
+
+  if (!chart || chart.config.type !== props.type) {
+    if (chart) chart.destroy();
+    chart = new Chart(canvas.value, {
+      type: props.type,
+      data: chartData.value,
+      options: chartOptions.value,
+    });
+    return;
+  }
+
+  chart.data = chartData.value;
+  chart.options = chartOptions.value;
+  chart.update();
 }
 
 onMounted(() => {
   montar();
-  themeObserver = new MutationObserver(() => montar());
+  themeObserver = new MutationObserver(() => {
+    themeVersion.value += 1;
+  });
   themeObserver.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['data-theme'],
   });
 });
 
-watch([chartData, chartOptions, () => props.type], montar, { deep: true });
+watch([chartData, chartOptions, () => props.type, () => themeVersion.value], montar, { deep: true });
 
 onBeforeUnmount(() => {
   if (themeObserver) themeObserver.disconnect();

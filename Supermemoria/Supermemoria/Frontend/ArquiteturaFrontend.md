@@ -96,6 +96,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - O botao Compartilhar exporta um PNG da area funcional atual do dashboard com os filtros ja aplicados.
 - Para manter fidelidade visual no light/dark, a exportacao nao deve capturar o DOM vivo diretamente: o padrao confirmado e clonar a area alvo fora da tela, sincronizar os campos de formulario, copiar os canvases dos graficos, remover estados transitorios de animacao e aplicar explicitamente o data-theme e as CSS vars do tema atual antes de chamar html2canvas.
 - O fundo final da captura deve usar os tokens do tema ativo, principalmente --bg-0, --surface e --grad-card, para evitar cards pretos/cinza ou perda do glow no tema claro.
+- Os cinco KPIs do topo seguem regra fixa baseada no periodo selecionado: Produtos auditados = soma de totalLidos das auditorias filtradas; Conclusao = media simples de taxaConformidade entre auditorias do periodo; Produtos n/auditados = contagem de AuditItem por situacao operacional (`Nao lidos com estoque` para ETIQUETA e `Sem Presenca e Com Estoque` para PRESENCA/RUPTURA), excluindo `Sem Estoque` e `Sem Presenca e Sem Estoque`; Custo ruptura = soma de custoRupturaTotal apenas das auditorias do tipo RUPTURA no periodo; Total colaboradores = quantidade distinta de colaboradores com totalLidos > 0 no periodo, independente do filtro de tipo.
 
 ### Auditorias.vue
 
