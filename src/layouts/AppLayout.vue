@@ -16,6 +16,11 @@ const navegacao = computed(() => {
     { to: "/dashboard", label: "Dashboard", ico: "gauge" },
     { to: "/lojas", label: "Lojas", ico: "store" },
     { to: "/auditorias", label: "Auditorias", ico: "clipboard-check" },
+    {
+      to: "/auditorias/calendario",
+      label: "Calendário auditorias",
+      ico: "calendar",
+    },
     { to: "/colaboradores", label: "Colaboradores", ico: "users" },
     { to: "/relatorios", label: "Relatórios", ico: "file-lines" },
     { to: "/configuracoes", label: "Configurações", ico: "gear" },
@@ -55,6 +60,7 @@ const titulo = computed(() => {
     lojas: "Lojas",
     "loja-perfil": "Perfil da loja",
     auditorias: "Auditorias",
+    "auditorias-calendario": "Calendário de auditorias",
     "auditoria-detalhe": "Detalhe da auditoria",
     "ranking-colaboradores": "Ranking de colaboradores",
     "ranking-lojas": "Ranking de lojas",
@@ -152,23 +158,25 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <RouterLink
-        v-for="n in navegacao"
-        :key="n.to"
-        :to="n.to"
-        class="nav-item"
-        active-class="active"
-        @click="ui.fecharSidebar()"
-      >
-        <fa class="ico" :icon="n.ico" />
-        <span>{{ n.label }}</span>
-        <span
-          v-if="n.sup"
-          class="badge info"
-          style="margin-left: auto; font-size: 10px"
-          >admin</span
+      <div class="sidebar-body">
+        <RouterLink
+          v-for="n in navegacao"
+          :key="n.to"
+          :to="n.to"
+          class="nav-item"
+          active-class="active"
+          @click="ui.fecharSidebar()"
         >
-      </RouterLink>
+          <fa class="ico" :icon="n.ico" />
+          <span>{{ n.label }}</span>
+          <span
+            v-if="n.sup"
+            class="badge info"
+            style="margin-left: auto; font-size: 10px"
+            >admin</span
+          >
+        </RouterLink>
+      </div>
 
       <div class="sidebar-footer">
         <div class="row" style="padding: 8px 4px">
@@ -265,7 +273,7 @@ onBeforeUnmount(() => {
           <RouterLink
             to="/portal"
             class="btn ghost"
-            style="white-space: nowrap; font-size: 14px;"
+            style="white-space: nowrap; font-size: 14px"
           >
             <fa icon="id-badge" /> Portal colaboradores
           </RouterLink>
@@ -273,7 +281,7 @@ onBeforeUnmount(() => {
             v-if="auth.podeGerenciar"
             to="/auditorias"
             class="btn primary topbar-upload-btn"
-            style="white-space: nowrap; font-size: 14px;"
+            style="white-space: nowrap; font-size: 14px"
           >
             <fa icon="cloud-arrow-up" /> Enviar planilha
           </RouterLink>

@@ -47,6 +47,11 @@ const routes = [
         component: () => import("@/views/Auditorias.vue"),
       },
       {
+        path: "auditorias/calendario",
+        name: "auditorias-calendario",
+        component: () => import("@/views/AuditoriasCalendario.vue"),
+      },
+      {
         path: "auditorias/:id",
         name: "auditoria-detalhe",
         component: () => import("@/views/AuditoriaDetalhe.vue"),

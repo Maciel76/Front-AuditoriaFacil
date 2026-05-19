@@ -6,12 +6,15 @@ import { useAuthStore } from "@/stores/auth";
 import { useRouter } from "vue-router";
 import Loader from "@/components/Loader.vue";
 import { RouterLink } from "vue-router";
+import {
+  AUDITORIAS_LOJA_DESTINO_STORAGE_KEY,
+  salvarLojaDestinoAuditorias,
+} from "@/utils/auditoriasContext";
 
 const ui = useUiStore();
 const auth = useAuthStore();
 const router = useRouter();
 const fileInput = ref(null);
-const LOJA_DESTINO_STORAGE_KEY = "na_auditorias_superadmin_loja";
 
 // Detecta tipo sugerido pelo dia da semana: 1=Seg,4=Qui→ETIQUETA, 2=Ter→PRESENCA, 3=Qua→RUPTURA
 function tipoSugeridoHoje() {
@@ -107,19 +110,18 @@ async function carregarLojasDestino() {
       (loja) => loja.ativa !== false,
     );
 
-    const lojaSalva = localStorage.getItem(LOJA_DESTINO_STORAGE_KEY);
+    const lojaSalva = localStorage.getItem(AUDITORIAS_LOJA_DESTINO_STORAGE_KEY);
     const lojaInicial =
       lojasDisponiveis.value.find((loja) => loja._id === lojaSalva) || null;
     lojaDestinoId.value = lojaInicial?._id || "";
 
-    if (lojaDestinoId.value)
-      localStorage.setItem(LOJA_DESTINO_STORAGE_KEY, lojaDestinoId.value);
-    else localStorage.removeItem(LOJA_DESTINO_STORAGE_KEY);
+    salvarLojaDestinoAuditorias(lojaDestinoId.value);
   } catch (error) {
     erroLojas.value =
       error?.response?.data?.error || "Não foi possível carregar as lojas.";
     lojasDisponiveis.value = [];
     lojaDestinoId.value = "";
+    salvarLojaDestinoAuditorias("");
   } finally {
     carregandoLojas.value = false;
   }
@@ -148,9 +150,7 @@ async function listar() {
 async function trocarLojaDestino() {
   if (!auth.isSuperAdmin) return;
 
-  if (lojaDestinoId.value)
-    localStorage.setItem(LOJA_DESTINO_STORAGE_KEY, lojaDestinoId.value);
-  else localStorage.removeItem(LOJA_DESTINO_STORAGE_KEY);
+  salvarLojaDestinoAuditorias(lojaDestinoId.value);
 
   ultimoResultado.value = null;
   ultimaLojaProcessada.value = null;
@@ -416,7 +416,9 @@ async function confirmarCancelar() {
     await listar();
   } catch (e) {
     ui.erro(
-      e?.response?.data?.error || e?.message || "Não foi possível cancelar a auditoria.",
+      e?.response?.data?.error ||
+        e?.message ||
+        "Não foi possível cancelar a auditoria.",
     );
   } finally {
     enviandoCancelar.value = false;
@@ -460,7 +462,9 @@ async function confirmarReclassificar() {
     await listar();
   } catch (e) {
     ui.erro(
-      e?.response?.data?.error || e?.message || "Não foi possível reclassificar.",
+      e?.response?.data?.error ||
+        e?.message ||
+        "Não foi possível reclassificar.",
     );
   } finally {
     enviandoReclassificar.value = false;
@@ -1148,9 +1152,7 @@ onBeforeUnmount(() => {
         @click.self="fecharCancelar"
       >
         <div class="audit-modal card">
-          <h3 class="mt-0 mb-1">
-            <fa icon="ban" /> Cancelar auditoria
-          </h3>
+          <h3 class="mt-0 mb-1"><fa icon="ban" /> Cancelar auditoria</h3>
           <p class="muted mt-0">
             A auditoria continuará registrada no histórico, mas será marcada
             como
@@ -1188,7 +1190,10 @@ onBeforeUnmount(() => {
               :disabled="enviandoCancelar"
               @click="confirmarCancelar"
             >
-              <fa :icon="enviandoCancelar ? 'spinner' : 'ban'" :spin="enviandoCancelar" />
+              <fa
+                :icon="enviandoCancelar ? 'spinner' : 'ban'"
+                :spin="enviandoCancelar"
+              />
               Cancelar auditoria
             </button>
           </div>
@@ -1439,14 +1444,13 @@ onBeforeUnmount(() => {
   right: 0;
   bottom: 0;
   min-height: 0;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(34, 211, 238, 0.08) 0%,
-      rgba(34, 211, 238, 0.16) 42%,
-      rgba(37, 99, 235, 0.24) 72%,
-      rgba(124, 92, 255, 0.28) 100%
-    );
+  background: linear-gradient(
+    180deg,
+    rgba(34, 211, 238, 0.08) 0%,
+    rgba(34, 211, 238, 0.16) 42%,
+    rgba(37, 99, 235, 0.24) 72%,
+    rgba(124, 92, 255, 0.28) 100%
+  );
   box-shadow:
     inset 0 18px 34px rgba(255, 255, 255, 0.1),
     0 -12px 28px rgba(34, 211, 238, 0.12);
@@ -1469,14 +1473,13 @@ onBeforeUnmount(() => {
 }
 
 [data-theme="light"] .upload-liquid {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(17, 197, 255, 0.08) 0%,
-      rgba(17, 197, 255, 0.16) 42%,
-      rgba(37, 99, 235, 0.22) 72%,
-      rgba(109, 92, 255, 0.24) 100%
-    );
+  background: linear-gradient(
+    180deg,
+    rgba(17, 197, 255, 0.08) 0%,
+    rgba(17, 197, 255, 0.16) 42%,
+    rgba(37, 99, 235, 0.22) 72%,
+    rgba(109, 92, 255, 0.24) 100%
+  );
   box-shadow:
     inset 0 18px 34px rgba(255, 255, 255, 0.16),
     0 -12px 28px rgba(17, 197, 255, 0.1);
