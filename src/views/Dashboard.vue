@@ -223,7 +223,7 @@ const kpis = computed(() => {
   const resumo = d.cardsResumo || {};
   return [
     {
-      label: 'Produtos auditados',
+      label: tipo.value === 'PRESENCA' ? 'Total itens' : 'Produtos auditados',
       value: Number(resumo.produtosAuditados || 0),
       formatter: formatarInteiro,
       icon: 'clipboard-check',
@@ -236,7 +236,7 @@ const kpis = computed(() => {
       icon: 'shield-halved',
     },
     {
-      label: 'Produtos n/auditados',
+      label: tipo.value === 'PRESENCA' ? 'Itens sem presença' : 'Produtos n/auditados',
       value: Number(resumo.produtosNaoAuditados || 0),
       formatter: formatarInteiro,
       icon: 'eye-slash',
