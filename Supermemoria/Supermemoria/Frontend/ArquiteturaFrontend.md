@@ -130,6 +130,8 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - O frontend combina progresso real de envio do arquivo com polling do status de processamento no backend.
 - Para SUPER_ADMIN, GET /auditorias, POST /auditorias/upload e DELETE /auditorias/:id passam lojaId por query string, seguindo o contrato de escopo multi-loja do backend.
 - O historico, o resultado do upload e a navegacao para o detalhe da auditoria seguem a loja selecionada.
+- O historico usa a paginacao nativa de GET /auditorias (`page`, `limit`) e exibe botao `Ver mais` para carregar o restante das planilhas sem truncar a lista nas primeiras 30 respostas do backend.
+- A exclusao na tela de auditorias remove a linha apenas do historico visivel; o calendario anual continua lendo essas auditorias com `includeExcluidas=true` para preservar o status do dia apos a exclusao.
 - Quando o status retornado pelo upload e cancelado, a tela mostra badge/alerta de auditoria cancelada e informa que os dados nao foram contabilizados.
 - Consulta GET /auditorias para historico.
 - Faz POST /auditorias/upload, consulta GET /auditorias/upload/:jobId/status e DELETE /auditorias/:id.
@@ -191,9 +193,11 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - A loja escolhida em Colaboradores.vue fica persistida em localStorage na chave na_colaboradores_superadmin_loja.
 - No modo `Todas as lojas`, o SUPER_ADMIN pode consultar todos os colaboradores de todas as lojas e cada card exibe a loja de origem para dar contexto.
 - O cadastro de novo colaborador para SUPER_ADMIN continua dependente de uma loja especifica; com `Todas as lojas` selecionado, a tela permanece apenas em modo de consulta.
+- A listagem administrativa agora filtra por status (`Somente ativos`, `Somente inativos`, `Ativos e inativos`) e mostra por padrao apenas colaboradores ativos.
+- Cada card permite marcar o colaborador como inativo ou ativo novamente; inativos ficam ocultos do portal e dos rankings ate a reativacao.
 - Lista cards compactos com avatar, nivel, pontos e conformidade; quando o colaborador possui avatarUrl a foto real aparece em vez das iniciais. As conquistas ficam restritas ao perfil detalhado para reduzir altura e ruido visual na grade.
 - O card inteiro abre o perfil do colaborador e a listagem nao exibe mais botoes dedicados de ver perfil ou exclusao.
-- Permite criacao para perfis com permissao, sem expor desativacao na listagem.
+- Permite criacao para perfis com permissao e agora expoe ativacao/desativacao diretamente na listagem.
 
 ### ColaboradorPerfil.vue
 

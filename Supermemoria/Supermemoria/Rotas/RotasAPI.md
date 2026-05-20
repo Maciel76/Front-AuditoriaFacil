@@ -53,10 +53,13 @@
 | POST   | /api/colaboradores/portal/password | Token colaborador          | Propria loja     | senhaAtual, novaSenha                                                | Troca senha do portal                                                                 |
 | POST   | /api/colaboradores/:id/avatar      | Usuario ou colaborador     | Proprio recurso  | multipart avatar (imagem ate 5 MB, lojaId opcional para SUPER_ADMIN) | Atualiza avatar; colaborador so altera a propria foto e admin respeita escopo da loja |
 | GET    | /api/colaboradores                 | Usuario                    | Loja ou global   | q, page, limit, lojaId opcional                                      | Lista colaboradores; SUPER_ADMIN pode consultar tudo ou filtrar uma loja              |
+| PATCH  | /api/colaboradores/:id/ativo       | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | ativo                                                                | Ativa ou inativa colaborador e sincroniza a conta vinculada                           |
 | POST   | /api/colaboradores                 | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | nome, codigoExterno, cargo, setor                                    | Cria colaborador                                                                      |
 | PUT    | /api/colaboradores/:id             | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | nome, codigoExterno, cargo, setor                                    | Atualiza colaborador sem alterar ativo                                                |
 | DELETE | /api/colaboradores/:id             | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | -                                                                    | Retorna 403; exclusao de colaborador desabilitada                                     |
 | POST   | /api/colaboradores/:id/usuario     | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria | email, senha, nome                                                   | Vincula conta de Usuario a um colaborador                                             |
+
+- `GET /api/colaboradores` passa a aceitar `status=active|inactive|all`; o padrao da listagem administrativa e `active`.
 
 ## Grupo Conquistas
 
@@ -72,17 +75,17 @@
 
 ## Grupo Auditorias
 
-| Metodo | Rota                                 | Auth                       | Escopo               | Corpo ou query principal                 | Funcao                                                                 |
-| ------ | ------------------------------------ | -------------------------- | -------------------- | ---------------------------------------- | ---------------------------------------------------------------------- |
-| GET    | /api/auditorias/regras               | Usuario                    | Nenhum               | -                                        | Retorna matriz REGRAS                                                  |
-| POST   | /api/auditorias/upload               | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | multipart arquivo, opcional tipo         | Cria job de processamento de auditoria e devolve jobId                 |
-| GET    | /api/auditorias/upload/:jobId/status | Usuario autenticado        | Mesmo usuario do job | jobId                                    | Consulta progresso, etapa, resultado final ou erro do upload           |
-| GET    | /api/auditorias                      | Usuario                    | Loja obrigatoria     | tipo, dataInicio, dataFim, page, limit   | Lista auditorias                                                       |
-| GET    | /api/auditorias/:id                  | Usuario                    | Loja obrigatoria     | -                                        | Retorna cabecalho da auditoria                                         |
-| GET    | /api/auditorias/:id/itens            | Usuario                    | Loja obrigatoria     | situacao, conforme, q, page, limit       | Pagina itens detalhados                                                |
-| POST   | /api/auditorias/cancelar-dia         | SUPER_ADMIN                | Loja obrigatoria     | tipo, data, motivo opcional, lojaId      | Cria cancelamento do dia sem planilha enviada                          |
-| POST   | /api/auditorias/:id/cancelar         | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | motivo opcional, lojaId para SUPER_ADMIN | Cancela auditoria da loja, zera metricas do dia e recalcula acumulados |
-| DELETE | /api/auditorias/:id                  | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | -                                        | Remove auditoria e seus itens                                          |
+| Metodo | Rota                                 | Auth                       | Escopo               | Corpo ou query principal                                 | Funcao                                                                                     |
+| ------ | ------------------------------------ | -------------------------- | -------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| GET    | /api/auditorias/regras               | Usuario                    | Nenhum               | -                                                        | Retorna matriz REGRAS                                                                      |
+| POST   | /api/auditorias/upload               | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | multipart arquivo, opcional tipo                         | Cria job de processamento de auditoria e devolve jobId                                     |
+| GET    | /api/auditorias/upload/:jobId/status | Usuario autenticado        | Mesmo usuario do job | jobId                                                    | Consulta progresso, etapa, resultado final ou erro do upload                               |
+| GET    | /api/auditorias                      | Usuario                    | Loja obrigatoria     | tipo, dataInicio, dataFim, page, limit, includeExcluidas | Lista auditorias; `includeExcluidas=true` tambem devolve as removidas do historico         |
+| GET    | /api/auditorias/:id                  | Usuario                    | Loja obrigatoria     | -                                                        | Retorna cabecalho da auditoria                                                             |
+| GET    | /api/auditorias/:id/itens            | Usuario                    | Loja obrigatoria     | situacao, conforme, q, page, limit                       | Pagina itens detalhados                                                                    |
+| POST   | /api/auditorias/cancelar-dia         | SUPER_ADMIN                | Loja obrigatoria     | tipo, data, motivo opcional, lojaId                      | Cria cancelamento do dia sem planilha enviada                                              |
+| POST   | /api/auditorias/:id/cancelar         | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | motivo opcional, lojaId para SUPER_ADMIN                 | Cancela auditoria da loja, zera metricas do dia e recalcula acumulados                     |
+| DELETE | /api/auditorias/:id                  | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | -                                                        | Remove a auditoria do historico visivel, preservando o registro para calendario e reupload |
 
 ## Grupo Metricas
 

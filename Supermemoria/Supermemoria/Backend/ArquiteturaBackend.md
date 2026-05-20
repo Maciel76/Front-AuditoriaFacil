@@ -177,7 +177,9 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 
 ### colaboradores.routes.js
 
-- Cadastro e edicao administrativa de colaboradores, com exclusao/desativacao bloqueada no backend.
+- Cadastro e edicao administrativa de colaboradores, com exclusao fisica bloqueada no backend.
+- `GET /api/colaboradores` aceita filtro de status (`active`, `inactive`, `all`) para permitir catalogo administrativo com reativacao.
+- `PATCH /api/colaboradores/:id/ativo` marca colaborador como ativo/inativo e sincroniza a conta `Usuario` vinculada quando ela existir.
 - Autenticacao mista para avatar.
 - Self-service do portal em /portal/me e /portal/password.
 

@@ -190,6 +190,7 @@ async function carregarAuditoriasAno() {
         dataFim: `${ANO_ATUAL}-12-31`,
         limit: LIMIT_POR_PAGINA,
         page,
+        includeExcluidas: true,
       };
 
       if (auth.isSuperAdmin) params.lojaId = lojaId;
@@ -246,7 +247,7 @@ function descreverStatus(status, auditoria) {
   if (status === "canceled") return "Cancelada";
   if (status === "uploaded") {
     if (auditoria?.status === "PROCESSANDO") return "Processando";
-    return "Enviada";
+    return "Realizada";
   }
   if (status === "error") return "Falha";
   if (status === "upcoming") return "Programada";
@@ -324,7 +325,7 @@ function formatarDataPtBr(chaveData) {
       </div>
 
       <div class="audit-calendar-legend">
-        <span><i class="uploaded"></i> Enviada</span>
+        <span><i class="uploaded"></i> Realizada</span>
         <span><i class="pending"></i> Pendente</span>
         <span><i class="canceled"></i> Cancelada</span>
         <span><i class="upcoming"></i> Programada</span>

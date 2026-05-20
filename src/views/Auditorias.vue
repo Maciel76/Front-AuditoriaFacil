@@ -16,15 +16,6 @@ const auth = useAuthStore();
 const router = useRouter();
 const fileInput = ref(null);
 
-// Detecta tipo sugerido pelo dia da semana: 1=Seg,4=Qui→ETIQUETA, 2=Ter→PRESENCA, 3=Qua→RUPTURA
-function tipoSugeridoHoje() {
-  const d = new Date().getDay(); // 0=Dom
-  if (d === 1 || d === 4) return "ETIQUETA";
-  if (d === 2) return "PRESENCA";
-  if (d === 3) return "RUPTURA";
-  return "";
-}
-
 function formatBytes(bytes = 0) {
   if (!bytes) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
@@ -40,7 +31,7 @@ const enviando = ref(false);
 const dragOver = ref(false);
 const arquivo = ref(null); // arquivo atualmente em processamento
 const fila = ref([]); // [{id, file, status, erro, resultado}]
-const tipoForcado = ref(tipoSugeridoHoje());
+const tipoForcado = ref("");
 const ultimoResultado = ref(null);
 const progressoUpload = ref(0);
 const etapaUpload = ref("idle");
@@ -56,11 +47,15 @@ let simulacaoProcessamento = null;
 const auditorias = ref([]);
 const carregando = ref(true);
 const filtroTipo = ref("");
+const totalAuditorias = ref(0);
+const paginaHistorico = ref(1);
+const carregandoMaisHistorico = ref(false);
 const lojasDisponiveis = ref([]);
 const lojaDestinoId = ref("");
 const carregandoLojas = ref(false);
 const erroLojas = ref("");
 const ultimaLojaProcessada = ref(null);
+const HISTORICO_LIMITE = 50;
 
 const lojaDestino = computed(
   () =>
@@ -73,6 +68,13 @@ const uploadBloqueadoSemLoja = computed(
 const podeSelecionarArquivo = computed(
   () => !uploadBloqueadoSemLoja.value && !carregandoLojas.value,
 );
+const historicoTemMais = computed(
+  () => auditorias.value.length < totalAuditorias.value,
+);
+const historicoResumo = computed(() => {
+  if (!totalAuditorias.value) return "";
+  return `Exibindo ${auditorias.value.length} de ${totalAuditorias.value} auditorias`;
+});
 
 function paramsEscopoLoja(extra = {}) {
   if (auth.isSuperAdmin && lojaDestinoId.value)
@@ -127,24 +129,40 @@ async function carregarLojasDestino() {
   }
 }
 
-async function listar() {
+async function listar({ append = false } = {}) {
   if (auth.isSuperAdmin && !lojaDestinoId.value) {
     auditorias.value = [];
+    totalAuditorias.value = 0;
+    paginaHistorico.value = 1;
     carregando.value = false;
     return;
   }
 
-  carregando.value = true;
+  const pagina = append ? paginaHistorico.value + 1 : 1;
+  if (append) carregandoMaisHistorico.value = true;
+  else carregando.value = true;
+
   try {
-    const params = {};
+    const params = { page: pagina, limit: HISTORICO_LIMITE };
     if (filtroTipo.value) params.tipo = filtroTipo.value;
     const { data } = await api.get("/auditorias", {
       params: paramsEscopoLoja(params),
     });
-    auditorias.value = data.items;
+    const itens = Array.isArray(data?.items) ? data.items : [];
+    totalAuditorias.value = Number(data?.total || 0);
+    paginaHistorico.value = Number(data?.page || pagina);
+
+    if (append) auditorias.value = [...auditorias.value, ...itens];
+    else auditorias.value = itens;
   } finally {
-    carregando.value = false;
+    if (append) carregandoMaisHistorico.value = false;
+    else carregando.value = false;
   }
+}
+
+async function carregarMaisHistorico() {
+  if (!historicoTemMais.value || carregandoMaisHistorico.value) return;
+  await listar({ append: true });
 }
 
 async function trocarLojaDestino() {
@@ -471,15 +489,6 @@ async function confirmarReclassificar() {
   }
 }
 
-const nomeDiaSemana = [
-  "Domingo",
-  "Segunda",
-  "Terça",
-  "Quarta",
-  "Quinta",
-  "Sexta",
-  "Sábado",
-][new Date().getDay()];
 const tipoLabels = {
   ETIQUETA: "Etiqueta",
   PRESENCA: "Presença",
@@ -601,19 +610,18 @@ onBeforeUnmount(() => {
             <h3 class="mt-0 mb-0">
               <fa icon="cloud-arrow-up" /> Enviar planilha de auditoria
             </h3>
-            <div
-              v-if="tipoForcado"
-              class="row mt-1"
-              style="font-size: 13px; gap: 8px"
-            >
-              <span class="badge" :class="'tipo-' + tipoForcado"
-                ><fa icon="calendar" /> {{ nomeDiaSemana }} →
-                {{ tipoLabels[tipoForcado] }} sugerido</span
+            <div class="row mt-1" style="font-size: 13px; gap: 8px">
+              <span
+                v-if="tipoForcado"
+                class="badge"
+                :class="'tipo-' + tipoForcado"
               >
-              <span class="muted">Você pode alterar o tipo acima</span>
-            </div>
-            <div v-else class="muted mt-1" style="font-size: 13px">
-              Defina manualmente ou deixe a detecção automática agir.
+                Tipo manual: {{ tipoLabels[tipoForcado] }}
+              </span>
+              <span class="muted">
+                No automático, o sistema usa a data da planilha: seg/qui
+                etiqueta, ter presença, qua ruptura.
+              </span>
             </div>
           </div>
 
@@ -1037,110 +1045,139 @@ onBeforeUnmount(() => {
       <div v-else-if="!auditorias.length" class="empty">
         Nenhuma auditoria encontrada.
       </div>
-      <div v-else class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Tipo</th>
-              <th>Data</th>
-              <th>Itens lidos</th>
-              <th>Conclusão</th>
-              <th>Pontuação</th>
-              <th>Custo Ruptura</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="a in auditorias"
-              :key="a._id"
-              :class="a.status === 'CANCELADA' ? 'auditoria-cancelada-row' : ''"
-            >
-              <td>
-                <span class="badge" :class="'tipo-' + a.tipo">{{
-                  a.tipo
-                }}</span>
-                <span
-                  class="badge audit-status-badge"
-                  :class="statusAuditoria(a).klass"
-                >
-                  {{ statusAuditoria(a).text }}
-                </span>
-                <span
-                  v-if="semLeitura(a)"
-                  class="badge warn audit-status-badge"
-                  title="Nenhum colaborador realizou leituras nessa auditoria. Considere cancelá-la."
-                >
-                  <fa icon="triangle-exclamation" /> Sem leituras
-                </span>
-              </td>
-              <td>{{ new Date(a.data).toLocaleDateString("pt-BR") }}</td>
-              <td>
-                {{ a.totalLidos?.toLocaleString("pt-BR") }} /
-                {{ a.totalItens?.toLocaleString("pt-BR") }}
-              </td>
-              <td>
-                <div class="row gap-2">
-                  {{ a.taxaConformidade?.toFixed(1) }}%
-                  <div class="progress" style="flex: 1; min-width: 60px">
-                    <span
-                      :style="{
-                        width: Math.min(100, a.taxaConformidade || 0) + '%',
-                      }"
-                    />
+      <div v-else>
+        <div class="row mb-2" style="font-size: 13px; align-items: center">
+          <span class="muted">{{ historicoResumo }}</span>
+          <span v-if="historicoTemMais" class="spacer" />
+          <span v-if="historicoTemMais" class="badge dim"
+            >Mais planilhas disponíveis</span
+          >
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Data</th>
+                <th>Itens lidos</th>
+                <th>Conclusão</th>
+                <th>Pontuação</th>
+                <th>Custo Ruptura</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="a in auditorias"
+                :key="a._id"
+                :class="
+                  a.status === 'CANCELADA' ? 'auditoria-cancelada-row' : ''
+                "
+              >
+                <td>
+                  <span class="badge" :class="'tipo-' + a.tipo">{{
+                    a.tipo
+                  }}</span>
+                  <span
+                    class="badge audit-status-badge"
+                    :class="statusAuditoria(a).klass"
+                  >
+                    {{ statusAuditoria(a).text }}
+                  </span>
+                  <span
+                    v-if="semLeitura(a)"
+                    class="badge warn audit-status-badge"
+                    title="Nenhum colaborador realizou leituras nessa auditoria. Considere cancelá-la."
+                  >
+                    <fa icon="triangle-exclamation" /> Sem leituras
+                  </span>
+                </td>
+                <td>{{ new Date(a.data).toLocaleDateString("pt-BR") }}</td>
+                <td>
+                  {{ a.totalLidos?.toLocaleString("pt-BR") }} /
+                  {{ a.totalItens?.toLocaleString("pt-BR") }}
+                </td>
+                <td>
+                  <div class="row gap-2">
+                    {{ a.taxaConformidade?.toFixed(1) }}%
+                    <div class="progress" style="flex: 1; min-width: 60px">
+                      <span
+                        :style="{
+                          width: Math.min(100, a.taxaConformidade || 0) + '%',
+                        }"
+                      />
+                    </div>
                   </div>
-                </div>
-              </td>
-              <td>{{ Math.round(a.pontuacao || 0) }}</td>
-              <td>
-                <span v-if="a.custoRupturaTotal > 0" class="badge bad">
-                  R$
-                  {{
-                    a.custoRupturaTotal.toLocaleString("pt-BR", {
-                      maximumFractionDigits: 0,
-                    })
-                  }}
-                </span>
-                <span v-else class="muted">—</span>
-              </td>
-              <td class="text-right">
-                <div class="row gap-1 audit-actions">
-                  <RouterLink
-                    :to="rotaAuditoria(a._id)"
-                    class="btn ghost"
-                    title="Ver detalhes"
-                  >
-                    <fa icon="eye" />
-                  </RouterLink>
-                  <button
-                    v-if="auth.podeGerenciar && a.status !== 'CANCELADA'"
-                    class="btn ghost"
-                    title="Reclassificar tipo"
-                    @click="abrirReclassificar(a)"
-                  >
-                    <fa icon="shuffle" />
-                  </button>
-                  <button
-                    v-if="auth.podeGerenciar && a.status !== 'CANCELADA'"
-                    class="btn ghost warn"
-                    title="Cancelar auditoria (não conta nas métricas)"
-                    @click="abrirCancelar(a)"
-                  >
-                    <fa icon="ban" />
-                  </button>
-                  <button
-                    v-if="auth.podeGerenciar"
-                    class="btn ghost danger"
-                    @click="excluir(a)"
-                    title="Excluir"
-                  >
-                    <fa icon="trash" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                </td>
+                <td>{{ Math.round(a.pontuacao || 0) }}</td>
+                <td>
+                  <span v-if="a.custoRupturaTotal > 0" class="badge bad">
+                    R$
+                    {{
+                      a.custoRupturaTotal.toLocaleString("pt-BR", {
+                        maximumFractionDigits: 0,
+                      })
+                    }}
+                  </span>
+                  <span v-else class="muted">—</span>
+                </td>
+                <td class="text-right">
+                  <div class="row gap-1 audit-actions">
+                    <RouterLink
+                      :to="rotaAuditoria(a._id)"
+                      class="btn ghost"
+                      title="Ver detalhes"
+                    >
+                      <fa icon="eye" />
+                    </RouterLink>
+                    <button
+                      v-if="auth.podeGerenciar && a.status !== 'CANCELADA'"
+                      class="btn ghost"
+                      title="Reclassificar tipo"
+                      @click="abrirReclassificar(a)"
+                    >
+                      <fa icon="shuffle" />
+                    </button>
+                    <button
+                      v-if="auth.podeGerenciar && a.status !== 'CANCELADA'"
+                      class="btn ghost warn"
+                      title="Cancelar auditoria (não conta nas métricas)"
+                      @click="abrirCancelar(a)"
+                    >
+                      <fa icon="ban" />
+                    </button>
+                    <button
+                      v-if="auth.podeGerenciar"
+                      class="btn ghost danger"
+                      @click="excluir(a)"
+                      title="Excluir"
+                    >
+                      <fa icon="trash" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-if="historicoTemMais" class="row mt-2">
+          <span class="spacer" />
+          <button
+            class="btn ghost"
+            :disabled="carregandoMaisHistorico"
+            @click="carregarMaisHistorico"
+          >
+            <fa v-if="carregandoMaisHistorico" icon="spinner" :spin="true" />
+            {{
+              carregandoMaisHistorico
+                ? "Carregando mais planilhas..."
+                : `Ver mais (${totalAuditorias - auditorias.length} restantes)`
+            }}
+          </button>
+          <span class="spacer" />
+        </div>
       </div>
     </div>
 
