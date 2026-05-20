@@ -41,6 +41,19 @@
 - express-rate-limit: 300 requisicoes por minuto em /api/.
 - morgan com formato diferente por ambiente.
 
+## Publicacao atual do backend
+
+- Ambiente de producao confirmado em VPS Ubuntu 24.04.
+- Codigo publicado no caminho `/var/www/Back-AuditoriaFacil`.
+- Processo Node mantido por PM2 com o nome `flashrub-backend`.
+- Porta interna atual: `4100`.
+- O backend nao publica HTML proprio em producao; o acesso externo correto passa por `https://flashub.mywire.org/api` e `https://flashub.mywire.org/uploads`.
+- O arquivo de Nginx da publicacao atual fica em `/etc/nginx/sites-available/flashub.mywire.org` e o host exposto publica apenas `/api/` e `/uploads/`.
+- O Nginx faz redirect de HTTP para HTTPS e usa certificado Let's Encrypt para `flashub.mywire.org`.
+- A allowlist atual de CORS em producao inclui `http://localhost:5173` e `https://flashub-auditoria.vercel.app`.
+- A base MongoDB usada em producao roda localmente na mesma VPS, acessada por `MONGO_URI` apontando para `localhost:27017`.
+- O `JWT_SECRET` de producao foi definido fora do valor padrao de desenvolvimento, invalidando tokens antigos quando houve a rotacao do segredo.
+
 ## Padrrao de rotas
 
 Nao existe camada separada de controller. A logica HTTP fica nos proprios arquivos de rota com asyncHandler. O padrao praticado e:
@@ -117,6 +130,7 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 - Garante colaboradores por loja e matricula.
 - Reaproveita auditoria existente para reupload do mesmo dia e tipo.
 - Quando a auditoria existente esta `CANCELADA`, aceita o reupload como substituicao documental, mas mantem itens e metricas neutralizados.
+- Quando `totalLidos` fica abaixo do limite configurado em `Loja.regrasUpload.minItensLidosAuditoriaValida` (padrao 500), marca a auditoria como `INVALIDA`, nao grava `AuditItem`, remove qualquer `MetricaDiaria` anterior daquele dia/tipo e, em reuploads, recompõe os acumulados da loja a partir das metricas ainda validas.
 - Gera AuditItems em massa.
 - Calcula totais da auditoria e top colaboradores do upload.
 - Gera ou atualiza MetricaDiaria consolidada por loja e por colaborador.

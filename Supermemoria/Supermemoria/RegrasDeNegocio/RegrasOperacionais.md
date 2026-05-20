@@ -126,7 +126,8 @@
 - O campo `recorrente` existe no cadastro e na UI administrativa, mas hoje nao altera o algoritmo de avaliacao; ele funciona como semantica de configuracao e exibicao.
 - O campo `cor` e salvo na definicao da conquista, mas o portal usa as cores fixas de tier (`TIER_INFO`) para renderizacao principal.
 - O motor atual nao interpreta regras extras descritas apenas no texto da conquista; a avaliacao real usa somente a metrica base e as metas dos tiers.
-- O modelo atual trabalha com 5 tiers fixos (`comum`, `raro`, `epico`, `lendario`, `mitico`); qualquer expansao para mais degraus exige mudar schema, validacao e estado persistido.
+- O modelo atual trabalha com 6 tiers fixos (`comum`, `raro`, `epico`, `lendario`, `diamante`, `mitico`); qualquer expansao para mais degraus exige mudar schema, validacao e estado persistido.
+- `scripts/sync-conquistas-padrao.js` consegue acrescentar tiers padrao faltantes nas conquistas standard ja salvas, mas a reavaliacao persistida dos colaboradores continua dependendo de novo processamento ou de `scripts/recompute-acumulados.js`.
 - Nao existe recalculo historico automatico em massa quando uma conquista e criada ou alterada.
 - `POST /api/conquistas/:id/recalcular` atualmente invalida cache, mas nao reavalia todos os colaboradores.
 - A metrica `totalItensParticipacaoLoja` depende do cruzamento entre a linha diaria do colaborador e a linha consolidada da loja no mesmo `loja + tipo + data`; por isso recompute e cancelamento precisam recalcular esse acumulado junto com as demais metricas.

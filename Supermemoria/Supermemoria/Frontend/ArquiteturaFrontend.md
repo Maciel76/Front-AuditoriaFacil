@@ -255,6 +255,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Usa Cropper.js para recorte antes do upload.
 - A aba `Inicio` exibe no topo os colegas ativos da mesma loja, com cards redesenhados que mostram nome curto, cargo e KPIs resumidos e navegam para `/portal/colegas/:colegaId` ao abrir o perfil publico com foto, conquistas desbloqueadas e resultados analiticos resumidos.
 - As conquistas agora abrem um modal de detalhes ao clique/toque, com descricao completa, data de obtencao, requisitos por tier e historico de desbloqueio.
+- A conquista `PARTICIPACAO_LOJA` (`Forca-Tarefa da Loja`) usa arte por tier desbloqueado carregada de `frontend/public/image/conquistas`, posicionada no topo do card e reaproveitada no modal; os tiers atuais do portal passam por `Comum`, `Raro`, `Epico`, `Lendario`, `Diamante` e `Mitico`, e qualquer tier sem imagem cadastrada continua com fallback para o emoji original definido na conquista.
 - O overlay de detalhes da conquista usa ajustes locais no tema claro para manter contraste sobre backdrop blur.
 - O grafico historico do portal alterna automaticamente entre colunas e linha conforme a quantidade de pontos no periodo.
 - A aba `Corredores` deixou de depender do payload historico de `GET /metricas/portal/me` e passou a delegar essa experiencia ao componente `AuditoriaDodia.vue`.

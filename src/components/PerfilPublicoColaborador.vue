@@ -3,6 +3,7 @@ import { computed } from "vue";
 import AppChart from "@/components/AppChart.vue";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
 import Loader from "@/components/Loader.vue";
+import { resolverUrlMidia } from "@/utils/media";
 
 const props = defineProps({
   carregando: { type: Boolean, default: false },
@@ -23,6 +24,7 @@ const tierInfo = {
   raro: { label: "Raro", cor: "#3b82f6" },
   epico: { label: "Épico", cor: "#a855f7" },
   lendario: { label: "Lendário", cor: "#f59e0b" },
+  diamante: { label: "Diamante", cor: "#06b6d4" },
   mitico: { label: "Mítico", cor: "#ef4444" },
 };
 
@@ -79,6 +81,14 @@ const conquistasDesbloqueadas = computed(() =>
         tierSlug,
         tierLabel: conquista.tierAtualLabel || tierAtual.label,
         tierColor: conquista.tierAtualCor || tierAtual.cor,
+        imagemIcone: resolverUrlMidia(
+          conquista.tierAtualImagem ||
+          (Array.isArray(conquista.tiers)
+            ? (conquista.tiers.find(
+                (t) => String(t.nivel).toLowerCase() === tierSlug,
+              )?.imagemUrl || "")
+            : ""),
+        ),
       };
     }),
 );
@@ -361,8 +371,15 @@ function normalizarTier(valor) {
             :class="`tier-${conquista.tierSlug}`"
             :style="{ '--tier-cor': conquista.tierColor }"
           >
-            <div class="perfil-publico-conquista-icon">
-              {{ conquista.icone || "🏅" }}
+            <div class="perfil-publico-conquista-icon" :class="{ 'has-image': !!conquista.imagemIcone }">
+              <img
+                v-if="conquista.imagemIcone"
+                :src="conquista.imagemIcone"
+                :alt="conquista.nome"
+                class="perfil-publico-conquista-icon-img"
+                draggable="false"
+              />
+              <template v-else>{{ conquista.icone || "🏅" }}</template>
             </div>
 
             <div class="perfil-publico-conquista-copy">
@@ -654,6 +671,18 @@ function normalizarTier(valor) {
     color-mix(in srgb, var(--tier-cor) 58%, #000)
   );
   box-shadow: 0 10px 24px color-mix(in srgb, var(--tier-cor) 34%, transparent);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.perfil-publico-conquista-icon.has-image {
+  background: color-mix(in srgb, var(--tier-cor) 18%, transparent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--tier-cor) 24%, transparent);
+}
+.perfil-publico-conquista-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .perfil-publico-conquista-copy {

@@ -23,6 +23,7 @@ import {
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "@/services/api";
+import { resolverUrlMidia } from "@/utils/media";
 import AppChart from "@/components/AppChart.vue";
 import AuditoriaDodia from "@/components/AuditoriaDodia.vue";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
@@ -49,7 +50,7 @@ const token = ref(localStorage.getItem("na_portal_token") || "");
 const temaPortal = ref(localStorage.getItem("na_portal_tema") || "light");
 
 // ---- Estado do portal ----
-const abaAtiva = ref("inicio"); // inicio | conquistas | corredores | configuracoes
+const abaAtiva = ref("inicio"); // inicio | conquistas | corredores | ranking | configuracoes
 const perfil = ref(null);
 const metricas = ref(null);
 const conquistasResolvidas = ref([]);
@@ -64,6 +65,14 @@ const conquistaSelecionada = ref(null);
 const filtroCategoriaConq = ref("todas");
 const filtroStatusConq = ref("todas");
 const rankingGeral = ref({ posicao: null, totalColaboradores: 0, totalItensLidos: 0 });
+
+// ---- Ranking da loja (aba Ranking) ----
+const rankingLoja = ref([]);
+const carregandoRankingLoja = ref(false);
+const erroRankingLoja = ref("");
+const periodoRankingLoja = ref("7d");
+const tipoRankingLoja = ref("");
+const rankingLojaCarregado = ref(false);
 
 const avatarInput = ref(null);
 const enviandoAvatar = ref(false);
@@ -113,11 +122,12 @@ const CROP_TEMPLATE = `
 `;
 
 const TIER_INFO = {
-  comum: { label: "Comum", cor: "#94a3b8" },
-  raro: { label: "Raro", cor: "#3b82f6" },
-  epico: { label: "Épico", cor: "#a855f7" },
-  lendario: { label: "Lendário", cor: "#f59e0b" },
-  mitico: { label: "Mítico", cor: "#ef4444" },
+  comum: { ordem: 1, label: "Comum", cor: "#94a3b8" },
+  raro: { ordem: 2, label: "Raro", cor: "#3b82f6" },
+  epico: { ordem: 3, label: "Épico", cor: "#a855f7" },
+  lendario: { ordem: 4, label: "Lendário", cor: "#f59e0b" },
+  diamante: { ordem: 5, label: "Diamante", cor: "#06b6d4" },
+  mitico: { ordem: 6, label: "Mítico", cor: "#ef4444" },
 };
 
 const CATEGORIA_LABELS = {
@@ -145,6 +155,40 @@ const corPorTipo = {
   RUPTURA: "#f59e0b",
 };
 
+const CONQUISTA_TIER_IMAGES = {
+  PARTICIPACAO_LOJA: {
+    comum: "/image/conquistas/foca-tarefa-comum.png",
+    raro: "/image/conquistas/foca-tarefa-rare.png",
+    epico: "/image/conquistas/foca-tarefa-epic.png",
+    lendario: "/image/conquistas/foca-tarefa-lendary.png",
+    diamante: "/image/conquistas/foca-tarefa-diamond.png",
+    mitico: "/image/conquistas/foca-tarefa-mitico.png",
+  },
+};
+
+function imagemConquistaPorTier(conquista) {
+  if (!conquista?.desbloqueada) return "";
+
+  // Preferência: imagem cadastrada pelo admin no tier desbloqueado
+  const tierAtual = String(conquista.tierAtual || "").toLowerCase();
+  if (conquista.tierAtualImagem) return resolverUrlMidia(conquista.tierAtualImagem);
+  if (Array.isArray(conquista.tiers)) {
+    const t = conquista.tiers.find(
+      (x) => String(x.nivel).toLowerCase() === tierAtual,
+    );
+    if (t?.imagemUrl) return resolverUrlMidia(t.imagemUrl);
+  }
+
+  // Fallback: mapa estático de imagens hardcoded (compatibilidade).
+  const imagensPorTier = CONQUISTA_TIER_IMAGES[conquista.codigo];
+  if (!imagensPorTier) return "";
+  return imagensPorTier[tierAtual] || "";
+}
+
+function altImagemConquista(conquista) {
+  return [conquista?.nome, conquista?.tierAtualLabel].filter(Boolean).join(" • ");
+}
+
 const colegaIdRota = computed(() => String(route.params.colegaId || "").trim());
 const colegaIdQuery = computed(() => String(route.query.colegaId || "").trim());
 const colegaIdAtivo = computed(() => colegaIdRota.value || colegaIdQuery.value);
@@ -160,6 +204,9 @@ const tituloPerfilPublico = computed(
     colegaSelecionado.value?.nome ||
     "Perfil público",
 );
+const imagemConquistaSelecionada = computed(() =>
+  imagemConquistaPorTier(conquistaSelecionada.value),
+);
 
 // ConquistaCard como componente local definido via render function (sem template parser em runtime).
 const ConquistaCard = defineComponent({
@@ -173,6 +220,7 @@ const ConquistaCard = defineComponent({
     return () => {
       const c = props.c;
       const tierCor = c.tierAtualCor || "#94a3b8";
+      const imagemConquista = imagemConquistaPorTier(c);
       const cls = [
         "conq-card",
         c.desbloqueada ? "" : "locked",
@@ -201,9 +249,24 @@ const ConquistaCard = defineComponent({
         },
         [
           h("div", { class: "conq-card-bg" }),
-          h("div", { class: "conq-card-icon" }, [
-            c.desbloqueada ? c.icone : h("i", { class: "fa-solid fa-lock" }),
-          ]),
+          h(
+            "div",
+            {
+              class: ["conq-card-icon", imagemConquista ? "has-image" : ""],
+            },
+            [
+              c.desbloqueada
+                ? imagemConquista
+                  ? h("img", {
+                      class: "conq-icon-image",
+                      src: imagemConquista,
+                      alt: altImagemConquista(c),
+                      draggable: false,
+                    })
+                  : c.icone
+                : h("i", { class: "fa-solid fa-lock" }),
+            ],
+          ),
           h("div", { class: "conq-card-body" }, [
             c.tierAtual
               ? h("div", { class: "conq-card-tier" }, [
@@ -492,6 +555,36 @@ async function carregarPerfil() {
   rankingGeral.value = rankingResponse.data || { posicao: null, totalColaboradores: 0 };
   await carregarColegas();
 }
+
+async function carregarRankingLoja() {
+  carregandoRankingLoja.value = true;
+  erroRankingLoja.value = "";
+  try {
+    const params = { periodo: periodoRankingLoja.value };
+    if (tipoRankingLoja.value) params.tipo = tipoRankingLoja.value;
+    const { data } = await apiPortal().get(
+      "/metricas/portal/me/ranking-loja",
+      { params },
+    );
+    rankingLoja.value = data?.items || [];
+    rankingLojaCarregado.value = true;
+  } catch (e) {
+    erroRankingLoja.value =
+      e?.response?.data?.error || "Não foi possível carregar o ranking.";
+    rankingLoja.value = [];
+  } finally {
+    carregandoRankingLoja.value = false;
+  }
+}
+
+watch(abaAtiva, (nova) => {
+  if (nova === "ranking" && !carregandoRankingLoja.value) {
+    carregarRankingLoja();
+  }
+});
+watch([periodoRankingLoja, tipoRankingLoja], () => {
+  if (abaAtiva.value === "ranking") carregarRankingLoja();
+});
 
 async function carregarColegas() {
   carregandoColegas.value = true;
@@ -1538,8 +1631,8 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <p class="muted conq-summary-help">
-            Cada conquista evolui em até 5 tiers — Comum, Raro, Épico, Lendário
-            e Mítico. Continue auditando para ganhar XP bônus!
+            Cada conquista evolui em até 6 tiers — Comum, Raro, Épico, Lendário,
+            Diamante e Mítico. Continue auditando para ganhar XP bônus!
           </p>
         </section>
 
@@ -1596,6 +1689,114 @@ onBeforeUnmount(() => {
       <!-- ABA CORREDORES -->
       <main v-else-if="abaAtiva === 'corredores'" class="app-content">
         <AuditoriaDodia :token="token" />
+      </main>
+
+      <!-- ABA RANKING DA LOJA -->
+      <main v-else-if="abaAtiva === 'ranking'" class="app-content">
+        <section class="card ranking-loja-card">
+          <header class="ranking-loja-head">
+            <div>
+              <h3 class="section-title">
+                <fa icon="ranking-star" /> Ranking da loja
+              </h3>
+              <p class="muted small">
+                Compare seu desempenho com os colegas da
+                {{ lojaSelecionada?.nomeLoja || "loja" }}.
+              </p>
+            </div>
+          </header>
+
+          <div class="ranking-loja-filtros">
+            <div class="chip-group">
+              <button
+                v-for="opt in [
+                  { id: '1d', label: 'Hoje' },
+                  { id: '7d', label: '7 dias' },
+                  { id: '30d', label: 'Mês' },
+                  { id: 'ano', label: 'Ano' },
+                  { id: 'tudo', label: 'Tudo' },
+                ]"
+                :key="opt.id"
+                class="chip"
+                :class="{ active: periodoRankingLoja === opt.id }"
+                @click="periodoRankingLoja = opt.id"
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+            <div class="chip-group">
+              <button
+                class="chip"
+                :class="{ active: tipoRankingLoja === '' }"
+                @click="tipoRankingLoja = ''"
+              >
+                Todos
+              </button>
+              <button
+                v-for="t in ['ETIQUETA', 'PRESENCA', 'RUPTURA']"
+                :key="t"
+                class="chip"
+                :class="{ active: tipoRankingLoja === t }"
+                @click="tipoRankingLoja = t"
+              >
+                {{ t }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="carregandoRankingLoja" class="ranking-loja-loading">
+            <fa icon="spinner" spin /> Carregando ranking…
+          </div>
+          <div v-else-if="erroRankingLoja" class="badge bad full-w">
+            {{ erroRankingLoja }}
+          </div>
+          <div
+            v-else-if="!rankingLoja.length"
+            class="empty mini"
+            style="padding: 16px; text-align: center;"
+          >
+            Ainda não há dados de ranking neste período.
+          </div>
+          <ol v-else class="ranking-loja-list">
+            <li
+              v-for="(item, idx) in rankingLoja"
+              :key="item._id"
+              class="ranking-loja-item"
+              :class="{ 'is-me': item._id === perfil?._id, 'top-3': idx < 3 }"
+            >
+              <div class="ranking-pos">
+                <span v-if="idx === 0">🏆</span>
+                <span v-else-if="idx === 1">🥈</span>
+                <span v-else-if="idx === 2">🥉</span>
+                <span v-else>{{ idx + 1 }}</span>
+              </div>
+              <ColaboradorAvatar
+                :nome="item.nome"
+                :avatar-url="item.avatarUrl"
+                :size="40"
+                :font-size="14"
+              />
+              <div class="ranking-info">
+                <strong class="ranking-nome">
+                  {{ item.nome }}
+                  <span v-if="item._id === perfil?._id" class="badge mini ok"
+                    >você</span
+                  >
+                </strong>
+                <div class="ranking-meta muted small">
+                  <span><fa icon="book-open" /> {{ formatNum(item.totalLidos) }} lidos</span>
+                  <span v-if="item.percentualConclusao != null">
+                    · {{ Number(item.percentualConclusao).toFixed(1) }}%
+                  </span>
+                </div>
+              </div>
+              <div class="ranking-score">
+                <strong>{{ formatNum(item.pontuacao) }}</strong>
+                <span class="muted micro">pts</span>
+              </div>
+            </li>
+          </ol>
+        </section>
       </main>
 
       <!-- ABA CONFIGURAÇÕES -->
@@ -1727,6 +1928,14 @@ onBeforeUnmount(() => {
         </button>
         <button
           class="nav-btn"
+          :class="{ active: abaAtiva === 'ranking' }"
+          @click="abaAtiva = 'ranking'"
+        >
+          <fa icon="ranking-star" />
+          <span>Ranking</span>
+        </button>
+        <button
+          class="nav-btn"
           :class="{ active: abaAtiva === 'configuracoes' }"
           @click="abaAtiva = 'configuracoes'"
         >
@@ -1756,12 +1965,26 @@ onBeforeUnmount(() => {
         >
           <div class="conq-modal-head">
             <div class="conq-modal-hero">
-              <div class="conq-modal-icon">
-                {{
-                  conquistaSelecionada.desbloqueada
-                    ? conquistaSelecionada.icone
-                    : "🔒"
-                }}
+              <div
+                class="conq-modal-icon"
+                :class="{ 'has-image': !!imagemConquistaSelecionada }"
+              >
+                <img
+                  v-if="
+                    conquistaSelecionada.desbloqueada && imagemConquistaSelecionada
+                  "
+                  class="conq-icon-image"
+                  :src="imagemConquistaSelecionada"
+                  :alt="altImagemConquista(conquistaSelecionada)"
+                  draggable="false"
+                />
+                <template v-else>
+                  {{
+                    conquistaSelecionada.desbloqueada
+                      ? conquistaSelecionada.icone
+                      : "🔒"
+                  }}
+                </template>
               </div>
               <div class="conq-modal-copy">
                 <div class="conq-modal-meta">
@@ -2888,7 +3111,7 @@ onBeforeUnmount(() => {
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   background: var(--surface-strong);
   border-top: 1px solid var(--border-strong);
   padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
@@ -2979,6 +3202,21 @@ onBeforeUnmount(() => {
   );
   color: #fff;
   box-shadow: 0 18px 32px color-mix(in srgb, var(--tier-cor) 28%, transparent);
+}
+
+.conq-modal-icon.has-image {
+  overflow: hidden;
+  padding: 0;
+  background: color-mix(in srgb, var(--tier-cor) 18%, transparent);
+}
+
+.conq-modal-icon .conq-icon-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  padding: 6px;
+  border-radius: inherit;
 }
 
 .conq-modal-copy {
@@ -3411,6 +3649,107 @@ onBeforeUnmount(() => {
     min-height: 320px;
   }
 }
+
+/* ===== Ranking da loja (portal) ===== */
+.ranking-loja-card {
+  display: grid;
+  gap: 14px;
+}
+.ranking-loja-head h3 {
+  margin: 0;
+}
+.ranking-loja-head .muted.small {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+.ranking-loja-filtros {
+  display: grid;
+  gap: 8px;
+}
+.ranking-loja-filtros .chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ranking-loja-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px;
+  justify-content: center;
+  color: var(--text-dim);
+}
+.ranking-loja-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.ranking-loja-item {
+  display: grid;
+  grid-template-columns: 36px 40px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.ranking-loja-item.top-3 {
+  border-color: color-mix(in srgb, #facc15 35%, var(--border));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, #facc15 8%, var(--surface)),
+    var(--surface)
+  );
+}
+.ranking-loja-item.is-me {
+  border-color: color-mix(in srgb, #7c5cff 50%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, #7c5cff 25%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, #7c5cff 12%, var(--surface)),
+    var(--surface)
+  );
+}
+.ranking-loja-item .ranking-pos {
+  font-weight: 800;
+  font-size: 16px;
+  text-align: center;
+  color: var(--text);
+}
+.ranking-loja-item .ranking-nome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.2;
+}
+.ranking-loja-item .ranking-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 11px;
+}
+.ranking-loja-item .ranking-score {
+  text-align: right;
+  display: grid;
+  line-height: 1.1;
+}
+.ranking-loja-item .ranking-score strong {
+  font-size: 15px;
+  color: var(--text);
+}
+.badge.mini {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+.micro {
+  font-size: 10px;
+}
 </style>
 
 <style>
@@ -3471,6 +3810,19 @@ onBeforeUnmount(() => {
   background: linear-gradient(135deg, #475569, #1f2937);
   box-shadow: none;
   font-size: 24px;
+}
+.conq-card-icon.has-image {
+  overflow: hidden;
+  padding: 0;
+  background: color-mix(in srgb, var(--tier-cor) 18%, transparent);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--tier-cor) 35%, transparent);
+}
+.conq-card-icon .conq-icon-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: inherit;
 }
 .conq-card-body {
   position: relative;

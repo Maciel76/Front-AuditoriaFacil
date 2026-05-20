@@ -93,7 +93,7 @@ Representa a definicao mestre de uma conquista configuravel do sistema de gamifi
 ### Comportamentos
 
 - Mantem tiers ordenados por meta no pre-save.
-- Define os tiers aceitos do sistema (`comum`, `raro`, `epico`, `lendario`, `mitico`).
+- Define os tiers aceitos do sistema (`comum`, `raro`, `epico`, `lendario`, `diamante`, `mitico`).
 - Define tambem as metricas base suportadas para avaliacao de conquistas e os tipos aceitos para escopo opcional.
 
 ## Auditoria

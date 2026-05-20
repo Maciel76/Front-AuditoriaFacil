@@ -107,11 +107,12 @@ O conjunto default atual inclui tambem 6 conquistas por tipo, sincronizaveis em 
 
 ## Limitacoes confirmadas no modelo atual
 
-- O schema aceita apenas 5 tiers fixos: `comum`, `raro`, `epico`, `lendario` e `mitico`.
+- O schema aceita 6 tiers fixos: `comum`, `raro`, `epico`, `lendario`, `diamante` e `mitico`.
 - O campo `recorrente` existe no cadastro e na UI, mas hoje nao altera a logica de avaliacao.
 - O campo `cor` e salvo em `Conquista`, mas o portal usa as cores fixas de `TIER_INFO` por tier na renderizacao principal.
 - O motor interpreta apenas `valor >= meta`; regras extras descritas em texto nao sao executadas sozinhas.
 - Criar ou editar uma conquista nao dispara recalculo historico automatico em todos os colaboradores.
+- `node --env-file=.env scripts/sync-conquistas-padrao.js` agora injeta tiers padrao ausentes em conquistas standard ja existentes, mas a reavaliacao persistida de XP/tier dos colaboradores continua dependendo de novo ciclo do motor ou de `scripts/recompute-acumulados.js`.
 - `totalItensParticipacaoLoja` nao retroage para colaboradores que nao participaram das auditorias antigas; o acumulado nasce da participacao diaria registrada.
 
 ## O que a UI do portal realmente consome

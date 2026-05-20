@@ -8,6 +8,7 @@
  */
 import { computed, onMounted, ref } from "vue";
 import api from "@/services/api";
+import { resolverUrlMidia } from "@/utils/media";
 import Loader from "@/components/Loader.vue";
 
 const carregando = ref(false);
@@ -26,11 +27,14 @@ const filtroCategoria = ref("");
 const editorAberto = ref(false);
 const editando = ref(null);
 
+const TIER_ORDER = ["comum", "raro", "epico", "lendario", "diamante", "mitico"];
+
 const TIER_LABELS = {
   comum: { label: "Comum", cor: "#94a3b8", emoji: "⚪" },
   raro: { label: "Raro", cor: "#3b82f6", emoji: "🔵" },
   epico: { label: "Épico", cor: "#a855f7", emoji: "🟣" },
   lendario: { label: "Lendário", cor: "#f59e0b", emoji: "🟠" },
+  diamante: { label: "Diamante", cor: "#06b6d4", emoji: "💎" },
   mitico: { label: "Mítico", cor: "#ef4444", emoji: "🔴" },
 };
 
@@ -79,9 +83,9 @@ function formularioVazio() {
     ativa: true,
     ordem: 100,
     tiers: [
-      { nivel: "comum", meta: 100, xpBonus: 25, titulo: "" },
-      { nivel: "raro", meta: 500, xpBonus: 75, titulo: "" },
-      { nivel: "epico", meta: 1000, xpBonus: 150, titulo: "" },
+      { nivel: "comum", meta: 100, xpBonus: 25, titulo: "", imagemUrl: "" },
+      { nivel: "raro", meta: 500, xpBonus: 75, titulo: "", imagemUrl: "" },
+      { nivel: "epico", meta: 1000, xpBonus: 150, titulo: "", imagemUrl: "" },
     ],
   };
 }
@@ -116,6 +120,7 @@ function abrirEdicao(c) {
       meta: t.meta,
       xpBonus: t.xpBonus || 0,
       titulo: t.titulo || "",
+      imagemUrl: t.imagemUrl || "",
     })),
   };
   erro.value = "";
@@ -129,20 +134,46 @@ function fecharEditor() {
 }
 
 function adicionarTier() {
-  const tiersOrd = ["comum", "raro", "epico", "lendario", "mitico"];
   const usados = new Set(form.value.tiers.map((t) => t.nivel));
-  const proximo = tiersOrd.find((n) => !usados.has(n)) || "comum";
+  const proximo = TIER_ORDER.find((n) => !usados.has(n)) || "comum";
   const ultima = form.value.tiers[form.value.tiers.length - 1];
   form.value.tiers.push({
     nivel: proximo,
     meta: ultima ? ultima.meta * 5 : 100,
     xpBonus: ultima ? ultima.xpBonus * 2 : 25,
     titulo: "",
+    imagemUrl: "",
   });
 }
 
 function removerTier(i) {
   form.value.tiers.splice(i, 1);
+}
+
+const uploadingTier = ref({});
+async function uparImagemTier(event, idx, tier) {
+  const file = event.target?.files?.[0];
+  if (!file) return;
+  const key = `${idx}-${tier.nivel}`;
+  uploadingTier.value = { ...uploadingTier.value, [key]: true };
+  try {
+    const fd = new FormData();
+    fd.append("imagem", file);
+    fd.append("codigo", form.value.codigo || "conq");
+    fd.append("nivel", tier.nivel || "tier");
+    const { data } = await api.post("/conquistas/upload-imagem", fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    tier.imagemUrl = data.url || "";
+  } catch (e) {
+    erro.value = e?.response?.data?.error || "Falha no upload da imagem";
+  } finally {
+    uploadingTier.value = { ...uploadingTier.value, [key]: false };
+    if (event.target) event.target.value = "";
+  }
+}
+function removerImagemTier(tier) {
+  tier.imagemUrl = "";
 }
 
 async function carregar() {
@@ -188,6 +219,7 @@ async function salvar() {
           meta: Number(t.meta),
           xpBonus: Number(t.xpBonus) || 0,
           titulo: t.titulo || "",
+          imagemUrl: (t.imagemUrl || "").trim(),
         }))
         .sort((a, b) => a.meta - b.meta),
     };
@@ -244,7 +276,7 @@ onMounted(carregar);
         </h2>
         <p class="muted page-sub">
           Defina os marcos que motivam os colaboradores. Cada conquista pode ter
-          múltiplos tiers — Raro, Épico, Lendário, Mítico — desbloqueados
+          múltiplos tiers — Comum, Raro, Épico, Lendário, Diamante e Mítico — desbloqueados
           conforme o colaborador progride na métrica.
         </p>
       </div>
@@ -455,17 +487,7 @@ onMounted(carregar);
               :style="{ borderColor: TIER_LABELS[t.nivel]?.cor }"
             >
               <select v-model="t.nivel" class="tier-select">
-                <option
-                  v-for="opt in [
-                    'comum',
-                    'raro',
-                    'epico',
-                    'lendario',
-                    'mitico',
-                  ]"
-                  :key="opt"
-                  :value="opt"
-                >
+                <option v-for="opt in TIER_ORDER" :key="opt" :value="opt">
                   {{ TIER_LABELS[opt]?.emoji }} {{ TIER_LABELS[opt]?.label }}
                 </option>
               </select>
@@ -486,6 +508,22 @@ onMounted(carregar);
                 placeholder="título (opcional)"
                 class="tier-input wide"
               />
+              <label class="tier-upload" :class="{ uploading: uploadingTier[`${i}-${t.nivel}`] }">
+                <fa :icon="uploadingTier[`${i}-${t.nivel}`] ? 'spinner' : 'upload'" :spin="uploadingTier[`${i}-${t.nivel}`]" />
+                <span>{{ t.imagemUrl ? "Trocar imagem" : "Selecionar imagem" }}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  @change="uparImagemTier($event, i, t)"
+                />
+              </label>
+              <div v-if="t.imagemUrl" class="tier-img-preview">
+                <img :src="resolverUrlMidia(t.imagemUrl)" :alt="`Imagem ${t.nivel}`" />
+                <button type="button" class="tier-img-remove" @click="removerImagemTier(t)" title="Remover imagem">
+                  <fa icon="xmark" />
+                </button>
+              </div>
               <button class="btn ghost" @click="removerTier(i)">
                 <fa icon="trash" />
               </button>
@@ -643,6 +681,63 @@ onMounted(carregar);
   border: 1px solid var(--border);
   border-left-width: 4px;
   border-radius: 12px;
+}
+.tier-edit-row > .tier-input.wide:nth-of-type(2),
+.tier-edit-row > .tier-upload,
+.tier-edit-row > .tier-img-preview {
+  grid-column: 1 / -1;
+}
+.tier-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px dashed var(--border-strong, var(--border));
+  border-radius: 10px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font-size: 13px;
+  user-select: none;
+  width: max-content;
+}
+.tier-upload:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.tier-upload.uploading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.tier-img-preview {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  display: grid;
+  place-items: center;
+}
+.tier-img-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tier-img-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
 }
 .tier-select,
 .tier-input {

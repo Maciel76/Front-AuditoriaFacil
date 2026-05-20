@@ -78,10 +78,10 @@
 - Se o codigo mudar, o motor passa a tratar a conquista como uma definicao nova.
 - Isso pode levar a reprocessamento inesperado do estado e novo credito de `xpBonus` em avaliacao futura.
 
-### O sistema continua com 5 tiers fixos
+### O sistema continua com 6 tiers fixos
 
-- O schema atual aceita apenas `comum`, `raro`, `epico`, `lendario` e `mitico`.
-- Se houver necessidade de mais degraus reais por conquista, isso exige mudanca de model, validacao, cache e estado persistido do colaborador.
+- O schema atual aceita `comum`, `raro`, `epico`, `lendario`, `diamante` e `mitico`.
+- Se houver necessidade de mais degraus reais por conquista alem desses 6, isso exige mudanca de model, validacao, cache e estado persistido do colaborador.
 
 ### `recorrente` nao muda a logica hoje
 
@@ -98,7 +98,8 @@
 - Nao existe rotina nativa de reavaliacao em massa de todos os colaboradores.
 - `POST /api/conquistas/:id/recalcular` so invalida cache de definicoes.
 - O comportamento consolidado acontece quando `avaliarConquistas(colab)` roda novamente no fluxo de upload.
-- Para inserir seeds padrao ausentes em bases ja populadas, use `node --env-file=.env scripts/sync-conquistas-padrao.js`.
+- Para inserir conquistas padrao ausentes ou tiers padrao faltantes em bases ja populadas, use `node --env-file=.env scripts/sync-conquistas-padrao.js`.
+- Depois de acrescentar um tier novo em conquistas ja existentes, rode `node --env-file=.env scripts/recompute-acumulados.js` se precisar refletir tier e XP persistidos imediatamente em toda a base.
 
 ### Regras extras em texto nao sao executadas
 
