@@ -166,6 +166,7 @@
 - O modal de detalhe da conquista nao exibe mais a grade superior de cards-resumo; o foco fica direto na lista de requisitos, e os tiers desbloqueados recebem um fundo esverdeado para sinalizar conclusao visual imediata.
 - A aba `Inicio` passou a abrir com uma lista de colegas ativos da mesma loja e cada card navega para a pagina `/portal/colegas/:colegaId`, onde `PerfilPublicoColaborador.vue` renderiza o perfil publico do colega.
 - `PerfilPublicoColaborador.vue` exibe no topo do perfil publico o nivel do colega, total de auditorias realizadas e total acumulado de itens lidos, alem das conquistas e do historico analitico.
+- As conquistas exibidas em `PerfilPublicoColaborador.vue` tambem disparam o mesmo modal de detalhes usado na grade principal do portal; assim, ao visitar um colega, o colaborador consegue abrir a conquista e ver o progresso, requisitos por tier e historico daquele colega.
 - No mobile, o hero de `PerfilPublicoColaborador.vue` preserva a foto do colega, compacta a tipografia e reorganiza os indicadores em grade responsiva para evitar quebra ruim e sobras de espaco em telas estreitas.
 - Ao abrir um perfil publico em `ColaboradorPortal.vue`, a topbar superior mostra apenas o contexto `Perfil público`; o nome do colega fica concentrado no card de apresentacao para evitar duplicidade visual.
 - Os indicadores do hero em `PerfilPublicoColaborador.vue` foram simplificados para um resumo menor, com fundo transparente, sem bordas e icones compactos.

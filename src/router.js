@@ -52,7 +52,7 @@ const routes = [
         component: () => import("@/views/AuditoriasCalendario.vue"),
       },
       {
-        path: "auditorias/:id",
+        path: "auditorias/:id([0-9a-fA-F]{24})",
         name: "auditoria-detalhe",
         component: () => import("@/views/AuditoriaDetalhe.vue"),
       },

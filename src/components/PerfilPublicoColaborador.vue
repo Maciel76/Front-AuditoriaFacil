@@ -13,6 +13,8 @@ const props = defineProps({
   rankingGeral: { type: Object, default: () => null },
 });
 
+const emit = defineEmits(["select-conquista"]);
+
 const corPorTipo = {
   ETIQUETA: "#7c5cff",
   PRESENCA: "#22d3ee",
@@ -226,6 +228,10 @@ function normalizarTier(valor) {
 
   return tierInfo[tier] ? tier : "comum";
 }
+
+function selecionarConquista(conquista) {
+  emit("select-conquista", conquista);
+}
 </script>
 
 <template>
@@ -364,12 +370,15 @@ function normalizarTier(valor) {
         </div>
 
         <div v-else class="perfil-publico-conquistas">
-          <article
+          <button
             v-for="conquista in conquistasDesbloqueadas"
             :key="conquista.codigo"
+            type="button"
             class="perfil-publico-conquista"
             :class="`tier-${conquista.tierSlug}`"
             :style="{ '--tier-cor': conquista.tierColor }"
+            :aria-label="`Abrir detalhes da conquista ${conquista.nome}`"
+            @click="selecionarConquista(conquista)"
           >
             <div class="perfil-publico-conquista-icon" :class="{ 'has-image': !!conquista.imagemIcone }">
               <img
@@ -395,7 +404,7 @@ function normalizarTier(valor) {
                 tiers
               </small>
             </div>
-          </article>
+          </button>
         </div>
       </section>
 
@@ -637,11 +646,16 @@ function normalizarTier(valor) {
   --tier-cor: #94a3b8;
   position: relative;
   overflow: hidden;
+  width: 100%;
   padding: 16px;
   display: grid;
   grid-template-columns: 48px 1fr;
   gap: 12px;
   align-items: center;
+  appearance: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
   border-color: color-mix(in srgb, var(--tier-cor) 22%, var(--border));
   background:
     radial-gradient(
@@ -655,6 +669,20 @@ function normalizarTier(valor) {
       color-mix(in srgb, var(--surface-strong) 92%, transparent)
     );
   box-shadow: 0 12px 28px color-mix(in srgb, var(--tier-cor) 12%, transparent);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.perfil-publico-conquista:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px color-mix(in srgb, var(--tier-cor) 18%, transparent);
+}
+
+.perfil-publico-conquista:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--tier-cor) 72%, white 28%);
+  outline-offset: 2px;
 }
 
 .perfil-publico-conquista-icon {

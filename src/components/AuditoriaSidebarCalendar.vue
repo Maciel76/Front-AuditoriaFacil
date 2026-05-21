@@ -442,15 +442,15 @@ function formatarDataPtBr(chaveData) {
 }
 
 .audit-calendar-stat.uploaded {
-  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.22);
 }
 
 .audit-calendar-stat.pending {
-  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.22);
 }
 
 .audit-calendar-stat.canceled {
-  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.22);
 }
 
 .audit-calendar-legend {

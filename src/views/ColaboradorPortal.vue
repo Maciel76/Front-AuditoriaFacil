@@ -1489,6 +1489,7 @@ onBeforeUnmount(() => {
           :perfil="perfilPublicoColega"
           :colega-resumo="colegaSelecionado"
           :ranking-geral="perfilPublicoColega?.rankingGeral || null"
+          @select-conquista="abrirDetalheConquista"
         />
       </main>
 
@@ -1883,14 +1884,17 @@ onBeforeUnmount(() => {
                     ><fa icon="book-open" />
                     {{ formatNum(item.totalLidos) }} lidos</span
                   >
+                  <span v-if="item.pontuacao != null">
+                    · <fa icon="bolt" /> {{ formatNum(item.pontuacao) }} pts
+                  </span>
                   <span v-if="item.percentualConclusao != null">
                     · {{ Number(item.percentualConclusao).toFixed(1) }}%
                   </span>
                 </div>
               </div>
               <div class="ranking-score">
-                <strong>{{ formatNum(item.pontuacao) }}</strong>
-                <span class="muted micro">pts</span>
+                <strong>{{ formatNum(item.totalLidos) }}</strong>
+                <span class="muted micro">lidos</span>
               </div>
             </li>
           </ol>

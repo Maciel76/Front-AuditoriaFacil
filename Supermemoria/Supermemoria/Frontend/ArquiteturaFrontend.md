@@ -136,6 +136,14 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Consulta GET /auditorias para historico.
 - Faz POST /auditorias/upload, consulta GET /auditorias/upload/:jobId/status e DELETE /auditorias/:id.
 
+### AuditoriasCalendario.vue
+
+- View dedicada ao calendario anual de auditorias, consumindo o componente `AuditoriaSidebarCalendar.vue` com escopo da loja atual.
+- Para SUPER_ADMIN, reutiliza a loja persistida do contexto de auditorias e permite trocar a unidade antes de montar o calendario.
+- O botao `Compartilhar` exporta um PNG fiel da tela inteira do calendario usando `utils/captureExport.js`, preservando tema, select atual, badges e grade mensal.
+- Os cards-resumo de enviadas, pendentes e canceladas usam borda colorida real em vez de `box-shadow` inset, evitando que o html2canvas pinte o interior inteiro do card na exportacao.
+- A navegacao do calendario nao pode mais colidir com o detalhe de auditoria: a rota `auditorias/:id` foi restringida a ObjectId, impedindo que `/auditorias/calendario` seja interpretada como um id dinamico.
+
 ### AuditoriaDetalhe.vue
 
 - Busca cabecalho da auditoria e itens filtraveis.
