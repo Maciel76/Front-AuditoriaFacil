@@ -112,7 +112,8 @@ O conjunto default atual inclui tambem 6 conquistas por tipo, sincronizaveis em 
 - O campo `cor` e salvo em `Conquista`, mas o portal usa as cores fixas de `TIER_INFO` por tier na renderizacao principal.
 - O motor interpreta apenas `valor >= meta`; regras extras descritas em texto nao sao executadas sozinhas.
 - Criar ou editar uma conquista nao dispara recalculo historico automatico em todos os colaboradores.
-- `node --env-file=.env scripts/sync-conquistas-padrao.js` agora injeta tiers padrao ausentes em conquistas standard ja existentes, mas a reavaliacao persistida de XP/tier dos colaboradores continua dependendo de novo ciclo do motor ou de `scripts/recompute-acumulados.js`.
+- No bootstrap do backend, `server.js` agora chama `sincronizarConquistasPadrao()` apos o seed inicial; com isso, bases antigas recebem automaticamente conquistas padrao faltantes e tiers novos no restart/deploy.
+- `node --env-file=.env scripts/sync-conquistas-padrao.js` continua disponivel para manutencao manual e ainda pode ser usado antes de `scripts/recompute-acumulados.js` quando for preciso forcar a sincronizacao fora do ciclo normal de deploy.
 - `totalItensParticipacaoLoja` nao retroage para colaboradores que nao participaram das auditorias antigas; o acumulado nasce da participacao diaria registrada.
 
 ## O que a UI do portal realmente consome

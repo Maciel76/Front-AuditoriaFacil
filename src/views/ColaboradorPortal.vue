@@ -23,7 +23,11 @@ import {
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "@/services/api";
-import { resolverUrlMidia } from "@/utils/media";
+import {
+  precarregarImagem,
+  precarregarImagens,
+  resolverUrlMidia,
+} from "@/utils/media";
 import AppChart from "@/components/AppChart.vue";
 import AuditoriaDodia from "@/components/AuditoriaDodia.vue";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
@@ -197,6 +201,38 @@ function altImagemConquista(conquista) {
     .join(" • ");
 }
 
+function ordenarConquistasPorRelevancia(lista) {
+  return [...(lista || [])].sort((a, b) => {
+    if (a.desbloqueada !== b.desbloqueada) return a.desbloqueada ? -1 : 1;
+    return (b.totalTiersDesbloqueados || 0) - (a.totalTiersDesbloqueados || 0);
+  });
+}
+
+function coletarUrlsImagensConquistas(lista) {
+  return Array.from(
+    new Set(
+      ordenarConquistasPorRelevancia(lista)
+        .map((conquista) =>
+          conquista?.desbloqueada ? imagemConquistaPorTier(conquista) : "",
+        )
+        .filter(Boolean),
+    ),
+  );
+}
+
+async function aquecerImagensConquistas(lista) {
+  const urls = coletarUrlsImagensConquistas(lista);
+  if (!urls.length) return;
+
+  await Promise.race([
+    precarregarImagens(urls, {
+      prioridadeImediata: Math.min(4, urls.length),
+      prioridade: "high",
+    }),
+    new Promise((resolve) => setTimeout(resolve, 180)),
+  ]);
+}
+
 const colegaIdRota = computed(() => String(route.params.colegaId || "").trim());
 const colegaIdQuery = computed(() => String(route.query.colegaId || "").trim());
 const colegaIdAtivo = computed(() => colegaIdRota.value || colegaIdQuery.value);
@@ -223,6 +259,7 @@ const ConquistaCard = defineComponent({
   props: {
     c: { type: Object, required: true },
     compact: { type: Boolean, default: false },
+    priority: { type: Boolean, default: false },
   },
   setup(props, { emit }) {
     return () => {
@@ -269,6 +306,11 @@ const ConquistaCard = defineComponent({
                       class: "conq-icon-image",
                       src: imagemConquista,
                       alt: altImagemConquista(c),
+                      loading: props.priority ? "eager" : "lazy",
+                      decoding: "async",
+                      fetchpriority: props.priority ? "high" : "low",
+                      width: 64,
+                      height: 64,
                       draggable: false,
                     })
                   : c.icone
@@ -435,6 +477,8 @@ function voltarParaBusca() {
 }
 
 function abrirDetalheConquista(conquista) {
+  const imagem = imagemConquistaPorTier(conquista);
+  if (imagem) void precarregarImagem(imagem, { prioridade: "high" });
   conquistaSelecionada.value = conquista;
 }
 
@@ -562,13 +606,22 @@ async function carregarPerfil() {
     lojaSlug.value = perfilData.loja.slug;
   }
 
+  const conquistasPortal = metricasResponse.data.conquistas || [];
+  const aquecimentoConquistas = aquecerImagensConquistas(conquistasPortal);
+
   metricas.value = metricasResponse.data;
+<<<<<<< HEAD
   conquistasResolvidas.value = metricasResponse.data.conquistas || [];
   rankingGeral.value = rankingResponse.data || {
     posicao: null,
     totalColaboradores: 0,
   };
+=======
+  conquistasResolvidas.value = conquistasPortal;
+  rankingGeral.value = rankingResponse.data || { posicao: null, totalColaboradores: 0 };
+>>>>>>> 63b5b89 (ruptura atualizado)
   await carregarColegas();
+  await aquecimentoConquistas;
 }
 
 async function carregarRankingLoja() {
@@ -1536,6 +1589,7 @@ onBeforeUnmount(() => {
               :key="c.codigo"
               :c="c"
               compact
+              priority
               @select="abrirDetalheConquista"
             />
           </div>
@@ -2017,6 +2071,11 @@ onBeforeUnmount(() => {
                   class="conq-icon-image"
                   :src="imagemConquistaSelecionada"
                   :alt="altImagemConquista(conquistaSelecionada)"
+                  loading="eager"
+                  decoding="async"
+                  fetchpriority="high"
+                  width="84"
+                  height="84"
                   draggable="false"
                 />
                 <template v-else>

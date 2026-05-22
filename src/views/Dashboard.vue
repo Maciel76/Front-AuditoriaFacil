@@ -218,6 +218,16 @@ function formatarMoedaSemCentavos(valor = 0) {
   return `R$ ${Number(valor || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
 }
 
+function custoRupturaCardTipo(tipoCard, total) {
+  if (tipo.value === 'PRESENCA' && tipoCard === 'PRESENCA') {
+    return Number(dados.value?.custoRupturaPresenca || 0);
+  }
+  if (tipo.value === 'RUPTURA' && tipoCard === 'RUPTURA') {
+    return Number(dados.value?.custoRupturaOperacionalRuptura || 0);
+  }
+  return Number(total?.custoRuptura || 0);
+}
+
 const kpis = computed(() => {
   const d = dados.value;
   if (!d) return [];
@@ -242,12 +252,33 @@ const kpis = computed(() => {
       formatter: formatarInteiro,
       icon: 'eye-slash',
     },
-    {
-      label: 'Custo ruptura',
-      value: Number(resumo.custoRupturaRuptura || 0),
-      formatter: formatarMoedaCompacta,
-      icon: 'triangle-exclamation',
-    },
+    tipo.value === 'ETIQUETA'
+      ? {
+          label: 'Etiqueta desatualizada',
+          value: Number(d.totalDesatualizados || 0),
+          formatter: formatarInteiro,
+          icon: 'tag',
+        }
+      : tipo.value === 'PRESENCA'
+      ? {
+          label: 'Custo ruptura',
+          value: Number(d.custoRupturaPresenca || 0),
+          formatter: formatarMoedaCompacta,
+          icon: 'triangle-exclamation',
+        }
+      : tipo.value === 'RUPTURA'
+      ? {
+          label: 'Custo ruptura',
+          value: Number(d.custoRupturaOperacionalRuptura || 0),
+          formatter: formatarMoedaCompacta,
+          icon: 'triangle-exclamation',
+        }
+      : {
+          label: 'Custo ruptura',
+          value: Number(resumo.custoRupturaRuptura || 0),
+          formatter: formatarMoedaCompacta,
+          icon: 'triangle-exclamation',
+        },
     {
       label: 'Total colaboradores',
       value: Number(resumo.totalColaboradores || 0),
@@ -671,8 +702,8 @@ const taxaCentro = computed(() => {
               <span class="muted">Pts</span>
               <strong><AnimatedNumber :value="Math.round(t.pontuacao)" :formatter="formatarInteiro" :duration="420" /></strong>
               <span class="spacer" />
-              <span v-if="t.custoRuptura > 0" class="badge bad">
-                <AnimatedNumber :value="t.custoRuptura" :formatter="formatarMoedaSemCentavos" :duration="420" />
+              <span v-if="custoRupturaCardTipo(key, t) > 0" class="badge bad">
+                <AnimatedNumber :value="custoRupturaCardTipo(key, t)" :formatter="formatarMoedaSemCentavos" :duration="420" />
               </span>
             </div>
           </template>

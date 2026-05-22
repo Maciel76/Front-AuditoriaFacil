@@ -98,6 +98,7 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 - Le planilhas XLSX, XLSM, XLSB, XLS, CSV e ODS.
 - Normaliza colunas por alias.
 - Converte datas, horas, numeros e booleanos.
+- O parse numerico precisa aceitar formatos mistos de exportacao (`1.234,56`, `1,234.56`, `999.70`, `1.646`) para evitar inflar ou reduzir valores como `custoRuptura`, estoque e dias sem venda quando o `xlsx` devolve strings no padrao US.
 - Extrai usuario no formato matricula + nome.
 - Detecta tipo por sheet, nome do arquivo ou situacoes encontradas.
 - Decide a data oficial pela ocorrencia mais frequente de auditadoEm.
@@ -153,6 +154,11 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 
 - Conecta no banco e chama a sincronizacao idempotente das conquistas padrao.
 - Serve para inserir novas conquistas default em ambientes que ja tinham a colecao `Conquista` populada.
+
+### scripts/reprocessar-planilha.js
+
+- Reprocessa uma planilha existente pelo fluxo oficial de upload (`processarPlanilha`) para substituir os `AuditItem`, a `Auditoria` do mesmo dia/tipo e a `MetricaDiaria` consolidada da loja.
+- Aceita `--file`, `--loja` e `--tipo` opcionais para corrigir imports antigos apos ajuste no parser sem mexer manualmente no banco.
 
 ## Rotas backend por responsabilidade
 
