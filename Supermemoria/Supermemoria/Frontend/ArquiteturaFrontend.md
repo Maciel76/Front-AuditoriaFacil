@@ -93,6 +93,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Entrar usa POST /auth/login.
 - Cadastro de loja usa POST /auth/register-loja.
 - Exibe atalho para /portal.
+- Em RUPTURA, a conformidade do KPI geral, da serie temporal e do card do tipo passa a usar a continuidade semanal da PRESENCA do dia anterior; os totais brutos de itens continuam sendo os da propria RUPTURA e o subtitulo do card mostra `concluidosContinuidade / baseContinuidade` quando houver base valida.
 
 ### Dashboard.vue
 
@@ -103,12 +104,16 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Usa PeriodoSelector com suporte a custom.
 - Renderiza cinco KPIs principais, grafico de conformidade com colunas para series esparsas e linha para periodos mais densos, alem da distribuicao por tipo.
 - Quando o periodo ativo e `1d`, o card esquerdo troca a serie temporal por `DashboardDesempenhoHoje.vue`, que consulta `GET /metricas/ranking/colaboradores` no mesmo contexto de `tipo` e `lojaId` do dashboard e exibe o desempenho dos colaboradores do dia em barras verticais ordenadas do maior para o menor volume de itens lidos, com desempate por pontuacao.
+- Quando existe continuidade valida em RUPTURA, o card do tipo troca o subtitulo bruto de conformes por `concluidosContinuidade / baseContinuidade` e exibe a taxa integrada da semana; o numero principal do card continua sendo o volume bruto lido pelo colaborador.
 - Exibe cards detalhados por tipo de auditoria e ultimas auditorias.
 - O botao Compartilhar exporta um PNG da area funcional atual do dashboard com os filtros ja aplicados.
 - Para manter fidelidade visual no light/dark, a exportacao nao deve capturar o DOM vivo diretamente: o padrao confirmado e clonar a area alvo fora da tela, sincronizar os campos de formulario, copiar os canvases dos graficos, remover estados transitorios de animacao e aplicar explicitamente o data-theme e as CSS vars do tema atual antes de chamar html2canvas.
 - O fundo final da captura deve usar os tokens do tema ativo, principalmente --bg-0, --surface e --grad-card, para evitar cards pretos/cinza ou perda do glow no tema claro.
 - Os cinco KPIs do topo seguem regra fixa baseada no periodo selecionado: Produtos auditados = soma de totalLidos das auditorias filtradas; Conclusao = media simples de taxaConformidade entre auditorias do periodo; Produtos n/auditados = contagem de AuditItem por situacao operacional (`Nao lidos com estoque` para ETIQUETA e `Sem Presenca e Com Estoque` para PRESENCA/RUPTURA), excluindo `Sem Estoque` e `Sem Presenca e Sem Estoque`; Custo ruptura = soma de custoRupturaTotal apenas das auditorias do tipo RUPTURA no periodo; Total colaboradores = quantidade distinta de colaboradores com totalLidos > 0 no periodo, independente do filtro de tipo.
 - Excecao operacional para o filtro `PRESENCA` no Dashboard: o primeiro KPI passa a representar o total de itens considerados na leitura operacional (`Com Presenca e com Estoque` + `Sem Presenca e Com Estoque`), o segundo KPI calcula a conclusao como `Com Presenca e com Estoque / total * 100`, e os rotulos do topo mudam para `Total itens` e `Itens sem presenca` para refletir essa visao.
+- A mesma continuidade semanal tambem foi aplicada aos perfis analiticos de loja e colaborador: no perfil de loja, a taxa geral, a taxa do card de RUPTURA e a serie usam a base herdada da PRESENCA anterior; no perfil de colaborador, o card de RUPTURA passa a expor e mostrar `concluidosContinuidade / baseContinuidade` com a taxa integrada quando houver referencia valida.
+- Excecao operacional para o filtro `RUPTURA` no Dashboard: o KPI `Conclusao`, o donut central e o card detalhado passam a usar a continuidade da PRESENCA do dia anterior. A base vem da PRESENCA anterior (`Com Presenca e com Estoque` + `Sem Presenca e Com Estoque`) e a taxa final vira `(base - restantes da ruptura) / base`, onde `restantes da ruptura` e `Sem Presenca e Com Estoque` da RUPTURA atual.
+- Essa continuidade so deve ser aplicada quando a PRESENCA de referencia e exatamente o dia anterior da RUPTURA e as duas auditorias pertencem a mesma semana operacional.
 - Quando o filtro `PRESENCA` esta ativo, o KPI superior `Custo ruptura` e o badge do card detalhado de PRESENCA devem usar `custoRupturaPresenca` (soma de `AuditItem.custoRuptura` apenas para itens `Sem Presenca e Com Estoque`) em vez do custo consolidado geral de PRESENCA, que tambem inclui outras nao conformidades como `Lido nao pertence`.
 - Quando o filtro `RUPTURA` esta ativo, o KPI superior `Custo ruptura` e o badge do card detalhado de RUPTURA devem usar `custoRupturaOperacionalRuptura` (tambem restrito a `Sem Presenca e Com Estoque`) em vez do custo consolidado geral do tipo.
 
@@ -144,6 +149,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - A loja escolhida no ranking de colaboradores para SUPER_ADMIN fica persistida em localStorage na chave na_ranking_colaboradores_superadmin_loja.
 - STORE_ADMIN ve apenas colaboradores da propria loja e nao possui seletor de loja.
 - Ao abrir em periodo 1d, aplica o mesmo tipo padrao por dia util usado em relatorios (seg/qui etiqueta, ter presenca, qua ruptura) e faz fallback automatico para todos os tipos quando nao houver dados no tipo sugerido.
+- Quando o filtro ativo e `RUPTURA`, as porcentagens do ranking (`taxaConformidade`, `% conclusao`, `% restante`) passam a considerar a continuidade da PRESENCA do dia anterior na mesma semana; o volume de itens mostrado continua sendo o volume bruto de RUPTURA.
 - O botao `Compartilhar` exporta um PNG fiel ao estado atual da tela, incluindo filtros aplicados e render final dos cards, reutilizando o mesmo padrao de captura estabilizada do Dashboard.
 
 ### RankingLojas.vue
@@ -153,6 +159,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Aceita filtros de periodo e tipo.
 - Fica disponivel para SUPER_ADMIN e STORE_ADMIN.
 - Nao possui seletor de loja; ambos enxergam o ranking geral das lojas no periodo/tipo selecionado.
+- Quando o filtro ativo e `RUPTURA`, as porcentagens do ranking (`taxaConformidade`, `% conclusao`, `% restante`) passam a considerar a continuidade da PRESENCA do dia anterior na mesma semana; os volumes e custos exibidos continuam sendo os totais brutos de RUPTURA.
 - Destaca lojas com `auditoriasCanceladas > 0` usando alerta no podium e nas linhas da lista, mantendo os valores zerados para a auditoria cancelada.
 - O botao `Compartilhar` exporta um PNG fiel ao estado atual da tela, incluindo filtros aplicados e render final dos cards, reutilizando o mesmo padrao de captura estabilizada do Dashboard.
 
@@ -198,6 +205,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 
 - Consulta simultaneamente /metricas/relatorios/situacoes, /metricas/relatorios/classes e /metricas/relatorios/corredores.
 - Permite filtrar por periodo, custom range e tipo.
+- Quando `tipo=RUPTURA`, a taxa exibida em classes, corredores e no resumo operacional passa a usar a continuidade da PRESENCA do dia anterior na mesma semana; os contadores de itens e desvios continuam mostrando o volume bruto da RUPTURA filtrada.
 - Quando o usuario e SUPER_ADMIN, a tela tambem exibe um seletor de loja com a opcao `Todas as lojas` e propaga `lojaId` para as consultas de relatorio.
 - A loja escolhida em Relatorios.vue fica persistida em localStorage na chave na_relatorios_superadmin_loja.
 - Ao trocar tipo, periodo ou loja depois da carga inicial, a view mantém os dados atuais visíveis com estado de refresh suave e indicador `Atualizando...`, em vez de desmontar toda a tela com Loader completo.

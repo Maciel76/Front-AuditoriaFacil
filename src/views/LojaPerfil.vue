@@ -615,6 +615,15 @@ const topCorredores = computed(() =>
                   {{ formatarInteiro(item.totalItensAuditaveis) }} lidos
                 </div>
               </template>
+              <template
+                v-else-if="item.key === 'RUPTURA' && Number(item.baseContinuidade || 0) > 0"
+              >
+                <div class="muted" style="font-size: 12px; margin-top: 4px">
+                  {{ formatarInteiro(item.concluidosContinuidade) }} de
+                  {{ formatarInteiro(item.baseContinuidade) }} concluídos na
+                  continuidade
+                </div>
+              </template>
               <template v-else>
                 <div class="muted" style="font-size: 12px; margin-top: 4px">
                   {{ formatarInteiro(item.totalConformes) }} de

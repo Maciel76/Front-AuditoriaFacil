@@ -513,7 +513,15 @@ const resumoOperacional = computed(() => {
   const totalLidos = somar(base, "totalLidos");
   const totalItens = somar(base, "totalItens");
   const totalConformes = somar(base, "conformes");
-  const taxaMedia = totalLidos ? (totalConformes / totalLidos) * 100 : 0;
+  const baseContinuidadeRuptura = somar(base, "baseContinuidade");
+  const concluidosContinuidadeRuptura = somar(base, "concluidosContinuidade");
+  const usaContinuidadeRuptura =
+    tipo.value === "RUPTURA" && baseContinuidadeRuptura > 0;
+  const taxaMedia = usaContinuidadeRuptura
+    ? (concluidosContinuidadeRuptura / baseContinuidadeRuptura) * 100
+    : totalLidos
+      ? (totalConformes / totalLidos) * 100
+      : 0;
 
   return [
     {
@@ -537,7 +545,9 @@ const resumoOperacional = computed(() => {
     {
       titulo: "Conformidade média",
       valor: formatarPercentual(taxaMedia, 1),
-      detalhe: `${formatarInteiro(totalConformes)} conformes no período`,
+      detalhe: usaContinuidadeRuptura
+        ? `${formatarInteiro(concluidosContinuidadeRuptura)} concluídos de ${formatarInteiro(baseContinuidadeRuptura)} na continuidade semanal`
+        : `${formatarInteiro(totalConformes)} conformes no período`,
       tone: "info",
     },
     {

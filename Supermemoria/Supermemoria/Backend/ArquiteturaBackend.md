@@ -204,6 +204,12 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 
 ### metricas.routes.js
 
+- No dashboard com `tipo=RUPTURA`, a taxa de conclusao deixa de usar apenas `totalConformes / totalLidos` da propria ruptura. A regra operacional correta integra a PRESENCA do dia anterior: base = `Com Presenca e com Estoque` + `Sem Presenca e Com Estoque` da PRESENCA anterior; restantes = `Sem Presenca e Com Estoque` da RUPTURA atual; conclusao = `(base - restantes) / base`.
+- Essa integracao so vale quando a PRESENCA de referencia e exatamente o dia anterior da RUPTURA e ambas pertencem a mesma semana operacional.
+- Essa integracao tambem alimenta a serie temporal de RUPTURA quando o filtro do dashboard esta em `RUPTURA`, para manter o KPI superior, o donut central e o card detalhado coerentes no mesmo criterio.
+- A mesma regra de continuidade semanal foi estendida para `GET /api/metricas/ranking/colaboradores`, `GET /api/metricas/ranking/lojas`, `GET /api/metricas/relatorios/classes` e `GET /api/metricas/relatorios/corredores` quando o filtro de tipo e `RUPTURA`, ajustando as porcentagens sem trocar os volumes brutos exibidos.
+- A mesma continuidade semanal agora tambem alimenta `GET /api/metricas/lojas/:id/perfil` e `GET /api/metricas/colaboradores/:id/perfil` em RUPTURA. No perfil de loja, `totalGeral.taxaConformidade`, `totaisPorTipo.RUPTURA.taxaConformidade` e a serie temporal de RUPTURA usam a base da PRESENCA do dia anterior, enquanto os volumes brutos continuam vindo da propria RUPTURA. No perfil de colaborador, a resposta passa a expor `baseContinuidade`, `concluidosContinuidade`, `restantesContinuidade` e `taxaConformidade` para RUPTURA sem trocar `totalLidos`.
+
 - Dashboard, ultima data, rankings, perfil de colaborador, relatorios e perfil do portal.
 - Faz agregacoes diretamente sobre MetricaDiaria e AuditItem.
 - Usa uma funcao de periodo ancorada na ultima data existente na base.

@@ -91,6 +91,13 @@ const podeEditar = computed(() => auth.podeGerenciar && !!dados.value?.colaborad
 const tiposAuditoria = ['ETIQUETA', 'PRESENCA', 'RUPTURA'];
 const labelsTipo = { ETIQUETA: 'Etiqueta', PRESENCA: 'Presença', RUPTURA: 'Ruptura' };
 
+function formatarPercentual(valor = 0, casas = 1) {
+  return `${Number(valor || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: casas,
+    maximumFractionDigits: casas,
+  })}%`;
+}
+
 function preencherFormulario(colaborador) {
   formulario.value = {
     nome: colaborador?.nome || '',
@@ -463,7 +470,14 @@ async function confirmarCropAvatar() {
         <div class="label">{{ labelsTipo[t._id] || t._id }}</div>
         <div class="value">{{ Number(t.totalLidos || 0).toLocaleString('pt-BR') }}</div>
         <div class="muted" style="font-size: 12px; margin-top: 4px;">
-          {{ Number(t.totalConformes || 0).toLocaleString('pt-BR') }} conformes · {{ Math.round(t.pontuacao || 0).toLocaleString('pt-BR') }} pts
+          <template v-if="t._id === 'RUPTURA' && Number(t.baseContinuidade || 0) > 0">
+            {{ Number(t.concluidosContinuidade || 0).toLocaleString('pt-BR') }} de
+            {{ Number(t.baseContinuidade || 0).toLocaleString('pt-BR') }} concluídos ·
+            {{ formatarPercentual(t.taxaConformidade || 0) }}
+          </template>
+          <template v-else>
+            {{ Number(t.totalConformes || 0).toLocaleString('pt-BR') }} conformes · {{ Math.round(t.pontuacao || 0).toLocaleString('pt-BR') }} pts
+          </template>
         </div>
       </div>
     </div>
