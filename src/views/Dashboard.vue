@@ -279,16 +279,12 @@ const kpis = computed(() => {
           formatter: formatarMoedaCompacta,
           icon: 'triangle-exclamation',
         },
-    ...(periodo.value === '1d' || periodo.value === 'semana'
-      ? []
-      : [
-          {
-            label: 'Auditorias realizadas',
-            value: Number(resumo.totalAuditorias || 0),
-            formatter: formatarInteiro,
-            icon: 'calendar',
-          },
-        ]),
+    {
+      label: 'Auditorias realizadas',
+      value: Number(resumo.totalAuditorias || 0),
+      formatter: formatarInteiro,
+      icon: 'calendar-check',
+    },
     {
       label: 'Total colaboradores',
       value: Number(resumo.totalColaboradores || 0),
@@ -784,71 +780,6 @@ const taxaCentro = computed(() => {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-/* Em telas intermediarias, mantem todos os KPIs em uma unica linha */
-@media (max-width: 1600px) and (min-width: 901px) {
-  .kpi-grid {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 12px;
-  }
-
-  :deep(.dash-kpi-item) {
-    flex: 1 1 0;
-    min-width: 0;
-    padding: 14px 14px;
-  }
-
-  :deep(.dash-kpi-item .ico) {
-    top: 12px;
-    right: 12px;
-    width: 32px;
-    height: 32px;
-    border-radius: 9px;
-  }
-
-  :deep(.dash-kpi-item .label) {
-    font-size: 11px;
-    letter-spacing: 0.7px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding-right: 34px;
-  }
-
-  :deep(.dash-kpi-item .value) {
-    font-size: 24px;
-    white-space: nowrap;
-  }
-}
-
-@media (max-width: 1200px) and (min-width: 901px) {
-  .kpi-grid {
-    gap: 8px;
-  }
-
-  :deep(.dash-kpi-item) {
-    padding: 12px 10px;
-  }
-
-  :deep(.dash-kpi-item .ico) {
-    top: 10px;
-    right: 10px;
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-  }
-
-  :deep(.dash-kpi-item .label) {
-    font-size: 10px;
-    letter-spacing: 0.5px;
-    padding-right: 30px;
-  }
-
-  :deep(.dash-kpi-item .value) {
-    font-size: 20px;
   }
 }
 

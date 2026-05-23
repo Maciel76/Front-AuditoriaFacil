@@ -98,6 +98,8 @@
 - Interface de comparacao exclusiva para colaboradores.
 - Implementa podium para as tres primeiras posicoes e lista para as demais.
 - Recebe filtro de tipo e periodo e, para SUPER_ADMIN, filtro adicional de loja.
+- Oculta os modos `Maior pontuacao` e `Maior % de conformidade` na selecao de ranking de colaboradores.
+- Nos modos de custo, usa `custoRupturaEvitado` para ranquear o valor que cada colaborador evitou nas leituras de RUPTURA.
 - Tambem exporta um print fiel da tela atual por meio do util compartilhado de captura.
 
 ### RankingLojas.vue
@@ -105,6 +107,8 @@
 - Interface de comparacao exclusiva para lojas.
 - Implementa podium para as tres primeiras posicoes e lista para as demais.
 - Recebe filtro de tipo e periodo, sem filtro de loja.
+- Nos modos de custo, usa `custoRupturaEvitado` para ranquear o valor evitado pelas lojas nas leituras de RUPTURA.
+- Inclui o modo `Mais cancelamentos`, baseado em `auditoriasCanceladas`.
 - Tambem exporta um print fiel da tela atual por meio do util compartilhado de captura.
 
 ### Lojas.vue
@@ -112,8 +116,8 @@
 - Catalogo autenticado de lojas ativas.
 - Funciona como diretorio de entrada para os perfis analiticos publicos das lojas.
 - Usa PeriodoSelector para filtrar o resumo operacional dos cards por periodo.
-- Cada card resume auditorias por tipo, itens lidos, conformidade, pontuacao do periodo, ultima auditoria e custo de ruptura quando houver.
-- Para SUPER_ADMIN, o card tambem oferece a acao de cancelar a ultima auditoria ativa do periodo.
+- Cada card resume nome, localizacao com codigo antes da cidade, itens lidos, auditorias por tipo, ultima auditoria e custo operacional de RUPTURA quando houver; os blocos pequenos de auditorias totais, conformidade e pontuacao do periodo nao aparecem mais no card.
+- Os badges de slug/codigo, nivel/status operacional e o botao de cancelar auditoria nao aparecem mais no card do catalogo.
 
 ### LojaPerfil.vue
 
@@ -148,6 +152,7 @@
 - Catalogo global de lojas.
 - Visivel apenas para super admin.
 - Cada card tambem serve como atalho para o perfil publico autenticado da loja.
+- Em lojas ativas, oferece acao de cancelamento preventivo da auditoria do dia quando ainda nao houve upload.
 
 ### ColaboradorPortal.vue
 

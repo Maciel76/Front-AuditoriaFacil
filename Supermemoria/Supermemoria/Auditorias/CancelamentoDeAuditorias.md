@@ -6,15 +6,17 @@ O cancelamento neutraliza uma auditoria ja enviada para uma loja, tipo e dia. A 
 
 ## Quem pode cancelar
 
-- Apenas `SUPER_ADMIN`.
-- A acao fica disponivel no catalogo de lojas, em `Lojas.vue`, no card da loja dentro do periodo ativo.
+- `SUPER_ADMIN` e `STORE_ADMIN`.
+- Auditorias ja enviadas podem ser canceladas no historico em `Auditorias.vue`.
+- Auditorias do dia ainda sem planilha podem ser canceladas preventivamente em `AdminLojas.vue`.
 - O frontend envia `lojaId` por query string para manter o escopo multi-loja do backend.
 
 ## Endpoint
 
 - `POST /api/auditorias/:id/cancelar`
+- `POST /api/auditorias/cancelar-dia`
 - Auth: usuario do app principal.
-- Role: `SUPER_ADMIN`.
+- Role: `SUPER_ADMIN` ou `STORE_ADMIN`.
 - Escopo: loja obrigatoria via `escopoLoja`.
 
 ## O que o backend faz
@@ -26,6 +28,13 @@ O cancelamento neutraliza uma auditoria ja enviada para uma loja, tipo e dia. A 
 5. Mantem um registro consolidado de `MetricaDiaria` com valores zerados e `cancelada: true`, para que o ranking de lojas consiga mostrar alerta no dia/periodo.
 6. Recalcula acumulados da loja e dos colaboradores da loja a partir de `MetricaDiaria` nao cancelada.
 7. Reavalia conquistas dos colaboradores durante o recompute para reconstruir o estado atual com base nos acumulados restantes.
+
+### Cancelamento preventivo sem planilha
+
+- `POST /api/auditorias/cancelar-dia` recebe `lojaId`, `tipo`, `data` (`YYYY-MM-DD`) e motivo opcional.
+- Se nao existir auditoria para a chave `loja + tipo + data`, cria uma `Auditoria` ja com `status=CANCELADA`, totais zerados e `arquivoOriginal="Cancelamento manual sem planilha"`.
+- Tambem cria/atualiza a `MetricaDiaria` consolidada zerada e cancelada para que o ranking de lojas conte o cancelamento.
+- Se ja existir auditoria ativa para a chave, retorna 409 e orienta cancelar pelo historico de auditorias, evitando cancelar upload real por engano.
 
 ## Como reupload se comporta depois do cancelamento
 
@@ -40,12 +49,6 @@ O cancelamento neutraliza uma auditoria ja enviada para uma loja, tipo e dia. A 
 - O resultado do upload mostra status de auditoria cancelada quando o backend retorna `cancelada: true`.
 - O historico exibe badge `Cancelada` para auditorias com status `CANCELADA`.
 
-### Lojas.vue
-
-- Mostra a ultima auditoria ativa do periodo em cada card.
-- Exibe o botao de cancelamento apenas para `SUPER_ADMIN` e apenas quando existe uma auditoria ativa cancelavel no card.
-- Recarrega o catalogo apos o cancelamento para refletir o resumo zerado e a ausencia da auditoria cancelada no recorte.
-
 ### LojaPerfil.vue
 
 - Mostra badge de status nas ultimas auditorias.
@@ -55,6 +58,12 @@ O cancelamento neutraliza uma auditoria ja enviada para uma loja, tipo e dia. A 
 
 - O backend retorna `auditoriasCanceladas` por loja no periodo.
 - A UI destaca lojas com cancelamento usando alerta vermelho/amarelo no podium e na lista.
+- O seletor de modo inclui `Mais cancelamentos`, ordenando lojas por `auditoriasCanceladas`.
+
+### AdminLojas.vue
+
+- Cada card de loja ativa exibe um botao para cancelar a auditoria do dia sem planilha.
+- O modal permite escolher data, tipo e motivo, chamando `POST /api/auditorias/cancelar-dia` com `lojaId`.
 
 ## Regra de calculo
 

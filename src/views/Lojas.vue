@@ -4,12 +4,10 @@ import { useRouter } from "vue-router";
 import api from "@/services/api";
 import Loader from "@/components/Loader.vue";
 import { useAuthStore } from "@/stores/auth";
-import { useUiStore } from "@/stores/ui";
 import StoreAvatar from "@/components/StoreAvatar.vue";
 import PeriodoSelector from "@/components/PeriodoSelector.vue";
 
 const auth = useAuthStore();
-const ui = useUiStore();
 const router = useRouter();
 const carregando = ref(true);
 const atualizando = ref(false);
@@ -20,7 +18,6 @@ const dataInicio = ref("");
 const dataFim = ref("");
 const periodoApi = ref(null);
 const items = ref([]);
-const cancelandoLojaId = ref("");
 
 const labelsTipo = {
   ETIQUETA: "Etiqueta",
@@ -69,10 +66,6 @@ function formatarInteiro(valor = 0) {
   return Number(valor || 0).toLocaleString("pt-BR");
 }
 
-function formatarPontos(valor = 0) {
-  return Math.round(Number(valor || 0)).toLocaleString("pt-BR");
-}
-
 function formatarPercentual(valor = 0) {
   return `${Number(valor || 0).toLocaleString("pt-BR", {
     minimumFractionDigits: 1,
@@ -81,9 +74,12 @@ function formatarPercentual(valor = 0) {
 }
 
 function formatarMoeda(valor = 0) {
-  return `R$ ${Number(valor || 0).toLocaleString("pt-BR", {
-    maximumFractionDigits: 0,
-  })}`;
+  return Number(valor || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function formatarData(valor) {
@@ -93,8 +89,23 @@ function formatarData(valor) {
   return data.toLocaleDateString("pt-BR");
 }
 
+function localizacaoLoja(loja) {
+  const local = [loja?.cidade, loja?.estado].filter(Boolean).join(" / ");
+  return [loja?.codigo, local].filter(Boolean).join(" ") || "Local não informado";
+}
+
 function resumoLoja(loja) {
   return loja?.resumoPeriodo || resumoVazio;
+}
+
+function custoRupturaLoja(loja) {
+  const resumo = resumoLoja(loja);
+  return Number(
+    resumo.porTipo?.RUPTURA?.custoRupturaOperacional ??
+      resumo.custoRupturaOperacionalRuptura ??
+      resumo.porTipo?.RUPTURA?.custoRuptura ??
+      0,
+  );
 }
 
 function ultimaAuditoriaLoja(loja) {
@@ -114,45 +125,8 @@ function larguraConformidade(loja) {
   return `${Math.max(0, Math.min(100, Number(resumoLoja(loja).taxaConformidade || 0)))}%`;
 }
 
-function statusLoja(loja) {
-  const resumo = resumoLoja(loja);
-  if (!resumo.totalAuditorias) return { label: "Sem leitura", classe: "dim" };
-  const taxa = Number(resumo.taxaConformidade || 0);
-  if (taxa >= 92) return { label: "Excelente", classe: "ok" };
-  if (taxa >= 80) return { label: "Bom", classe: "info" };
-  if (taxa >= 65) return { label: "Atenção", classe: "warn" };
-  return { label: "Crítico", classe: "bad" };
-}
-
 function abrirLoja(lojaId) {
   router.push(`/lojas/${lojaId}`);
-}
-
-async function cancelarUltimaAuditoria(loja) {
-  const auditoria = ultimaAuditoriaLoja(loja);
-  if (!auth.isSuperAdmin || !loja?._id || !auditoria?._id) return;
-
-  const confirmar = window.confirm(
-    `Cancelar a última auditoria de ${loja.nome}? As métricas desse dia serão zeradas e não entrarão nos rankings nem nos acumulados.`,
-  );
-  if (!confirmar) return;
-
-  cancelandoLojaId.value = loja._id;
-  try {
-    const { data } = await api.post(
-      `/auditorias/${auditoria._id}/cancelar`,
-      {},
-      { params: { lojaId: loja._id } },
-    );
-    ui.sucesso(data?.mensagem || "Auditoria cancelada.");
-    await carregar();
-  } catch (error) {
-    ui.erro(
-      error?.response?.data?.error || "Não foi possível cancelar a auditoria.",
-    );
-  } finally {
-    cancelandoLojaId.value = "";
-  }
 }
 
 async function carregar() {
@@ -356,10 +330,7 @@ const lojasFiltradas = computed(() => {
           <div style="flex: 1; min-width: 0">
             <div class="store-card-title">{{ loja.nome }}</div>
             <div class="muted store-card-subtitle">
-              {{
-                [loja.cidade, loja.estado].filter(Boolean).join(" / ") ||
-                "Local não informado"
-              }}
+              {{ localizacaoLoja(loja) }}
             </div>
           </div>
 
@@ -370,37 +341,10 @@ const lojasFiltradas = computed(() => {
           >
         </div>
 
-        <div class="store-card-meta">
-          <span class="badge dim">#{{ loja.slug }}</span>
-          <span v-if="loja.codigo" class="badge dim"
-            >Código {{ loja.codigo }}</span
-          >
-          <span class="badge info">Nível {{ loja.nivel || 1 }}</span>
-          <span class="badge" :class="statusLoja(loja).classe">
-            {{ statusLoja(loja).label }}
-          </span>
-        </div>
-
         <div class="store-card-stats">
           <div class="store-card-stat store-card-stat-main">
             <span class="muted">Itens lidos</span>
             <strong>{{ formatarInteiro(resumoLoja(loja).totalLidos) }}</strong>
-          </div>
-          <div class="store-card-stat">
-            <span class="muted">Auditorias</span>
-            <strong>{{
-              formatarInteiro(resumoLoja(loja).totalAuditorias)
-            }}</strong>
-          </div>
-          <div class="store-card-stat">
-            <span class="muted">Conformidade</span>
-            <strong>{{
-              formatarPercentual(resumoLoja(loja).taxaConformidade)
-            }}</strong>
-          </div>
-          <div class="store-card-stat">
-            <span class="muted">Pontos no período</span>
-            <strong>{{ formatarPontos(resumoLoja(loja).pontuacao) }}</strong>
           </div>
         </div>
 
@@ -430,8 +374,8 @@ const lojasFiltradas = computed(() => {
               ultimaAuditoriaLoja(loja).tipo
             }}
           </span>
-          <span v-if="resumoLoja(loja).custoRuptura" class="muted">
-            Ruptura {{ formatarMoeda(resumoLoja(loja).custoRuptura) }}
+          <span v-if="custoRupturaLoja(loja)" class="muted">
+            Ruptura {{ formatarMoeda(custoRupturaLoja(loja)) }}
           </span>
           <span v-if="resumoLoja(loja).tiposComAuditoria" class="muted">
             {{ formatarInteiro(resumoLoja(loja).tiposComAuditoria) }} tipos com
@@ -440,18 +384,6 @@ const lojasFiltradas = computed(() => {
         </div>
 
         <div class="row store-card-footer">
-          <button
-            v-if="auth.isSuperAdmin && ultimaAuditoriaLoja(loja)?._id"
-            class="btn ghost store-card-cancel-btn"
-            :disabled="cancelandoLojaId === loja._id"
-            @click.stop="cancelarUltimaAuditoria(loja)"
-          >
-            <fa
-              :icon="cancelandoLojaId === loja._id ? 'spinner' : 'xmark'"
-              :spin="cancelandoLojaId === loja._id"
-            />
-            Cancelar última auditoria
-          </button>
           <span class="muted">Ver perfil analítico</span>
           <span class="spacer" />
           <fa icon="chevron-right" />
@@ -568,12 +500,6 @@ const lojasFiltradas = computed(() => {
   margin-top: 4px;
 }
 
-.store-card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .store-card-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -677,10 +603,6 @@ const lojasFiltradas = computed(() => {
 .store-card-footer {
   align-items: center;
   color: var(--text-dim);
-}
-
-.store-card-cancel-btn {
-  color: #ef4444;
 }
 
 @media (max-width: 720px) {

@@ -27,6 +27,8 @@ const acc = {
   percentualRestante: (i) =>
     i?.percentualRestante == null ? null : Number(i.percentualRestante),
   custoRuptura: (i) => Number(i?.custoRuptura || 0),
+  custoRupturaEvitado: (item) => Number(item?.custoRupturaEvitado || 0),
+  auditoriasCanceladas: (item) => Number(item?.auditoriasCanceladas || 0),
   totalAuditorias: (i) => Number(i?.totalAuditorias || 0),
   auditoriasEtiqueta: (i) => Number(i?.auditoriasPorTipo?.ETIQUETA || 0),
   auditoriasPresenca: (i) => Number(i?.auditoriasPorTipo?.PRESENCA || 0),
@@ -205,9 +207,56 @@ const MODOS_COLABORADORES_EXTRA = [
   },
 ];
 
-export const MODOS_RANKING_LOJAS = MODOS_COMUNS;
+const MODOS_RANKING_COLABORADORES_OCULTOS = new Set([
+  "pontuacao",
+  "conformidade_desc",
+]);
+
+function usarCustoRupturaEvitado(modo) {
+  if (modo.id === "custo_ruptura_desc") {
+    return {
+      ...modo,
+      label: "Maior custo evitado",
+      desc: "Custo dos itens lidos em auditorias de Ruptura",
+      accessor: acc.custoRupturaEvitado,
+    };
+  }
+
+  if (modo.id === "custo_ruptura_asc") {
+    return {
+      ...modo,
+      label: "Menor custo evitado",
+      desc: "Menor valor evitado nas leituras de Ruptura",
+      accessor: acc.custoRupturaEvitado,
+    };
+  }
+
+  return modo;
+}
+
+const MODOS_COLABORADORES_BASE = MODOS_COMUNS.filter(
+  (modo) => !MODOS_RANKING_COLABORADORES_OCULTOS.has(modo.id),
+).map(usarCustoRupturaEvitado);
+
+const MODOS_LOJAS_EXTRA = [
+  {
+    id: "cancelamentos_desc",
+    label: "Mais cancelamentos",
+    desc: "Auditorias canceladas no período",
+    grupo: "Cancelamentos",
+    direction: "desc",
+    accessor: acc.auditoriasCanceladas,
+    format: (v) => `${fmtInt(v)} cancelamento(s)`,
+    unidade: "cancelamentos",
+  },
+];
+
+export const MODOS_RANKING_LOJAS = [
+  ...MODOS_COMUNS.map(usarCustoRupturaEvitado),
+  ...MODOS_LOJAS_EXTRA,
+];
 export const MODOS_RANKING_COLABORADORES = [
-  ...MODOS_COMUNS,
+  ...MODOS_COLABORADORES_BASE,
   ...MODOS_COLABORADORES_EXTRA,
 ];
 

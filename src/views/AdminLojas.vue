@@ -22,6 +22,16 @@ const salvandoCredenciais = ref(false);
 const enviandoAvatar = ref(false);
 const inputAvatar = ref(null);
 
+// ── Cancelar auditoria do dia ───────────────────────────────────────────────
+const cancelamentoDia = ref(null);
+const enviandoCancelamentoDia = ref(false);
+
+const tiposAuditoria = [
+  { value: "ETIQUETA", label: "Etiqueta" },
+  { value: "PRESENCA", label: "Presença" },
+  { value: "RUPTURA", label: "Ruptura" },
+];
+
 // ────────────────────────────────────────────────────────────────────────────
 async function carregar() {
   carregando.value = true;
@@ -209,6 +219,62 @@ async function desativar(l) {
 function abrirPerfil(lojaId) {
   router.push("/lojas/" + lojaId);
 }
+
+function dataLocalHoje() {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+  const dia = String(hoje.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
+
+function tipoSugeridoHoje() {
+  const diaSemana = new Date().getDay();
+  if (diaSemana === 1 || diaSemana === 4) return "ETIQUETA";
+  if (diaSemana === 2) return "PRESENCA";
+  if (diaSemana === 3) return "RUPTURA";
+  return "ETIQUETA";
+}
+
+function abrirCancelarDia(loja) {
+  cancelamentoDia.value = {
+    loja,
+    data: dataLocalHoje(),
+    tipo: tipoSugeridoHoje(),
+    motivo: "Loja sem envio de planilha no dia",
+  };
+}
+
+function fecharCancelarDia() {
+  if (enviandoCancelamentoDia.value) return;
+  cancelamentoDia.value = null;
+}
+
+async function confirmarCancelarDia() {
+  if (!cancelamentoDia.value || enviandoCancelamentoDia.value) return;
+  enviandoCancelamentoDia.value = true;
+  try {
+    const payload = {
+      tipo: cancelamentoDia.value.tipo,
+      data: cancelamentoDia.value.data,
+      motivo: cancelamentoDia.value.motivo.trim(),
+    };
+    const { data } = await api.post("/auditorias/cancelar-dia", payload, {
+      params: { lojaId: cancelamentoDia.value.loja._id },
+    });
+    ui.sucesso(data?.mensagem || "Auditoria do dia cancelada.");
+    cancelamentoDia.value = null;
+    await carregar();
+  } catch (e) {
+    ui.erro(
+      e?.response?.data?.error ||
+        e?.message ||
+        "Não foi possível cancelar a auditoria do dia.",
+    );
+  } finally {
+    enviandoCancelamentoDia.value = false;
+  }
+}
 </script>
 
 <template>
@@ -334,11 +400,19 @@ function abrirPerfil(lojaId) {
           </button>
           <span class="spacer" />
           <button
+            v-if="l.ativa"
+            class="btn ghost"
+            title="Cancelar auditoria do dia"
+            @click.stop="abrirCancelarDia(l)"
+          >
+            <fa icon="ban" />
+          </button>
+          <button
             class="btn ghost"
             title="Editar loja"
             @click.stop="abrirEditar(l)"
           >
-            <fa icon="pen" />
+            <fa icon="pen-to-square" />
           </button>
           <button
             v-if="l.ativa"
@@ -347,6 +421,100 @@ function abrirPerfil(lojaId) {
             @click.stop="desativar(l)"
           >
             <fa icon="trash" />
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ Modal Cancelar Auditoria do Dia ══════════ -->
+  <div
+    v-if="cancelamentoDia"
+    class="loja-modal-overlay"
+    @click.self="fecharCancelarDia"
+  >
+    <div class="loja-modal">
+      <div class="loja-modal-header">
+        <StoreAvatar
+          :nome="cancelamentoDia.loja.nome"
+          :avatar-url="cancelamentoDia.loja.avatarUrl"
+          :size="48"
+          :font-size="18"
+        />
+        <div style="flex: 1; min-width: 0">
+          <div style="font-weight: 700; font-size: 16px">
+            Cancelar auditoria do dia
+          </div>
+          <div class="muted" style="font-size: 12px">
+            {{ cancelamentoDia.loja.nome }}
+          </div>
+        </div>
+        <button
+          class="btn ghost"
+          style="padding: 6px 10px; flex-shrink: 0"
+          :disabled="enviandoCancelamentoDia"
+          @click="fecharCancelarDia"
+        >
+          <fa icon="xmark" />
+        </button>
+      </div>
+
+      <div class="loja-modal-body">
+        <div class="acesso-banner warn mb-3">
+          <fa icon="triangle-exclamation" />
+          Se ainda não houver upload para esta data e tipo, um registro cancelado será criado.
+        </div>
+
+        <div class="form-grid">
+          <div class="field">
+            <label>Data</label>
+            <input
+              v-model="cancelamentoDia.data"
+              type="date"
+              :disabled="enviandoCancelamentoDia"
+            />
+          </div>
+          <div class="field">
+            <label>Tipo</label>
+            <select
+              v-model="cancelamentoDia.tipo"
+              :disabled="enviandoCancelamentoDia"
+            >
+              <option
+                v-for="tipo in tiposAuditoria"
+                :key="tipo.value"
+                :value="tipo.value"
+              >
+                {{ tipo.label }}
+              </option>
+            </select>
+          </div>
+          <div class="field" style="grid-column: 1 / -1">
+            <label>Motivo</label>
+            <textarea
+              v-model="cancelamentoDia.motivo"
+              rows="3"
+              :disabled="enviandoCancelamentoDia"
+            />
+          </div>
+        </div>
+
+        <div class="row mt-3">
+          <span class="spacer" />
+          <button
+            class="btn ghost"
+            :disabled="enviandoCancelamentoDia"
+            @click="fecharCancelarDia"
+          >
+            Voltar
+          </button>
+          <button
+            class="btn danger"
+            :disabled="enviandoCancelamentoDia"
+            @click="confirmarCancelarDia"
+          >
+            <fa :icon="enviandoCancelamentoDia ? 'spinner' : 'ban'" :spin="enviandoCancelamentoDia" />
+            Cancelar auditoria
           </button>
         </div>
       </div>

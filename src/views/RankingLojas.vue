@@ -577,9 +577,16 @@ const visualizacaoKey = computed(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #fecaca;
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.32);
+  color: #c5221c;
+  background: linear-gradient(
+    180deg,
+    rgba(185, 28, 28, 0.28),
+    rgba(127, 29, 29, 0.2)
+  );
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 18px rgba(127, 29, 29, 0.14);
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
@@ -672,8 +679,16 @@ const visualizacaoKey = computed(() => {
 
 :global([data-theme="light"]) .ranking-cancel-badge,
 :global([data-theme="light"]) .ranking-row-alert {
-  color: #991b1b;
-  background: rgba(254, 226, 226, 0.9);
+  color: #9f1239;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 241, 242, 0.98),
+    rgba(255, 228, 230, 0.94)
+  );
+  border-color: rgba(244, 63, 94, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 10px 20px rgba(190, 24, 93, 0.1);
 }
 
 @keyframes rankReveal {

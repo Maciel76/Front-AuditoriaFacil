@@ -587,28 +587,9 @@ onBeforeUnmount(() => {
       <div
         v-if="uploadComPreenchimento"
         class="upload-liquid"
-        :class="{ complete: etapaUpload === 'success' }"
-        :style="{
-          '--upload-fill': progressoExibido + '%',
-          height: progressoExibido + '%',
-        }"
+        :style="{ height: progressoExibido + '%' }"
         aria-hidden="true"
-      >
-        <div class="upload-liquid-depth"></div>
-        <div class="upload-caustics"></div>
-        <div class="upload-waterline"></div>
-        <div class="upload-wave wave-a"></div>
-        <div class="upload-wave wave-b"></div>
-        <div class="upload-wave wave-c"></div>
-        <span class="upload-bubble bubble-1"></span>
-        <span class="upload-bubble bubble-2"></span>
-        <span class="upload-bubble bubble-3"></span>
-        <span class="upload-bubble bubble-4"></span>
-        <span class="upload-bubble bubble-5"></span>
-        <span class="upload-bubble bubble-6"></span>
-        <span class="upload-bubble bubble-7"></span>
-        <span class="upload-bubble bubble-8"></span>
-      </div>
+      ></div>
 
       <div class="upload-shell-inner">
         <div class="upload-topbar row">
@@ -1059,7 +1040,7 @@ onBeforeUnmount(() => {
               <th>Tipo</th>
               <th>Data</th>
               <th>Itens lidos</th>
-              <th>Conformidade</th>
+              <th>Conclusão</th>
               <th>Pontuação</th>
               <th>Custo Ruptura</th>
               <th></th>
@@ -1457,212 +1438,22 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  min-height: 42px;
+  min-height: 0;
   background:
     linear-gradient(
       180deg,
-      rgba(236, 253, 255, 0.42) 0%,
-      rgba(34, 211, 238, 0.3) 16%,
-      rgba(37, 99, 235, 0.24) 62%,
-      rgba(124, 92, 255, 0.24) 100%
-    ),
-    linear-gradient(
-      90deg,
-      rgba(34, 211, 238, 0.1),
-      rgba(255, 255, 255, 0.13) 46%,
-      rgba(124, 92, 255, 0.12)
+      rgba(34, 211, 238, 0.08) 0%,
+      rgba(34, 211, 238, 0.16) 42%,
+      rgba(37, 99, 235, 0.24) 72%,
+      rgba(124, 92, 255, 0.28) 100%
     );
   box-shadow:
-    inset 0 28px 48px rgba(255, 255, 255, 0.2),
-    inset 0 -34px 72px rgba(15, 23, 42, 0.16),
-    0 -18px 48px rgba(34, 211, 238, 0.2);
+    inset 0 18px 34px rgba(255, 255, 255, 0.1),
+    0 -12px 28px rgba(34, 211, 238, 0.12);
   transition: height 0.68s cubic-bezier(0.2, 0.8, 0.2, 1);
   pointer-events: none;
   z-index: 1;
   transform: translateZ(0);
-}
-
-.upload-liquid.complete {
-  animation: liquidSettle 1.15s ease both;
-}
-
-.upload-liquid-depth,
-.upload-caustics,
-.upload-waterline {
-  position: absolute;
-  inset: 0;
-}
-
-.upload-liquid-depth {
-  background:
-    linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.16),
-      transparent 16% 72%,
-      rgba(255, 255, 255, 0.1)
-    ),
-    repeating-linear-gradient(
-      104deg,
-      rgba(255, 255, 255, 0.08) 0 2px,
-      transparent 2px 32px
-    );
-  opacity: 0.42;
-  animation: liquidCurrent 9s linear infinite;
-}
-
-.upload-caustics {
-  background:
-    repeating-linear-gradient(
-      128deg,
-      transparent 0 34px,
-      rgba(255, 255, 255, 0.18) 35px 39px,
-      transparent 40px 74px
-    ),
-    repeating-linear-gradient(
-      52deg,
-      transparent 0 42px,
-      rgba(34, 211, 238, 0.16) 43px 46px,
-      transparent 47px 90px
-    );
-  background-size:
-    220px 180px,
-    260px 210px;
-  mix-blend-mode: screen;
-  opacity: 0.34;
-  animation: causticDrift 10s linear infinite;
-}
-
-.upload-waterline {
-  inset: auto -4% calc(100% - 18px) -4%;
-  height: 34px;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.64),
-    rgba(236, 253, 255, 0.22) 42%,
-    transparent 78%
-  );
-  filter: blur(0.2px);
-  opacity: 0.82;
-  animation: waterlineBreath 3.4s ease-in-out infinite;
-}
-
-.upload-wave {
-  position: absolute;
-  left: -50%;
-  width: 200%;
-  height: 70px;
-  top: -38px;
-  background:
-    radial-gradient(
-        62px 28px at 62px 40px,
-        rgba(255, 255, 255, 0.74) 0 54%,
-        transparent 56%
-      )
-      0 0 / 124px 70px repeat-x,
-    radial-gradient(
-        58px 26px at 62px 33px,
-        rgba(34, 211, 238, 0.3) 0 52%,
-        transparent 54%
-      )
-      0 0 / 124px 70px repeat-x;
-  filter: blur(0.4px);
-  transform-origin: center;
-  z-index: 4;
-}
-
-.wave-a {
-  animation:
-    waterDrift 8.5s linear infinite,
-    waterBob 3.1s ease-in-out infinite;
-  opacity: 0.68;
-}
-
-.wave-b {
-  top: -30px;
-  animation:
-    waterDriftReverse 12.5s linear infinite,
-    waterBob 4s ease-in-out infinite reverse;
-  opacity: 0.42;
-  filter: blur(1px);
-}
-
-.wave-c {
-  top: -22px;
-  animation:
-    waterDrift 17s linear infinite,
-    waterBob 5.2s ease-in-out infinite;
-  opacity: 0.3;
-  filter: blur(1.6px);
-}
-
-.upload-bubble {
-  position: absolute;
-  bottom: -26px;
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.52);
-  background: rgba(255, 255, 255, 0.16);
-  box-shadow: inset 1px 1px 4px rgba(255, 255, 255, 0.45);
-  opacity: 0;
-  animation: bubbleRise 7.2s ease-in infinite;
-}
-
-.bubble-1 {
-  left: 7%;
-  width: 7px;
-  height: 7px;
-  animation-delay: -1.2s;
-  animation-duration: 6.8s;
-}
-.bubble-2 {
-  left: 18%;
-  width: 12px;
-  height: 12px;
-  animation-delay: -4.4s;
-  animation-duration: 8.8s;
-}
-.bubble-3 {
-  left: 31%;
-  width: 6px;
-  height: 6px;
-  animation-delay: -2.8s;
-  animation-duration: 7.4s;
-}
-.bubble-4 {
-  left: 47%;
-  width: 10px;
-  height: 10px;
-  animation-delay: -5.8s;
-  animation-duration: 9.4s;
-}
-.bubble-5 {
-  left: 61%;
-  width: 5px;
-  height: 5px;
-  animation-delay: -3.3s;
-  animation-duration: 6.2s;
-}
-.bubble-6 {
-  left: 74%;
-  width: 11px;
-  height: 11px;
-  animation-delay: -6.4s;
-  animation-duration: 10s;
-}
-.bubble-7 {
-  left: 84%;
-  width: 7px;
-  height: 7px;
-  animation-delay: -2s;
-  animation-duration: 7.8s;
-}
-.bubble-8 {
-  left: 93%;
-  width: 13px;
-  height: 13px;
-  animation-delay: -7.2s;
-  animation-duration: 9.8s;
 }
 
 [data-theme="light"] .upload-shell {
@@ -1681,21 +1472,14 @@ onBeforeUnmount(() => {
   background:
     linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.62) 0%,
-      rgba(103, 232, 249, 0.42) 16%,
-      rgba(37, 99, 235, 0.21) 62%,
-      rgba(109, 92, 255, 0.18) 100%
-    ),
-    linear-gradient(
-      90deg,
-      rgba(17, 197, 255, 0.14),
-      rgba(255, 255, 255, 0.24) 46%,
-      rgba(109, 92, 255, 0.13)
+      rgba(17, 197, 255, 0.08) 0%,
+      rgba(17, 197, 255, 0.16) 42%,
+      rgba(37, 99, 235, 0.22) 72%,
+      rgba(109, 92, 255, 0.24) 100%
     );
   box-shadow:
-    inset 0 30px 48px rgba(255, 255, 255, 0.36),
-    inset 0 -30px 70px rgba(47, 88, 155, 0.1),
-    0 -20px 48px rgba(17, 197, 255, 0.18);
+    inset 0 18px 34px rgba(255, 255, 255, 0.16),
+    0 -12px 28px rgba(17, 197, 255, 0.1);
 }
 
 .upload-topbar {
@@ -2271,101 +2055,6 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
-@keyframes waterDrift {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(124px);
-  }
-}
-
-@keyframes waterDriftReverse {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-124px);
-  }
-}
-
-@keyframes waterBob {
-  0%,
-  100% {
-    margin-top: 0;
-  }
-  50% {
-    margin-top: 5px;
-  }
-}
-
-@keyframes liquidSettle {
-  0% {
-    filter: saturate(1);
-  }
-  42% {
-    filter: saturate(1.16) brightness(1.04);
-  }
-  100% {
-    filter: saturate(1.02);
-  }
-}
-
-@keyframes liquidCurrent {
-  0% {
-    background-position:
-      0 0,
-      0 0;
-  }
-  100% {
-    background-position:
-      160px 0,
-      240px 0;
-  }
-}
-
-@keyframes causticDrift {
-  0% {
-    background-position:
-      0 0,
-      0 0;
-  }
-  100% {
-    background-position:
-      220px 180px,
-      -260px 210px;
-  }
-}
-
-@keyframes waterlineBreath {
-  0%,
-  100% {
-    transform: translateY(0) scaleY(1);
-    opacity: 0.76;
-  }
-  50% {
-    transform: translateY(3px) scaleY(1.12);
-    opacity: 0.96;
-  }
-}
-
-@keyframes bubbleRise {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) scale(0.72);
-  }
-  12% {
-    opacity: 0.72;
-  }
-  72% {
-    opacity: 0.46;
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(18px, -430px, 0) scale(1.18);
-  }
-}
-
 @keyframes cardSheen {
   0% {
     opacity: 0;
@@ -2457,7 +2146,6 @@ onBeforeUnmount(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .upload-liquid,
-  .upload-liquid *,
   .upload-shell.uploading .upload-status-card::before,
   .upload-shell.uploading .upload-status-icon,
   .upload-shell.uploading .upload-dropzone::before,

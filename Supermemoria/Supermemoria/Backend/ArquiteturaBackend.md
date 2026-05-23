@@ -192,6 +192,7 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 
 - Lista lojas conforme role.
 - Retorna a loja ativa do escopo.
+- GET /api/lojas/catalogo retorna resumoPeriodo por loja e agora inclui `custoRupturaOperacionalRuptura`, calculado em AuditItem apenas para RUPTURA com situacao `Sem Presenca e Com Estoque`, para alinhar o catalogo com a regra operacional usada no Dashboard.
 - Cria, atualiza e desativa lojas.
 
 ### usuarios.routes.js
@@ -208,6 +209,7 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 - Essa integracao so vale quando a PRESENCA de referencia e exatamente o dia anterior da RUPTURA e ambas pertencem a mesma semana operacional.
 - Essa integracao tambem alimenta a serie temporal de RUPTURA quando o filtro do dashboard esta em `RUPTURA`, para manter o KPI superior, o donut central e o card detalhado coerentes no mesmo criterio.
 - A mesma regra de continuidade semanal foi estendida para `GET /api/metricas/ranking/colaboradores`, `GET /api/metricas/ranking/lojas`, `GET /api/metricas/relatorios/classes` e `GET /api/metricas/relatorios/corredores` quando o filtro de tipo e `RUPTURA`, ajustando as porcentagens sem trocar os volumes brutos exibidos.
+- `GET /api/metricas/ranking/colaboradores` e `GET /api/metricas/ranking/lojas` tambem retornam `custoRupturaEvitado`, calculado em `AuditItem` pela soma de `custoRuptura` dos itens lidos (`conta:true`) em auditorias do tipo `RUPTURA`, por colaborador ou loja no periodo.
 - A mesma continuidade semanal agora tambem alimenta `GET /api/metricas/lojas/:id/perfil` e `GET /api/metricas/colaboradores/:id/perfil` em RUPTURA. No perfil de loja, `totalGeral.taxaConformidade`, `totaisPorTipo.RUPTURA.taxaConformidade` e a serie temporal de RUPTURA usam a base da PRESENCA do dia anterior, enquanto os volumes brutos continuam vindo da propria RUPTURA. No perfil de colaborador, a resposta passa a expor `baseContinuidade`, `concluidosContinuidade`, `restantesContinuidade` e `taxaConformidade` para RUPTURA sem trocar `totalLidos`.
 
 - Dashboard, ultima data, rankings, perfil de colaborador, relatorios e perfil do portal.

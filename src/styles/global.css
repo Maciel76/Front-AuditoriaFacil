@@ -33,7 +33,7 @@
   --shadow: 0 10px 30px rgba(0,0,0,.35);
   --shadow-lg: 0 30px 60px rgba(0,0,0,.45);
 
-  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: 'inter', system-ui, -apple-system, 'inter', inter, Helvetica, Arial, sans-serif;
 }
 
 /* ============ Tema claro ============ */

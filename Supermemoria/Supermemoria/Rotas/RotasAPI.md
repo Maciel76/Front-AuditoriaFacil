@@ -80,7 +80,8 @@
 | GET    | /api/auditorias                      | Usuario                    | Loja obrigatoria     | tipo, dataInicio, dataFim, page, limit   | Lista auditorias                                                       |
 | GET    | /api/auditorias/:id                  | Usuario                    | Loja obrigatoria     | -                                        | Retorna cabecalho da auditoria                                         |
 | GET    | /api/auditorias/:id/itens            | Usuario                    | Loja obrigatoria     | situacao, conforme, q, page, limit       | Pagina itens detalhados                                                |
-| POST   | /api/auditorias/:id/cancelar         | SUPER_ADMIN                | Loja obrigatoria     | motivo opcional, lojaId para SUPER_ADMIN | Cancela auditoria da loja, zera metricas do dia e recalcula acumulados |
+| POST   | /api/auditorias/cancelar-dia         | SUPER_ADMIN                | Loja obrigatoria     | tipo, data, motivo opcional, lojaId      | Cria cancelamento do dia sem planilha enviada                          |
+| POST   | /api/auditorias/:id/cancelar         | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | motivo opcional, lojaId para SUPER_ADMIN | Cancela auditoria da loja, zera metricas do dia e recalcula acumulados |
 | DELETE | /api/auditorias/:id                  | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | -                                        | Remove auditoria e seus itens                                          |
 
 ## Grupo Metricas
@@ -119,9 +120,11 @@
 ## Observacoes criticas
 
 - A ancora temporal usa a ultima data existente na base para evitar telas vazias quando nao ha dados do dia atual.
+- GET /api/metricas/ranking/colaboradores retorna `custoRupturaEvitado`, soma de `AuditItem.custoRuptura` dos itens lidos em auditorias RUPTURA por colaborador no periodo.
+- GET /api/metricas/ranking/lojas retorna `custoRupturaEvitado`, soma de `AuditItem.custoRuptura` dos itens lidos em auditorias RUPTURA por loja no periodo.
 - GET /api/metricas/dashboard retorna `cardsResumo` para os cinco KPIs do topo. Em geral, `cardsResumo.mediaConclusao` e media simples de `Auditoria.taxaConformidade` no periodo filtrado; quando `tipo=PRESENCA`, `cardsResumo.produtosAuditados` passa a ser a soma das situacoes `Com Presenca e com Estoque` + `Sem Presenca e Com Estoque` e `cardsResumo.mediaConclusao` passa a usar `Com Presenca e com Estoque / total * 100`. `cardsResumo.custoRupturaRuptura` sempre soma apenas auditorias do tipo RUPTURA no periodo; `cardsResumo.totalColaboradores` ignora o filtro de tipo e conta colaboradores distintos com leitura no periodo.
 - GET /api/lojas/catalogo retorna `periodo` e `items`; cada loja ativa recebe `resumoPeriodo` com total de auditorias, auditorias por tipo, itens lidos, conformidade, pontuacao, custo ruptura e ultima auditoria dentro do periodo filtrado.
-- Auditorias canceladas permanecem no historico com `status=CANCELADA`, mas ficam fora das metricas. `GET /api/metricas/ranking/lojas` retorna `auditoriasCanceladas` para a UI destacar lojas com cancelamento no periodo.
+- Auditorias canceladas permanecem no historico com `status=CANCELADA`, mas ficam fora das metricas. `GET /api/metricas/ranking/lojas` retorna `auditoriasCanceladas` para a UI destacar lojas com cancelamento no periodo e alimentar o modo `Mais cancelamentos`.
 - O frontend atual do portal consome `GET /api/metricas/portal/me` para metricas e conquistas resolvidas, `GET /api/metricas/portal/me/colegas` para a lista de equipe e `GET /api/metricas/portal/me/colegas/:id/perfil` para montar a pagina `/portal/colegas/:colegaId`; a aba `Corredores` continua usando `GET /api/metricas/portal/me/auditoria-do-dia` e `GET /api/metricas/portal/me/auditoria-do-dia/corredor` para evitar carregar historico completo de corredores no payload principal.
 - Em `GET /api/metricas/portal/me/auditoria-do-dia`, a query `origem=anterior` e a unica forma de consultar a auditoria anterior; sem a query, a resposta fica restrita ao contexto do dia atual.
 - `GET /api/conquistas/meta` entrega `tiposAuditoria` para a tela administrativa montar conquistas globais ou restritas a um tipo.

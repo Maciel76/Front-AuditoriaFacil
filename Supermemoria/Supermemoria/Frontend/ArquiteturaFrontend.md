@@ -125,7 +125,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - A loja escolhida fica persistida em localStorage na chave na_auditorias_superadmin_loja para manter o contexto operacional entre visitas.
 - Permite tipo automatico ou forcado manualmente.
 - O card de upload foi redesenhado com layout de status lateral, area principal de drop e preenchimento animado do componente durante o processamento.
-- A animacao de processamento em Auditorias.vue simula agua preenchendo o card com ondas em camadas, reflexos, bolhas e medidor circular, usando somente o estado visual do progresso existente.
+- A animacao de processamento em Auditorias.vue usa um preenchimento por gradiente azul subindo no card; ondas, bolhas e texturas animadas foram removidas para preservar fluidez visual e performance.
 - Durante upload/processamento, a area principal exibe o stage real retornado pelo backend e um rotador visual com nomes de etapas operacionais para dar sensacao de acompanhamento continuo.
 - O frontend combina progresso real de envio do arquivo com polling do status de processamento no backend.
 - Para SUPER_ADMIN, GET /auditorias, POST /auditorias/upload e DELETE /auditorias/:id passam lojaId por query string, seguindo o contrato de escopo multi-loja do backend.
@@ -149,6 +149,8 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - A loja escolhida no ranking de colaboradores para SUPER_ADMIN fica persistida em localStorage na chave na_ranking_colaboradores_superadmin_loja.
 - STORE_ADMIN ve apenas colaboradores da propria loja e nao possui seletor de loja.
 - Ao abrir em periodo 1d, aplica o mesmo tipo padrao por dia util usado em relatorios (seg/qui etiqueta, ter presenca, qua ruptura) e faz fallback automatico para todos os tipos quando nao houver dados no tipo sugerido.
+- Os modos de comparacao dos colaboradores nao exibem `Maior pontuacao` nem `Maior % de conformidade`; modo salvo legado volta automaticamente para o primeiro modo disponivel.
+- Os modos de custo dos colaboradores exibem valor evitado em RUPTURA (`custoRupturaEvitado`), somando o custo dos itens lidos de auditorias RUPTURA no periodo.
 - Quando o filtro ativo e `RUPTURA`, as porcentagens do ranking (`taxaConformidade`, `% conclusao`, `% restante`) passam a considerar a continuidade da PRESENCA do dia anterior na mesma semana; o volume de itens mostrado continua sendo o volume bruto de RUPTURA.
 - O botao `Compartilhar` exporta um PNG fiel ao estado atual da tela, incluindo filtros aplicados e render final dos cards, reutilizando o mesmo padrao de captura estabilizada do Dashboard.
 
@@ -159,7 +161,9 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Aceita filtros de periodo e tipo.
 - Fica disponivel para SUPER_ADMIN e STORE_ADMIN.
 - Nao possui seletor de loja; ambos enxergam o ranking geral das lojas no periodo/tipo selecionado.
-- Quando o filtro ativo e `RUPTURA`, as porcentagens do ranking (`taxaConformidade`, `% conclusao`, `% restante`) passam a considerar a continuidade da PRESENCA do dia anterior na mesma semana; os volumes e custos exibidos continuam sendo os totais brutos de RUPTURA.
+- Os modos de custo das lojas exibem valor evitado em RUPTURA (`custoRupturaEvitado`), somando o custo dos itens lidos de auditorias RUPTURA por loja no periodo.
+- O seletor de modo das lojas inclui `Mais cancelamentos`, ordenando por `auditoriasCanceladas`.
+- Quando o filtro ativo e `RUPTURA`, as porcentagens do ranking (`taxaConformidade`, `% conclusao`, `% restante`) passam a considerar a continuidade da PRESENCA do dia anterior na mesma semana; os volumes exibidos continuam sendo os totais brutos de RUPTURA, e os modos de custo usam `custoRupturaEvitado`.
 - Destaca lojas com `auditoriasCanceladas > 0` usando alerta no podium e nas linhas da lista, mantendo os valores zerados para a auditoria cancelada.
 - O botao `Compartilhar` exporta um PNG fiel ao estado atual da tela, incluindo filtros aplicados e render final dos cards, reutilizando o mesmo padrao de captura estabilizada do Dashboard.
 
@@ -167,8 +171,8 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 
 - Catalogo autenticado de lojas ativas.
 - Consulta GET /lojas/catalogo com filtro de periodo, usando PeriodoSelector no topo.
-- A lista exibe nome, localizacao, nivel, status operacional, total de auditorias por tipo, itens lidos, conformidade, pontuacao do periodo, custo de ruptura quando existir e ultima auditoria dentro do recorte ativo.
-- Para `SUPER_ADMIN`, cada card pode cancelar a ultima auditoria ativa do periodo chamando POST /auditorias/:id/cancelar com lojaId, usando o snapshot `ultimaAuditoria` retornado pelo catalogo.
+- A lista exibe nome, localizacao com codigo antes da cidade, itens lidos, total de auditorias por tipo, custo operacional de RUPTURA quando existir e ultima auditoria dentro do recorte ativo. Os cards individuais nao exibem mais os blocos de auditorias totais, conformidade e pontuacao do periodo.
+- Os cards nao exibem mais badges de slug/codigo, nivel/status operacional nem botao de cancelar auditoria; o cancelamento fica fora deste componente.
 - A tela nao exibe mais metas base nos cards do catalogo; metas continuam no perfil analitico da loja e nas configuracoes.
 - Permite buscar por nome, codigo, cidade ou slug e abrir o perfil analitico de qualquer loja.
 
@@ -177,7 +181,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Consulta GET /metricas/lojas/:id/perfil.
 - Reutiliza a linguagem de Dashboard e Relatorios para mostrar KPIs, serie de conformidade, distribuicao por tipo, situacoes, classes e corredores criticos, metas por tipo e ultimas auditorias.
 - Exibe o detalhe de auditoria apenas quando o usuario realmente possui acesso ao tenant da loja ou quando e SUPER_ADMIN.
-- Exibe status das ultimas auditorias e alerta quando existem cancelamentos no periodo, mas a acao de cancelamento ficou centralizada em Lojas.vue.
+- Exibe status das ultimas auditorias e alerta quando existem cancelamentos no periodo; a acao de cancelamento fica fora do perfil analitico.
 - Quando ha auditorias canceladas no periodo, mostra alerta e KPI dedicado para deixar claro que esses dados foram neutralizados.
 
 ### Colaboradores.vue
@@ -235,6 +239,7 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Cada card tambem abre o perfil analitico publico da loja correspondente.
 - Os cards usam a foto da loja quando houver avatarUrl, caindo para iniciais quando nao houver imagem.
 - Permite criar via POST /lojas e desativar via DELETE /lojas/:id.
+- Em lojas ativas, exibe botao para cancelar a auditoria do dia sem planilha, abrindo modal de data/tipo/motivo e chamando POST /auditorias/cancelar-dia.
 
 ### AdminConquistas.vue
 
