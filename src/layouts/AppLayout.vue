@@ -263,6 +263,13 @@ onBeforeUnmount(() => {
             <fa icon="calendar" /> Hoje: Ruptura
           </span>
           <RouterLink
+            to="/portal"
+            class="btn ghost"
+            style="white-space: nowrap; font-size: 14px;"
+          >
+            <fa icon="id-badge" /> Portal colaboradores
+          </RouterLink>
+          <RouterLink
             v-if="auth.podeGerenciar"
             to="/auditorias"
             class="btn primary topbar-upload-btn"

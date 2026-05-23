@@ -161,6 +161,9 @@
 - Renderiza InstallPWA.vue apenas antes do login, mantendo o prompt de instalacao restrito a rota /portal e fora da experiencia autenticada.
 - Usa o mesmo campo `avatarUrl` do colaborador e o mesmo padrao de crop do perfil administrativo para upload e exibicao da foto.
 - Mantem `ConquistaCard` como componente local via render function e cada card abre um modal com descricao, requisitos e historico de desbloqueio da conquista.
+- A logica de conquista resolve a imagem por tier especifico (`tierAtualImagem`, `tiers[].imagemUrl` ou fallback estatico) e reutiliza isso no card, no hero do modal e nas listas de requisitos e historico; sem imagem, o fallback continua sendo o `icone` da conquista.
+- Os cards de conquista da grade principal foram simplificados: nao exibem mais a lista de chips de todos os tiers e a descricao/progresso ocupam a largura total abaixo do topo com icone e titulo, evitando espaco morto ao lado esquerdo.
+- O modal de detalhe da conquista nao exibe mais a grade superior de cards-resumo; o foco fica direto na lista de requisitos, e os tiers desbloqueados recebem um fundo esverdeado para sinalizar conclusao visual imediata.
 - A aba `Inicio` passou a abrir com uma lista de colegas ativos da mesma loja e cada card navega para a pagina `/portal/colegas/:colegaId`, onde `PerfilPublicoColaborador.vue` renderiza o perfil publico do colega.
 - `PerfilPublicoColaborador.vue` exibe no topo do perfil publico o nivel do colega, total de auditorias realizadas e total acumulado de itens lidos, alem das conquistas e do historico analitico.
 - No mobile, o hero de `PerfilPublicoColaborador.vue` preserva a foto do colega, compacta a tipografia e reorganiza os indicadores em grade responsiva para evitar quebra ruim e sobras de espaco em telas estreitas.
@@ -174,6 +177,9 @@
 - Componente isolado da aba `Corredores` do portal.
 - Carrega a auditoria do dia em endpoint proprio e deixa a auditoria anterior atras de um botao explicito, evitando misturar a operacao atual com historico.
 - Exibe `Meus corredores` e `Demais corredores`, destaca o corredor atual do colaborador e abre modal sob demanda com equipe e itens do corredor.
+- O painel-resumo superior com status/data/contadores foi removido para deixar a tela mais limpa; a expansao de `Demais corredores` continua disponivel no proprio cabecalho da secao.
+- No modal de itens, quando a auditoria e do tipo `ETIQUETA`, exibe tambem o filtro `Desatualizadas`, baseado em `item.situacao === "Desatualizado"`.
+- Os cards de corredores seguem o visual clean de `Relatorios.vue`, com status coloridos por faixa de desempenho (`Excelente`, `Bom`, `Atenção`, `Crítico`) em verde, azul, amarelo e vermelho.
 
 ## Relacoes entre componentes
 
@@ -184,6 +190,7 @@
 - InstallPWA.vue depende do evento beforeinstallprompt do navegador e e renderizado dentro de ColaboradorPortal.vue apenas enquanto o fluxo esta fora do estado autenticado.
 - Em iPhone, InstallPWA.vue usa deteccao local de iOS para substituir o CTA nativo por instrucoes manuais de instalacao no banner.
 - AuditoriaDodia.vue depende das rotas exclusivas do portal e e renderizado dentro de ColaboradorPortal.vue apenas quando a aba `Corredores` esta ativa.
+- Em AuditoriaDodia.vue, a secao `Demais corredores` fica recolhida por padrao para priorizar os corredores do proprio colaborador; a expansao pode ser feita pelo card-resumo ou pelo cabecalho com seta.
 - PerfilPublicoColaborador.vue depende das rotas exclusivas do portal para listar colegas e resolver o perfil publico de um colaborador da mesma loja dentro de uma rota dedicada do proprio portal.
 
 ## Dependencias funcionais importantes

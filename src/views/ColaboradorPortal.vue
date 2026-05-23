@@ -175,30 +175,55 @@ const CONQUISTA_TIER_IMAGES = {
   },
 };
 
-function imagemConquistaPorTier(conquista) {
-  if (!conquista?.desbloqueada) return "";
+function nivelImagemConquista(conquista, nivel = "") {
+  const fallbackNivel = Array.isArray(conquista?.tiers)
+    ? conquista.tiers[0]?.nivel || ""
+    : "";
+  return String(nivel || conquista?.tierAtual || fallbackNivel || "")
+    .trim()
+    .toLowerCase();
+}
 
-  // Preferência: imagem cadastrada pelo admin no tier desbloqueado
-  const tierAtual = String(conquista.tierAtual || "").toLowerCase();
-  if (conquista.tierAtualImagem)
+function imagemConquistaPorTier(conquista, nivel = "") {
+  const tierAtual = nivelImagemConquista(conquista, nivel);
+  if (!tierAtual) return "";
+
+  if (!nivel && conquista?.tierAtualImagem) {
     return resolverUrlMidia(conquista.tierAtualImagem);
-  if (Array.isArray(conquista.tiers)) {
+  }
+
+  if (Array.isArray(conquista?.tiers)) {
     const t = conquista.tiers.find(
       (x) => String(x.nivel).toLowerCase() === tierAtual,
     );
     if (t?.imagemUrl) return resolverUrlMidia(t.imagemUrl);
   }
 
-  // Fallback: mapa estático de imagens hardcoded (compatibilidade).
-  const imagensPorTier = CONQUISTA_TIER_IMAGES[conquista.codigo];
+  const imagensPorTier = CONQUISTA_TIER_IMAGES[conquista?.codigo];
   if (!imagensPorTier) return "";
   return imagensPorTier[tierAtual] || "";
 }
 
-function altImagemConquista(conquista) {
-  return [conquista?.nome, conquista?.tierAtualLabel]
+function iconeConquista(conquista) {
+  return conquista?.icone || "🏅";
+}
+
+function altImagemConquistaTier(conquista, nivel = "") {
+  const tierAtual = Array.isArray(conquista?.tiers)
+    ? conquista.tiers.find(
+        (item) =>
+          String(item?.nivel || "").toLowerCase() ===
+          nivelImagemConquista(conquista, nivel),
+      )
+    : null;
+
+  return [conquista?.nome, tierAtual?.label || tierAtual?.nivel || conquista?.tierAtualLabel]
     .filter(Boolean)
     .join(" • ");
+}
+
+function altImagemConquista(conquista) {
+  return altImagemConquistaTier(conquista);
 }
 
 function ordenarConquistasPorRelevancia(lista) {
@@ -212,9 +237,14 @@ function coletarUrlsImagensConquistas(lista) {
   return Array.from(
     new Set(
       ordenarConquistasPorRelevancia(lista)
-        .map((conquista) =>
-          conquista?.desbloqueada ? imagemConquistaPorTier(conquista) : "",
-        )
+        .flatMap((conquista) => [
+          imagemConquistaPorTier(conquista),
+          ...(Array.isArray(conquista?.tiers)
+            ? conquista.tiers.map((tier) =>
+                imagemConquistaPorTier(conquista, tier.nivel),
+              )
+            : []),
+        ])
         .filter(Boolean),
     ),
   );
@@ -296,41 +326,49 @@ const ConquistaCard = defineComponent({
           h("div", { class: "conq-card-bg" }),
           h(
             "div",
-            {
-              class: ["conq-card-icon", imagemConquista ? "has-image" : ""],
-            },
+            { class: "conq-card-head" },
             [
-              c.desbloqueada
-                ? imagemConquista
-                  ? h("img", {
-                      class: "conq-icon-image",
-                      src: imagemConquista,
-                      alt: altImagemConquista(c),
-                      loading: props.priority ? "eager" : "lazy",
-                      decoding: "async",
-                      fetchpriority: props.priority ? "high" : "low",
-                      width: 64,
-                      height: 64,
-                      draggable: false,
-                    })
-                  : c.icone
-                : h("i", { class: "fa-solid fa-lock" }),
+              h(
+                "div",
+                {
+                  class: ["conq-card-icon", imagemConquista ? "has-image" : ""],
+                },
+                [
+                  imagemConquista
+                    ? h("img", {
+                        class: "conq-icon-image",
+                        src: imagemConquista,
+                        alt: altImagemConquista(c),
+                        loading: props.priority ? "eager" : "lazy",
+                        decoding: "async",
+                        fetchpriority: props.priority ? "high" : "low",
+                        width: 64,
+                        height: 64,
+                        draggable: false,
+                      })
+                    : c.desbloqueada
+                      ? iconeConquista(c)
+                      : h("i", { class: "fa-solid fa-lock" }),
+                ],
+              ),
+              h("div", { class: "conq-card-body" }, [
+                c.tierAtual
+                  ? h("div", { class: "conq-card-tier" }, [
+                      h("span", {
+                        class: "conq-tier-dot",
+                        style: { background: tierCor },
+                      }),
+                      c.tierAtualLabel,
+                    ])
+                  : h("div", { class: "conq-card-tier locked-label" }, [
+                      h("i", { class: "fa-solid fa-lock" }),
+                      " Bloqueada",
+                    ]),
+                h("strong", { class: "conq-card-nome" }, c.nome),
+              ]),
             ],
           ),
-          h("div", { class: "conq-card-body" }, [
-            c.tierAtual
-              ? h("div", { class: "conq-card-tier" }, [
-                  h("span", {
-                    class: "conq-tier-dot",
-                    style: { background: tierCor },
-                  }),
-                  c.tierAtualLabel,
-                ])
-              : h("div", { class: "conq-card-tier locked-label" }, [
-                  h("i", { class: "fa-solid fa-lock" }),
-                  " Bloqueada",
-                ]),
-            h("strong", { class: "conq-card-nome" }, c.nome),
+          h("div", { class: "conq-card-content" }, [
             props.compact
               ? null
               : h("p", { class: "muted conq-card-desc" }, c.descricao || ""),
@@ -360,36 +398,6 @@ const ConquistaCard = defineComponent({
                   h("i", { class: "fa-solid fa-medal" }),
                   " Tier máximo alcançado!",
                 ]),
-            props.compact || !c.tiers?.length
-              ? null
-              : h(
-                  "div",
-                  { class: "conq-tiers" },
-                  c.tiers.map((t) =>
-                    h(
-                      "span",
-                      {
-                        key: t.nivel,
-                        class: [
-                          "conq-tier-pill",
-                          t.desbloqueado ? "unlocked" : "",
-                        ],
-                        style: t.desbloqueado
-                          ? { borderColor: t.cor, color: t.cor }
-                          : {},
-                        title: `${t.titulo || ""} · meta ${t.meta}`,
-                      },
-                      [
-                        h("i", {
-                          class: t.desbloqueado
-                            ? "fa-solid fa-check"
-                            : "fa-solid fa-lock",
-                        }),
-                        " " + t.label,
-                      ],
-                    ),
-                  ),
-                ),
           ]),
         ],
       );
@@ -610,16 +618,12 @@ async function carregarPerfil() {
   const aquecimentoConquistas = aquecerImagensConquistas(conquistasPortal);
 
   metricas.value = metricasResponse.data;
-<<<<<<< HEAD
-  conquistasResolvidas.value = metricasResponse.data.conquistas || [];
+  conquistasResolvidas.value = conquistasPortal;
   rankingGeral.value = rankingResponse.data || {
     posicao: null,
     totalColaboradores: 0,
+    totalItensLidos: 0,
   };
-=======
-  conquistasResolvidas.value = conquistasPortal;
-  rankingGeral.value = rankingResponse.data || { posicao: null, totalColaboradores: 0 };
->>>>>>> 63b5b89 (ruptura atualizado)
   await carregarColegas();
   await aquecimentoConquistas;
 }
@@ -1556,17 +1560,17 @@ onBeforeUnmount(() => {
             :style="{ borderTopColor: corPorTipo[t._id] }"
           >
             <span class="badge" :class="'tipo-' + t._id">{{ t._id }}</span>
-            <div class="kpi-valor">
-              {{
-                t.totalLidos
-                  ? ((t.totalConformes / t.totalLidos) * 100).toFixed(1)
-                  : 0
-              }}%
-            </div>
-            <small class="muted">conformidade</small>
+            <div class="kpi-valor">{{ formatNum(t.totalLidos) }}</div>
+            <small class="muted">itens lidos</small>
             <div class="kpi-foot">
               <span
-                ><fa icon="boxes-stacked" /> {{ formatNum(t.totalLidos) }}</span
+                ><fa icon="shield-halved" />
+                {{
+                  t.totalLidos
+                    ? ((t.totalConformes / t.totalLidos) * 100).toFixed(1)
+                    : 0
+                }}%
+              </span
               >
               <span><fa icon="bolt" /> {{ Math.round(t.pontuacao) }}</span>
             </div>
@@ -2064,10 +2068,7 @@ onBeforeUnmount(() => {
                 :class="{ 'has-image': !!imagemConquistaSelecionada }"
               >
                 <img
-                  v-if="
-                    conquistaSelecionada.desbloqueada &&
-                    imagemConquistaSelecionada
-                  "
+                  v-if="imagemConquistaSelecionada"
                   class="conq-icon-image"
                   :src="imagemConquistaSelecionada"
                   :alt="altImagemConquista(conquistaSelecionada)"
@@ -2081,7 +2082,7 @@ onBeforeUnmount(() => {
                 <template v-else>
                   {{
                     conquistaSelecionada.desbloqueada
-                      ? conquistaSelecionada.icone
+                      ? iconeConquista(conquistaSelecionada)
                       : "🔒"
                   }}
                 </template>
@@ -2133,66 +2134,6 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <div class="conq-modal-grid">
-            <div class="conq-modal-stat">
-              <span class="conq-modal-stat-label">Data de obtenção</span>
-              <strong class="conq-modal-stat-value">
-                {{
-                  conquistaSelecionada.desbloqueada
-                    ? formatarData(conquistaSelecionada.desbloqueadaEm, true)
-                    : "Ainda não desbloqueada"
-                }}
-              </strong>
-            </div>
-            <div class="conq-modal-stat">
-              <span class="conq-modal-stat-label">Progresso atual</span>
-              <strong class="conq-modal-stat-value">
-                {{
-                  formatarValorConquista(
-                    conquistaSelecionada.progresso,
-                    conquistaSelecionada.metricaBase,
-                  )
-                }}
-              </strong>
-              <small class="muted">
-                {{
-                  METRICA_LABELS[conquistaSelecionada.metricaBase] ||
-                  conquistaSelecionada.metricaBase
-                }}
-              </small>
-            </div>
-            <div class="conq-modal-stat">
-              <span class="conq-modal-stat-label">Tier atual</span>
-              <strong class="conq-modal-stat-value">
-                {{ conquistaSelecionada.tierAtualLabel || "Bloqueada" }}
-              </strong>
-              <small class="muted">
-                {{ conquistaSelecionada.totalTiersDesbloqueados }} de
-                {{ conquistaSelecionada.totalTiers }} tiers desbloqueados
-              </small>
-            </div>
-            <div class="conq-modal-stat">
-              <span class="conq-modal-stat-label">Próximo objetivo</span>
-              <strong class="conq-modal-stat-value">
-                {{
-                  conquistaSelecionada.proximoTier
-                    ? conquistaSelecionada.proximoTier.label
-                    : "Conquista completa"
-                }}
-              </strong>
-              <small class="muted">
-                {{
-                  conquistaSelecionada.proximoTier
-                    ? textoRequisitoTier(
-                        conquistaSelecionada,
-                        conquistaSelecionada.proximoTier,
-                      )
-                    : "Você já atingiu o tier máximo desta conquista."
-                }}
-              </small>
-            </div>
-          </div>
-
           <section class="conq-modal-section">
             <div class="row justify-between items-center mb-2">
               <h4 class="section-title mb-0">
@@ -2214,15 +2155,41 @@ onBeforeUnmount(() => {
                 :style="{ '--req-tier-cor': tier.cor }"
               >
                 <div class="conq-req-head">
-                  <div class="conq-req-tier">
-                    <span
-                      class="conq-tier-dot"
-                      :style="{ background: tier.cor }"
-                    />
-                    <strong>{{ tier.label }}</strong>
-                    <span v-if="tier.titulo" class="muted">
-                      · {{ tier.titulo }}
-                    </span>
+                  <div class="conq-req-tier-wrap">
+                    <div
+                      class="conq-req-tier-icon"
+                      :class="{
+                        'has-image': !!imagemConquistaPorTier(
+                          conquistaSelecionada,
+                          tier.nivel,
+                        ),
+                      }"
+                    >
+                      <img
+                        v-if="imagemConquistaPorTier(conquistaSelecionada, tier.nivel)"
+                        class="conq-req-tier-image"
+                        :src="imagemConquistaPorTier(conquistaSelecionada, tier.nivel)"
+                        :alt="altImagemConquistaTier(conquistaSelecionada, tier.nivel)"
+                        loading="lazy"
+                        decoding="async"
+                        width="40"
+                        height="40"
+                        draggable="false"
+                      />
+                      <template v-else>
+                        {{ iconeConquista(conquistaSelecionada) }}
+                      </template>
+                    </div>
+                    <div class="conq-req-tier">
+                      <span
+                        class="conq-tier-dot"
+                        :style="{ background: tier.cor }"
+                      />
+                      <strong>{{ tier.label }}</strong>
+                      <span v-if="tier.titulo" class="muted">
+                        · {{ tier.titulo }}
+                      </span>
+                    </div>
                   </div>
                   <span
                     class="badge conq-status-badge"
@@ -2288,15 +2255,41 @@ onBeforeUnmount(() => {
                 class="conq-history-item"
               >
                 <div class="conq-history-head">
-                  <div class="conq-req-tier">
-                    <span
-                      class="conq-tier-dot"
-                      :style="{ background: item.cor }"
-                    />
-                    <strong>{{ item.label }}</strong>
-                    <span v-if="item.titulo" class="muted">
-                      · {{ item.titulo }}
-                    </span>
+                  <div class="conq-req-tier-wrap">
+                    <div
+                      class="conq-req-tier-icon"
+                      :class="{
+                        'has-image': !!imagemConquistaPorTier(
+                          conquistaSelecionada,
+                          item.nivel,
+                        ),
+                      }"
+                    >
+                      <img
+                        v-if="imagemConquistaPorTier(conquistaSelecionada, item.nivel)"
+                        class="conq-req-tier-image"
+                        :src="imagemConquistaPorTier(conquistaSelecionada, item.nivel)"
+                        :alt="altImagemConquistaTier(conquistaSelecionada, item.nivel)"
+                        loading="lazy"
+                        decoding="async"
+                        width="40"
+                        height="40"
+                        draggable="false"
+                      />
+                      <template v-else>
+                        {{ iconeConquista(conquistaSelecionada) }}
+                      </template>
+                    </div>
+                    <div class="conq-req-tier">
+                      <span
+                        class="conq-tier-dot"
+                        :style="{ background: item.cor }"
+                      />
+                      <strong>{{ item.label }}</strong>
+                      <span v-if="item.titulo" class="muted">
+                        · {{ item.titulo }}
+                      </span>
+                    </div>
                   </div>
                   <span class="badge conq-status-badge unlocked">
                     Desbloqueado
@@ -3480,35 +3473,10 @@ onBeforeUnmount(() => {
   line-height: 1.6;
 }
 
-.conq-modal-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.conq-modal-stat,
 .conq-modal-section {
   border: 1px solid var(--border);
   border-radius: 20px;
   background: var(--surface-strong);
-}
-
-.conq-modal-stat {
-  padding: 16px;
-  display: grid;
-  gap: 6px;
-}
-
-.conq-modal-stat-label {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--text-dim);
-}
-
-.conq-modal-stat-value {
-  font-size: 18px;
-  line-height: 1.3;
 }
 
 .conq-modal-section {
@@ -3536,7 +3504,21 @@ onBeforeUnmount(() => {
 }
 
 .conq-req-item.unlocked {
-  border-color: color-mix(in srgb, var(--tier-cor) 22%, var(--border));
+  border-color: color-mix(in srgb, #22c55e 34%, var(--border));
+  background:
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, #22c55e 16%, transparent),
+      transparent 58%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, #22c55e 8%, rgba(255, 255, 255, 0.03)),
+      rgba(255, 255, 255, 0.03)
+    );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, #22c55e 10%, transparent),
+    0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 .conq-req-head,
@@ -3553,6 +3535,44 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.conq-req-tier-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.conq-req-tier-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  font-size: 18px;
+  color: #fff;
+  background: linear-gradient(
+    135deg,
+    var(--req-tier-cor),
+    color-mix(in srgb, var(--req-tier-cor) 58%, #000)
+  );
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--req-tier-cor) 26%, transparent);
+  overflow: hidden;
+}
+
+.conq-req-tier-icon.has-image {
+  background: color-mix(in srgb, var(--req-tier-cor) 14%, transparent);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--req-tier-cor) 18%, transparent);
+}
+
+.conq-req-tier-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .conq-req-copy {
@@ -3773,13 +3793,25 @@ onBeforeUnmount(() => {
   border-color: rgba(89, 108, 165, 0.24);
   box-shadow: 0 30px 70px rgba(53, 70, 120, 0.22);
 }
-:global([data-theme="light"]) .conq-modal-stat,
 :global([data-theme="light"]) .conq-modal-section,
 :global([data-theme="light"]) .conq-req-item,
 :global([data-theme="light"]) .conq-history-item {
   background: rgba(255, 255, 255, 0.94);
   border-color: rgba(89, 108, 165, 0.18);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+:global([data-theme="light"]) .conq-req-item.unlocked {
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(34, 197, 94, 0.12),
+      transparent 56%
+    ),
+    linear-gradient(180deg, rgba(240, 253, 244, 0.96), rgba(236, 253, 245, 0.92));
+  border-color: rgba(34, 197, 94, 0.26);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 12px 24px rgba(22, 101, 52, 0.08);
 }
 :global([data-theme="light"]) .conq-status-badge.unlocked {
   color: #fafafa;
@@ -3865,8 +3897,7 @@ onBeforeUnmount(() => {
     flex-direction: column;
   }
 
-  .conq-modal-hero,
-  .conq-modal-grid {
+  .conq-modal-hero {
     grid-template-columns: 1fr;
   }
 
@@ -3995,9 +4026,7 @@ onBeforeUnmount(() => {
   background: var(--surface-strong);
   overflow: hidden;
   display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: 14px;
-  align-items: start;
+  gap: 12px;
   --tier-cor: #94a3b8;
   transition:
     transform 0.18s ease,
@@ -4057,10 +4086,29 @@ onBeforeUnmount(() => {
   object-fit: cover;
   border-radius: inherit;
 }
+
+.conq-card-head {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
 .conq-card-body {
   position: relative;
   z-index: 1;
   min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.conq-card-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
 }
 .conq-card-tier {
   display: inline-flex;
@@ -4115,28 +4163,11 @@ onBeforeUnmount(() => {
   gap: 6px;
   margin-top: 4px;
 }
-.conq-tiers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
-}
-.conq-tier-pill {
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px dashed var(--border);
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--text-dim);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.conq-tier-pill.unlocked {
-  border-style: solid;
-}
 .conq-card.compact {
   padding: 12px;
+  gap: 10px;
+}
+.conq-card.compact .conq-card-head {
   grid-template-columns: 48px 1fr;
   gap: 10px;
 }
@@ -4145,6 +4176,9 @@ onBeforeUnmount(() => {
   height: 48px;
   font-size: 24px;
   border-radius: 14px;
+}
+.conq-card.compact .conq-card-content {
+  gap: 6px;
 }
 .conq-card.compact .conq-card-nome {
   font-size: 13px;

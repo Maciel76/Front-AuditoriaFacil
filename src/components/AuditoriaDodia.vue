@@ -20,6 +20,7 @@ const erroDetalhe = ref("");
 const filtroItensModal = ref("todos");
 const filtroDiasSemVendaModal = ref(false);
 const ordemDiasSemVendaModal = ref("maior");
+const demaisCorredoresExpandidos = ref(false);
 
 const TIPO_LABELS = {
   ETIQUETA: "Etiqueta",
@@ -50,6 +51,13 @@ function apiPortal() {
 
 function formatNum(valor) {
   return Number(valor || 0).toLocaleString("pt-BR");
+}
+
+function formatarPercentual(valor, casas = 1) {
+  return `${Number(valor || 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: casas,
+    maximumFractionDigits: casas,
+  })}%`;
 }
 
 function formatarEstoque(valor) {
@@ -88,18 +96,54 @@ function formatarData(valor, incluirHora = false) {
   ).format(data);
 }
 
+function statusCorredor(corredor) {
+  const taxa = Number(corredor?.taxaConformidade || 0);
+  if (taxa >= 92) {
+    return {
+      key: "excellent",
+      label: "Excelente",
+      color: "#22c55e",
+      soft: "rgba(34, 197, 94, 0.14)",
+    };
+  }
+  if (taxa >= 80) {
+    return {
+      key: "good",
+      label: "Bom",
+      color: "#4f9cf0",
+      soft: "rgba(79, 156, 240, 0.16)",
+    };
+  }
+  if (taxa >= 65) {
+    return {
+      key: "warn",
+      label: "Atenção",
+      color: "#f59e0b",
+      soft: "rgba(245, 158, 11, 0.16)",
+    };
+  }
+  return {
+    key: "critical",
+    label: "Crítico",
+    color: "#ef4444",
+    soft: "rgba(239, 68, 68, 0.15)",
+  };
+}
+
+function estiloStatusCorredor(corredor) {
+  const status = statusCorredor(corredor);
+  return {
+    "--report-accent": status.color,
+    "--report-accent-soft": status.soft,
+  };
+}
+
 function textoConformidade(item) {
-  return `${Number(item?.taxaConformidade || 0).toLocaleString("pt-BR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 1,
-  })}% conf.`;
+  return `${formatarPercentual(item?.taxaConformidade || 0, 1)} conf.`;
 }
 
 function textoConclusao(item) {
-  return `${Number(item?.progressoPct || 0).toLocaleString("pt-BR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 1,
-  })}% concluído`;
+  return `${formatarPercentual(item?.progressoPct || 0, 1)} concluído`;
 }
 
 function situacaoClasse(item) {
@@ -116,6 +160,10 @@ function textoLeituraItem(item) {
   return item?.foiLido ? "Lido" : "Não lido";
 }
 
+function itemDetalheEhDesatualizado(item) {
+  return String(item?.situacao || "").trim() === "Desatualizado";
+}
+
 function fecharCorredor() {
   corredorSelecionado.value = null;
   detalheCorredor.value = null;
@@ -125,10 +173,16 @@ function fecharCorredor() {
   ordemDiasSemVendaModal.value = "maior";
 }
 
+function toggleDemaisCorredores() {
+  if (!demaisCorredores.value.length) return;
+  demaisCorredoresExpandidos.value = !demaisCorredoresExpandidos.value;
+}
+
 async function carregarResumo(origem = origemResumo.value) {
   if (!props.token) {
     resumo.value = null;
     origemResumo.value = "hoje";
+    demaisCorredoresExpandidos.value = false;
     fecharCorredor();
     return;
   }
@@ -144,6 +198,7 @@ async function carregarResumo(origem = origemResumo.value) {
       { params: { origem: origemResumo.value } },
     );
     resumo.value = data;
+    demaisCorredoresExpandidos.value = false;
   } catch (e) {
     erro.value =
       e?.response?.data?.error ||
@@ -204,6 +259,7 @@ watch(
     if (!novoToken) {
       resumo.value = null;
       origemResumo.value = "hoje";
+      demaisCorredoresExpandidos.value = false;
       fecharCorredor();
       return;
     }
@@ -226,6 +282,7 @@ const demaisCorredores = computed(() => resumo.value?.demaisCorredores || []);
 const exibindoAnterior = computed(() =>
   Boolean(resumo.value?.exibindoAnterior),
 );
+const temDemaisCorredores = computed(() => demaisCorredores.value.length > 0);
 const temAuditoriaAnterior = computed(() =>
   Boolean(resumo.value?.temAuditoriaAnterior),
 );
@@ -242,15 +299,20 @@ const contagemItensDetalhe = computed(() => {
     todos: itensDetalheValidos.value.length,
     lidos: 0,
     naoLidos: 0,
+    desatualizados: 0,
   };
 
   for (const item of itensDetalheValidos.value) {
     if (item?.foiLido) totais.lidos += 1;
     else totais.naoLidos += 1;
+    if (itemDetalheEhDesatualizado(item)) totais.desatualizados += 1;
   }
 
   return totais;
 });
+const exibindoFiltroDesatualizados = computed(
+  () => auditoriaAtual.value?.tipo === "ETIQUETA",
+);
 const itensDetalhePorLeitura = computed(() => {
   const itensBase = itensDetalheValidos.value;
 
@@ -260,6 +322,10 @@ const itensDetalhePorLeitura = computed(() => {
 
   if (filtroItensModal.value === "nao-lidos") {
     return itensBase.filter((item) => !item?.foiLido);
+  }
+
+  if (filtroItensModal.value === "desatualizados") {
+    return itensBase.filter((item) => itemDetalheEhDesatualizado(item));
   }
 
   return itensBase;
@@ -292,11 +358,8 @@ const itensDetalheFiltrados = computed(() => {
       return `${a.produto}`.localeCompare(`${b.produto}`, "pt-BR");
     });
 });
-const totalCorredoresResumo = computed(() =>
-  Number(
-    resumo.value?.totalCorredores ??
-      meusCorredores.value.length + demaisCorredores.value.length,
-  ),
+const tipoAuditoriaAtualLabel = computed(
+  () => TIPO_LABELS[auditoriaAtual.value?.tipo] || auditoriaAtual.value?.tipo || "Auditoria",
 );
 const semAuditoria = computed(() => !auditoriaAtual.value);
 </script>
@@ -384,45 +447,6 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
       </div>
 
       <template v-else>
-        <div class="auditoria-painel">
-          <div class="auditoria-meta">
-            <div class="auditoria-meta-principal">
-              <span
-                class="auditoria-status"
-                :class="{ anterior: exibindoAnterior }"
-              >
-                {{ exibindoAnterior ? "Consulta anterior" : "Operação atual" }}
-              </span>
-              <span
-                class="auditoria-tipo"
-                :style="{
-                  '--tipo-cor': TIPO_CORES[auditoriaAtual.tipo] || '#94a3b8',
-                }"
-              >
-                {{ TIPO_LABELS[auditoriaAtual.tipo] || auditoriaAtual.tipo }}
-              </span>
-            </div>
-            <strong class="auditoria-data">{{
-              formatarData(auditoriaAtual.data)
-            }}</strong>
-          </div>
-
-          <div class="auditoria-resumo-grid">
-            <article class="auditoria-resumo-card">
-              <span>Meus corredores</span>
-              <strong>{{ meusCorredores.length }}</strong>
-            </article>
-            <article class="auditoria-resumo-card">
-              <span>Demais corredores</span>
-              <strong>{{ demaisCorredores.length }}</strong>
-            </article>
-            <article class="auditoria-resumo-card">
-              <span>Total visível</span>
-              <strong>{{ formatNum(totalCorredoresResumo) }}</strong>
-            </article>
-          </div>
-        </div>
-
         <div
           v-if="resumo?.aviso"
           class="auditoria-banner"
@@ -441,108 +465,182 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
             Você ainda não tem leitura registrada nessa auditoria.
           </div>
 
-          <div v-else class="corredores-grid destaque">
+          <div v-else class="corredores-grid">
             <button
               v-for="corredor in meusCorredores"
               :key="`meu-${corredor.local}`"
               class="corredor-card"
-              :class="{ destaque: corredor.emDestaque }"
+              :class="[
+                `status-${statusCorredor(corredor).key}`,
+                { destaque: corredor.emDestaque },
+              ]"
+              :style="estiloStatusCorredor(corredor)"
               type="button"
               @click="abrirCorredor(corredor)"
             >
-              <div class="corredor-card-top">
-                <div>
-                  <span v-if="corredor.emDestaque" class="badge ok">
-                    Em destaque
-                  </span>
-                  <strong>{{ corredor.local }}</strong>
+              <div class="corredor-head">
+                <div class="corredor-mark">
+                  <fa icon="clipboard-check" />
                 </div>
-                <span class="corredor-conclusao">{{
-                  textoConclusao(corredor)
-                }}</span>
-              </div>
 
-              <div class="progress corredor-barra">
-                <span :style="{ width: `${corredor.progressoPct}%` }"></span>
-              </div>
-
-              <div class="corredor-metricas">
-                <span>
-                  <strong>{{ formatNum(corredor.totalLidos) }}</strong>
-                  / {{ formatNum(corredor.totalItensAuditaveis) }} lidos
-                </span>
-                <span>
-                  Minha leitura:
-                  <strong>{{ formatNum(corredor.minhaLeitura) }}</strong>
-                </span>
-                <span>{{ textoConformidade(corredor) }}</span>
-              </div>
-
-              <div class="corredor-equipe">
-                <div class="corredor-equipe-head">
-                  <span>Equipe no corredor</span>
-                  <span>{{ corredor.totalParticipantes }} pessoa(s)</span>
-                </div>
-                <div class="corredor-participantes">
-                  <div
-                    v-for="participante in corredor.participantes"
-                    :key="`${corredor.local}-${participante.colaboradorId || participante.nome}`"
-                    class="participante-pill"
-                    :class="{ eu: participante.eu }"
-                  >
-                    <ColaboradorAvatar
-                      :nome="participante.nome"
-                      :avatar-url="participante.avatarUrl"
-                      :size="28"
-                      :font-size="10"
-                    />
-                    <div>
-                      <strong>{{ participante.nome }}</strong>
-                      <span
-                        >{{ formatNum(participante.totalLidos) }} lidos</span
-                      >
-                    </div>
+                <div class="corredor-copy">
+                  <div class="corredor-name">{{ corredor.local }}</div>
+                  <div class="corredor-rate">
+                    {{ formatarPercentual(corredor.taxaConformidade, 2) }}
                   </div>
                 </div>
+
+                <div class="corredor-head-side">
+                  <span v-if="corredor.emDestaque" class="corredor-current-badge">
+                    Em destaque
+                  </span>
+                  <span
+                    class="corredor-status-pill"
+                    :class="`status-${statusCorredor(corredor).key}`"
+                  >
+                    {{ statusCorredor(corredor).label }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="corredor-progress">
+                <span
+                  :style="{
+                    width:
+                      Math.min(
+                        100,
+                        Math.max(0, Number(corredor.taxaConformidade || 0)),
+                      ) + '%',
+                  }"
+                ></span>
+              </div>
+
+              <div class="corredor-footnote">
+                {{ textoConclusao(corredor) }} · {{ tipoAuditoriaAtualLabel }}
+              </div>
+
+              <div class="corredor-stats">
+                <span><strong>{{ formatNum(corredor.totalLidos) }}</strong> lidos</span>
+                <span><strong>{{ formatNum(corredor.totalItensAuditaveis) }}</strong> itens</span>
+                <span><strong>{{ formatNum(corredor.totalNaoConformes) }}</strong> desvios</span>
+              </div>
+
+              <div class="corredor-meta">
+                <span><fa icon="users" /> {{ corredor.totalParticipantes }} participante(s)</span>
+                <span>
+                  <fa icon="chart-bar" /> Minha leitura
+                  <strong>{{ formatNum(corredor.minhaLeitura) }}</strong>
+                </span>
+              </div>
+
+              <div class="corredor-toggle muted">
+                <fa icon="eye" /> Ver detalhes
               </div>
             </button>
           </div>
         </section>
 
-        <section v-if="demaisCorredores.length" class="auditoria-bloco">
-          <div class="auditoria-bloco-head">
-            <h4>Demais corredores</h4>
-            <span class="muted"
-              >{{ demaisCorredores.length }} corredor(es)</span
-            >
+        <section v-if="temDemaisCorredores" class="auditoria-bloco">
+          <button
+            class="auditoria-bloco-head auditoria-bloco-head-toggle"
+            :class="{ expandido: demaisCorredoresExpandidos }"
+            type="button"
+            :aria-expanded="demaisCorredoresExpandidos ? 'true' : 'false'"
+            aria-controls="demais-corredores-grid"
+            @click="toggleDemaisCorredores"
+          >
+            <div>
+              <h4>Demais corredores</h4>
+              <span class="muted"
+                >{{ demaisCorredores.length }} corredor(es)</span
+              >
+            </div>
+            <span class="auditoria-expand-indicator">
+              <span>
+                {{
+                  demaisCorredoresExpandidos
+                    ? 'Ocultar corredores'
+                    : 'Expandir corredores'
+                }}
+              </span>
+              <span class="auditoria-chevron" aria-hidden="true">
+                <fa icon="chevron-right" />
+              </span>
+            </span>
+          </button>
+
+          <div
+            v-if="!demaisCorredoresExpandidos"
+            class="auditoria-bloco-colapsado muted"
+          >
+            Os demais corredores ficam escondidos por padrão para você focar
+            apenas no que está lendo agora.
           </div>
 
-          <div class="corredores-grid">
+          <div
+            v-else
+            id="demais-corredores-grid"
+            class="corredores-grid"
+          >
             <button
               v-for="corredor in demaisCorredores"
               :key="`demais-${corredor.local}`"
-              class="corredor-card secundario"
+              class="corredor-card"
+              :class="`status-${statusCorredor(corredor).key}`"
+              :style="estiloStatusCorredor(corredor)"
               type="button"
               @click="abrirCorredor(corredor)"
             >
-              <div class="corredor-card-top">
-                <strong>{{ corredor.local }}</strong>
-                <span class="corredor-conclusao">{{
-                  textoConclusao(corredor)
-                }}</span>
+              <div class="corredor-head">
+                <div class="corredor-mark">
+                  <fa icon="clipboard-check" />
+                </div>
+
+                <div class="corredor-copy">
+                  <div class="corredor-name">{{ corredor.local }}</div>
+                  <div class="corredor-rate">
+                    {{ formatarPercentual(corredor.taxaConformidade, 2) }}
+                  </div>
+                </div>
+
+                <div class="corredor-head-side">
+                  <span
+                    class="corredor-status-pill"
+                    :class="`status-${statusCorredor(corredor).key}`"
+                  >
+                    {{ statusCorredor(corredor).label }}
+                  </span>
+                </div>
               </div>
 
-              <div class="progress corredor-barra">
-                <span :style="{ width: `${corredor.progressoPct}%` }"></span>
+              <div class="corredor-progress">
+                <span
+                  :style="{
+                    width:
+                      Math.min(
+                        100,
+                        Math.max(0, Number(corredor.taxaConformidade || 0)),
+                      ) + '%',
+                  }"
+                ></span>
               </div>
 
-              <div class="corredor-metricas">
-                <span>
-                  <strong>{{ formatNum(corredor.totalLidos) }}</strong>
-                  / {{ formatNum(corredor.totalItensAuditaveis) }} lidos
-                </span>
-                <span>{{ textoConformidade(corredor) }}</span>
-                <span>{{ corredor.totalParticipantes }} participante(s)</span>
+              <div class="corredor-footnote">
+                {{ textoConclusao(corredor) }} · {{ tipoAuditoriaAtualLabel }}
+              </div>
+
+              <div class="corredor-stats">
+                <span><strong>{{ formatNum(corredor.totalLidos) }}</strong> lidos</span>
+                <span><strong>{{ formatNum(corredor.totalItensAuditaveis) }}</strong> itens</span>
+                <span><strong>{{ formatNum(corredor.totalNaoConformes) }}</strong> desvios</span>
+              </div>
+
+              <div class="corredor-meta">
+                <span><fa icon="users" /> {{ corredor.totalParticipantes }} participante(s)</span>
+              </div>
+
+              <div class="corredor-toggle muted">
+                <fa icon="eye" /> Ver detalhes
               </div>
             </button>
           </div>
@@ -696,6 +794,16 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
                 >
                   Não lidos
                   <span>{{ formatNum(contagemItensDetalhe.naoLidos) }}</span>
+                </button>
+                <button
+                  v-if="exibindoFiltroDesatualizados"
+                  class="itens-filtro"
+                  :class="{ ativo: filtroItensModal === 'desatualizados' }"
+                  type="button"
+                  @click="filtroItensModal = 'desatualizados'"
+                >
+                  Desatualizadas
+                  <span>{{ formatNum(contagemItensDetalhe.desatualizados) }}</span>
                 </button>
               </div>
               <div class="itens-ordenacao">
@@ -872,7 +980,6 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
   padding: 24px 0;
 }
 
-.auditoria-painel,
 .auditoria-bloco,
 .auditoria-vazia {
   display: grid;
@@ -920,14 +1027,6 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
   background: color-mix(in srgb, var(--danger) 9%, var(--bg-2) 91%);
 }
 
-.auditoria-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .auditoria-meta-principal {
   display: flex;
   align-items: center;
@@ -953,10 +1052,6 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
   border-color: color-mix(in srgb, var(--warning) 36%, white 64%);
 }
 
-.auditoria-data {
-  font-size: 15px;
-}
-
 .auditoria-tipo {
   display: inline-flex;
   align-items: center;
@@ -970,30 +1065,9 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
   border: 1px solid color-mix(in srgb, var(--tipo-cor) 35%, white 65%);
 }
 
-.auditoria-resumo-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.auditoria-resumo-card {
-  padding: 14px 16px;
-  border-radius: 18px;
-  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-  background: color-mix(in srgb, var(--bg-2) 72%, var(--surface) 28%);
-}
-
-.auditoria-resumo-card span {
-  display: block;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.auditoria-resumo-card strong {
-  display: block;
-  margin-top: 6px;
-  font-size: 28px;
-  line-height: 1;
+.auditoria-bloco-head-toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 70%, white 30%);
+  outline-offset: 2px;
 }
 
 .auditoria-bloco-head h4,
@@ -1002,22 +1076,70 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
   margin: 0;
 }
 
-.corredores-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-}
-
-.corredor-card {
-  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  background: color-mix(in srgb, var(--bg-2) 78%, var(--surface) 22%);
-  border-radius: 22px;
-  padding: 16px;
-  display: grid;
-  gap: 12px;
+.auditoria-bloco-head-toggle {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
   text-align: left;
   color: inherit;
   cursor: pointer;
+}
+
+.auditoria-expand-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.auditoria-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.18s ease;
+}
+
+.auditoria-bloco-head-toggle.expandido .auditoria-chevron {
+  transform: rotate(90deg);
+}
+
+.auditoria-bloco-colapsado {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px dashed color-mix(in srgb, var(--border) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-2) 70%, var(--surface) 30%);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.corredores-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.corredor-card {
+  --report-accent: var(--primary);
+  --report-accent-soft: rgba(124, 92, 255, 0.14);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--report-accent) 28%, var(--border));
+  background: linear-gradient(
+    180deg,
+    var(--report-accent-soft),
+    rgba(255, 255, 255, 0.02)
+  );
+  border-radius: 20px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
   transition:
     transform 0.18s ease,
     border-color 0.18s ease,
@@ -1026,86 +1148,166 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
 
 .corredor-card:hover {
   transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--primary) 35%, var(--border) 65%);
-  box-shadow: 0 18px 40px rgba(27, 45, 94, 0.12);
+  border-color: color-mix(in srgb, var(--report-accent) 35%, var(--border) 65%);
+  box-shadow: 0 18px 40px color-mix(in srgb, var(--report-accent) 18%, transparent);
+}
+
+.corredor-card:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--report-accent) 70%, white);
+  outline-offset: 2px;
+}
+
+.corredor-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--report-accent);
 }
 
 .corredor-card.destaque {
-  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
-  background:
-    radial-gradient(
-      circle at top left,
-      rgba(124, 92, 255, 0.12),
-      transparent 38%
-    ),
-    color-mix(in srgb, var(--bg-2) 72%, var(--surface) 28%);
+  box-shadow:
+    0 18px 40px color-mix(in srgb, var(--report-accent) 18%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--report-accent) 24%, transparent);
 }
 
-.corredor-card.secundario {
-  background: color-mix(in srgb, var(--bg-2) 82%, var(--surface) 18%);
-}
-
-.corredor-card-top {
-  display: flex;
-  justify-content: space-between;
+.corredor-head {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: flex-start;
 }
 
-.corredor-card-top strong {
-  display: block;
-  font-size: 17px;
+.corredor-mark {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--report-accent);
+  font-size: 22px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
-.corredor-conclusao {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--primary);
+.corredor-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
 }
 
-.corredor-barra {
-  height: 10px;
+.corredor-head-side {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.corredor-name {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.corredor-rate {
+  color: var(--report-accent);
+  font-size: clamp(20px, 2.4vw, 32px);
+  line-height: 1;
+  font-weight: 800;
+}
+
+.corredor-current-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
   border-radius: 999px;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--border) 68%, white 32%);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--report-accent);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid color-mix(in srgb, var(--report-accent) 18%, white 82%);
 }
 
-.corredor-barra > span {
+.corredor-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.corredor-status-pill.status-excellent {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.corredor-status-pill.status-good {
+  background: rgba(79, 156, 240, 0.16);
+  color: #4f9cf0;
+}
+
+.corredor-status-pill.status-warn {
+  background: rgba(245, 158, 11, 0.17);
+  color: #f59e0b;
+}
+
+.corredor-status-pill.status-critical {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.corredor-progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.24);
+}
+
+.corredor-progress > span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #7c5cff, #22d3ee);
+  background: var(--report-accent);
 }
 
-.corredor-metricas {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  font-size: 12px;
+.corredor-footnote {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.corredor-stats,
+.corredor-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 
-.corredor-metricas strong {
+.corredor-stats strong,
+.corredor-meta strong {
   color: var(--text);
 }
 
-.corredor-equipe {
-  display: grid;
-  gap: 10px;
-}
-
-.corredor-equipe-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
+.corredor-meta {
   font-size: 12px;
-  color: var(--muted);
 }
 
-.corredor-participantes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.corredor-meta span,
+.corredor-stats span,
+.corredor-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.corredor-toggle {
+  width: fit-content;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .participante-pill {
@@ -1384,8 +1586,7 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
 
 @media (max-width: 900px) {
   .auditoria-modal-stats,
-  .corredor-metricas,
-  .auditoria-resumo-grid {
+  .corredor-metricas {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1395,11 +1596,15 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
   .auditoria-bloco-head,
   .auditoria-modal-head,
   .modal-section-head,
-  .corredor-card-top,
+  .corredor-head,
   .participante-row,
   .item-row {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .corredor-head-side {
+    justify-items: start;
   }
 
   .auditoria-acoes,
@@ -1409,11 +1614,9 @@ const semAuditoria = computed(() => !auditoriaAtual.value);
 
   .auditoria-acoes > *,
   .auditoria-vazia-acoes > *,
-  .auditoria-meta,
   .auditoria-meta-principal,
   .auditoria-modal-stats,
-  .corredor-metricas,
-  .auditoria-resumo-grid {
+  .corredor-metricas {
     grid-template-columns: 1fr;
   }
 
