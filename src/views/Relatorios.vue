@@ -341,6 +341,12 @@ function descricaoTipos(item) {
   return `${item.tipos.length} tipos no período`;
 }
 
+function legendaTaxaCorredor(item) {
+  const tipos = Array.isArray(item?.tipos) ? item.tipos.filter(Boolean) : [];
+  const tipoBase = tipos.length === 1 ? tipos[0] : tipo.value || "";
+  return tipoBase === "ETIQUETA" ? "concluído" : "de conformidade";
+}
+
 function classeBadgeProdutoRelatorio(item) {
   if (!item?.foiLido) return "warn";
   if (item?.conforme === true) return "ok";
@@ -349,6 +355,10 @@ function classeBadgeProdutoRelatorio(item) {
 }
 
 function textoLeituraProdutoRelatorio(item) {
+  if (item?.tipo === "PRESENCA") {
+    return item?.foiLido ? "Com presença" : "Sem presença";
+  }
+
   return item?.foiLido ? "Lido" : "Não lido";
 }
 
@@ -396,6 +406,15 @@ const contagemProdutosCorredor = computed(() => ({
   diasSemVenda: Number(produtosCorredorOrdenadosPorDiasSemVenda.value.length),
 }));
 
+const tipoOverlayProdutosCorredor = computed(() => {
+  const tipos = Array.isArray(detalheOverlay.value?.tipos)
+    ? detalheOverlay.value.tipos.filter(Boolean)
+    : [];
+
+  if (tipos.length === 1) return tipos[0];
+  return tipo.value || "";
+});
+
 const produtosCorredorFiltrados = computed(() => {
   if (filtroProdutosCorredor.value === "dias-sem-venda") {
     return produtosCorredorOrdenadosPorDiasSemVenda.value;
@@ -407,6 +426,48 @@ const produtosCorredorFiltrados = computed(() => {
 
   return detalheOverlay.value?.itensLidos || [];
 });
+
+function rotuloFiltroProdutosCorredor(filtroAtual) {
+  if (filtroAtual === "dias-sem-venda") return "Dias sem venda";
+
+  if (tipoOverlayProdutosCorredor.value === "PRESENCA") {
+    return filtroAtual === "nao-lidos" ? "Sem presença" : "Com presença";
+  }
+
+  return filtroAtual === "nao-lidos" ? "Não lidos" : "Lidos";
+}
+
+function tituloProdutosCorredorAtivos() {
+  if (filtroProdutosCorredor.value === "dias-sem-venda") {
+    return "Produtos por dias sem venda";
+  }
+
+  if (tipoOverlayProdutosCorredor.value === "PRESENCA") {
+    return filtroProdutosCorredor.value === "nao-lidos"
+      ? "Produtos sem presença"
+      : "Produtos com presença";
+  }
+
+  return filtroProdutosCorredor.value === "nao-lidos"
+    ? "Produtos não lidos"
+    : "Produtos lidos";
+}
+
+function mensagemVaziaProdutosCorredor() {
+  if (filtroProdutosCorredor.value === "dias-sem-venda") {
+    return "Nenhum produto disponível para classificar por dias sem venda.";
+  }
+
+  if (tipoOverlayProdutosCorredor.value === "PRESENCA") {
+    return filtroProdutosCorredor.value === "nao-lidos"
+      ? "Nenhum produto sem presença neste corredor."
+      : "Nenhum produto com presença neste corredor.";
+  }
+
+  return filtroProdutosCorredor.value === "nao-lidos"
+    ? "Nenhum produto pendente neste corredor."
+    : "Nenhum produto lido neste corredor.";
+}
 
 async function abrirOverlay(item, dimensao) {
   const requestId = ++requisicaoDetalheCorredor;
@@ -820,7 +881,8 @@ const corredoresOrdenados = computed(() =>
               </div>
 
               <div class="corridor-footnote">
-                {{ formatarPercentual(item.taxaConformidade, 2) }} concluído ·
+                {{ formatarPercentual(item.taxaConformidade, 2) }}
+                {{ legendaTaxaCorredor(item) }} ·
                 {{ descricaoTipos(item) }}
               </div>
 
@@ -1091,7 +1153,7 @@ const corredoresOrdenados = computed(() =>
                     type="button"
                     @click="filtroProdutosCorredor = 'lidos'"
                   >
-                    Lidos
+                    {{ rotuloFiltroProdutosCorredor("lidos") }}
                     <span>{{
                       formatarInteiro(contagemProdutosCorredor.lidos)
                     }}</span>
@@ -1102,7 +1164,7 @@ const corredoresOrdenados = computed(() =>
                     type="button"
                     @click="filtroProdutosCorredor = 'nao-lidos'"
                   >
-                    Não lidos
+                    {{ rotuloFiltroProdutosCorredor("nao-lidos") }}
                     <span>{{
                       formatarInteiro(contagemProdutosCorredor.naoLidos)
                     }}</span>
@@ -1115,7 +1177,7 @@ const corredoresOrdenados = computed(() =>
                     type="button"
                     @click="filtroProdutosCorredor = 'dias-sem-venda'"
                   >
-                    Dias sem venda
+                    {{ rotuloFiltroProdutosCorredor("dias-sem-venda") }}
                     <span>{{
                       formatarInteiro(contagemProdutosCorredor.diasSemVenda)
                     }}</span>
@@ -1124,13 +1186,7 @@ const corredoresOrdenados = computed(() =>
 
                 <div class="overlay-products-head">
                   <h4 class="mt-0 mb-0">
-                    {{
-                      filtroProdutosCorredor === "dias-sem-venda"
-                        ? "Produtos por dias sem venda"
-                        : filtroProdutosCorredor === "nao-lidos"
-                          ? "Produtos não lidos"
-                          : "Produtos lidos"
-                    }}
+                    {{ tituloProdutosCorredorAtivos() }}
                   </h4>
                   <span
                     class="report-status-pill"
@@ -1150,13 +1206,7 @@ const corredoresOrdenados = computed(() =>
                   v-if="!produtosCorredorFiltrados.length"
                   class="muted overlay-products-empty"
                 >
-                  {{
-                    filtroProdutosCorredor === "dias-sem-venda"
-                      ? "Nenhum produto disponível para classificar por dias sem venda."
-                      : filtroProdutosCorredor === "nao-lidos"
-                        ? "Nenhum produto pendente neste corredor."
-                        : "Nenhum produto lido neste corredor."
-                  }}
+                  {{ mensagemVaziaProdutosCorredor() }}
                 </div>
 
                 <div v-else class="overlay-products-list">
