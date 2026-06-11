@@ -3779,6 +3779,10 @@ onBeforeUnmount(() => {
 :global([data-theme="light"]) .crop-dialog {
   background: rgba(255, 255, 255, 0.98);
 }
+:global([data-theme="light"]) .portal-header {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(10px);
+}
 :global([data-theme="light"]) .conq-modal-backdrop {
   background: rgba(28, 36, 61, 0.34);
 }

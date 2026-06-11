@@ -29,6 +29,10 @@ const systemConfig = ref({ metaPercentualRestante: 2 });
 const systemConfigEdit = ref({ metaPercentualRestante: 2 });
 const salvandoConfig = ref(false);
 
+// Edição de usuário
+const usuarioEditando = ref(null);
+const salvandoEdicao = ref(false);
+
 let cropper;
 
 const CROP_TEMPLATE = `
@@ -291,6 +295,44 @@ async function desativarUsuario(u) {
   await api.delete("/usuarios/" + u._id);
   carregar();
 }
+
+function abrirEdicaoUsuario(u) {
+  novoUsuario.value = null;
+  usuarioEditando.value = {
+    _id: u._id,
+    nome: u.nome,
+    email: u.email,
+    role: u.role,
+    senha: "",
+  };
+}
+
+function cancelarEdicao() {
+  usuarioEditando.value = null;
+}
+
+async function salvarEdicaoUsuario() {
+  if (!usuarioEditando.value) return;
+  salvandoEdicao.value = true;
+  try {
+    const payload = {
+      nome: usuarioEditando.value.nome,
+      email: usuarioEditando.value.email,
+      role: usuarioEditando.value.role,
+    };
+    if (usuarioEditando.value.senha) {
+      payload.senha = usuarioEditando.value.senha;
+    }
+    await api.put("/usuarios/" + usuarioEditando.value._id, payload);
+    ui.sucesso("Usuário atualizado");
+    usuarioEditando.value = null;
+    carregar();
+  } catch (e) {
+    ui.erro(e?.response?.data?.error || "Falha ao atualizar usuário");
+  } finally {
+    salvandoEdicao.value = false;
+  }
+}
 </script>
 
 <template>
@@ -544,6 +586,59 @@ async function desativarUsuario(u) {
         </div>
       </div>
 
+      <div v-if="usuarioEditando" class="card glow mb-2">
+        <h4 class="mt-0">Editar {{ usuarioEditando.nome || "usuário" }}</h4>
+        <div class="form-grid">
+          <div class="field">
+            <label>Nome</label><input v-model="usuarioEditando.nome" />
+          </div>
+          <div class="field">
+            <label>E-mail</label
+            ><input v-model="usuarioEditando.email" type="email" />
+          </div>
+          <div class="field">
+            <label>Nova senha (deixe em branco para manter)</label
+            ><input
+              v-model="usuarioEditando.senha"
+              type="password"
+              minlength="6"
+              placeholder="••••••"
+            />
+          </div>
+          <div class="field">
+            <label>Perfil</label>
+            <select
+              v-model="usuarioEditando.role"
+              :disabled="!auth.isSuperAdmin"
+            >
+              <option value="COLABORADOR">Colaborador</option>
+              <option value="STORE_ADMIN">Admin da loja</option>
+              <option v-if="auth.isSuperAdmin" value="SUPER_ADMIN">
+                Super admin
+              </option>
+            </select>
+            <small v-if="!auth.isSuperAdmin" class="muted"
+              >Apenas super admin pode alterar o perfil</small
+            >
+          </div>
+        </div>
+        <div class="row mt-2">
+          <span class="spacer" />
+          <button class="btn ghost" @click="cancelarEdicao">Cancelar</button>
+          <button
+            class="btn primary"
+            :disabled="salvandoEdicao"
+            @click="salvarEdicaoUsuario"
+          >
+            <fa
+              :icon="salvandoEdicao ? 'spinner' : 'check'"
+              :spin="salvandoEdicao"
+            />
+            {{ salvandoEdicao ? "Salvando..." : "Salvar" }}
+          </button>
+        </div>
+      </div>
+
       <div class="table-wrap">
         <table class="table">
           <thead>
@@ -571,8 +666,17 @@ async function desativarUsuario(u) {
               </td>
               <td class="text-right">
                 <button
+                  v-if="auth.podeGerenciar"
+                  class="btn ghost"
+                  title="Editar usuário"
+                  @click="abrirEdicaoUsuario(u)"
+                >
+                  <fa icon="pencil" />
+                </button>
+                <button
                   v-if="u.ativo && auth.podeGerenciar"
                   class="btn ghost"
+                  title="Desativar usuário"
                   @click="desativarUsuario(u)"
                 >
                   <fa icon="trash" />
