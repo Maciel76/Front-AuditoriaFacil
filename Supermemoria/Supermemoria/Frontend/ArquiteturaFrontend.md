@@ -38,6 +38,7 @@ O HTML base em frontend/index.html define a marca publica Flashrub, o favicon em
 - /portal e rota publica para o colaborador.
 - / usa AppLayout como casca autenticada e redireciona para /dashboard.
 - /lojas e um catalogo autenticado de lojas visivel para qualquer usuario do app principal.
+- O router possui uma protecao defensiva para `auditoria-detalhe`: se um matcher antigo ou cacheado tentar resolver `/auditorias/calendario` como `:id`, o guard redireciona imediatamente para `auditorias-calendario` antes de montar `AuditoriaDetalhe.vue`.
 - /lojas/:id abre o perfil analitico publico de uma loja especifica para usuarios autenticados.
 - O router bloqueia qualquer rota com meta.auth quando nao ha token do app principal.
 - O router tambem bloqueia acesso a rotas com meta.roles quando o role do usuario nao bate.

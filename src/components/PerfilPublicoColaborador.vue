@@ -28,6 +28,8 @@ const tierInfo = {
   lendario: { label: "Lendário", cor: "#f59e0b" },
   diamante: { label: "Diamante", cor: "#06b6d4" },
   mitico: { label: "Mítico", cor: "#ef4444" },
+  suprema: { label: "Suprema", cor: "#fbbf24" },
+  transcendente: { label: "Transcendente", cor: "#ec4899" },
 };
 
 const labelPorTipo = {
@@ -380,15 +382,15 @@ function selecionarConquista(conquista) {
             :aria-label="`Abrir detalhes da conquista ${conquista.nome}`"
             @click="selecionarConquista(conquista)"
           >
-            <div class="perfil-publico-conquista-icon" :class="{ 'has-image': !!conquista.imagemIcone }">
+            <div class="perfil-publico-conquista-media" :class="{ 'has-image': !!conquista.imagemIcone }">
               <img
                 v-if="conquista.imagemIcone"
                 :src="conquista.imagemIcone"
                 :alt="conquista.nome"
-                class="perfil-publico-conquista-icon-img"
+                class="perfil-publico-conquista-media-img"
                 draggable="false"
               />
-              <template v-else>{{ conquista.icone || "🏅" }}</template>
+              <span v-else class="perfil-publico-conquista-media-emoji">{{ conquista.icone || "🏅" }}</span>
             </div>
 
             <div class="perfil-publico-conquista-copy">
@@ -647,11 +649,12 @@ function selecionarConquista(conquista) {
   position: relative;
   overflow: hidden;
   width: 100%;
-  padding: 16px;
+  padding: 0;
   display: grid;
-  grid-template-columns: 48px 1fr;
-  gap: 12px;
-  align-items: center;
+  grid-template-columns: 1fr auto;
+  gap: 0;
+  align-items: stretch;
+  min-height: 110px;
   appearance: none;
   text-align: left;
   color: inherit;
@@ -685,6 +688,43 @@ function selecionarConquista(conquista) {
   outline-offset: 2px;
 }
 
+/* ── Mídia da conquista (lado esquerdo do card) ── */
+.perfil-publico-conquista-media {
+  width: 90px;
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--tier-cor) 28%, transparent),
+    color-mix(in srgb, var(--tier-cor) 62%, #000)
+  );
+  overflow: hidden;
+  flex-shrink: 0;
+  border-radius: 22px;
+}
+.perfil-publico-conquista-media.has-image {
+  background: transparent;
+}
+.perfil-publico-conquista-media-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 22px;
+}
+.perfil-publico-conquista-media-emoji {
+  font-size: 36px;
+  line-height: 1;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.25));
+}
+
+/* mantido para compatibilidade */
 .perfil-publico-conquista-icon {
   width: 48px;
   height: 48px;
@@ -714,9 +754,11 @@ function selecionarConquista(conquista) {
 }
 
 .perfil-publico-conquista-copy {
+  padding: 16px;
   display: grid;
   gap: 4px;
   min-width: 0;
+  align-content: center;
 }
 
 .perfil-publico-conquista-tier {
@@ -917,7 +959,7 @@ function selecionarConquista(conquista) {
   width: 54px;
   height: 54px;
   flex: 0 0 auto;
-  border-radius: 18px;
+  border-radius: 10px;
   display: grid;
   place-items: center;
   font-size: 26px;
@@ -1024,17 +1066,19 @@ function selecionarConquista(conquista) {
   }
 
   .perfil-publico-conquista {
-    padding: 12px;
-    grid-template-columns: 40px minmax(0, 1fr);
-    gap: 10px;
-    align-items: start;
+    padding: 0;
+    grid-template-columns: 1fr auto;
+    gap: 0;
+    align-items: stretch;
+    min-height: 90px;
   }
 
-  .perfil-publico-conquista-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 13px;
-    font-size: 20px;
+  .perfil-publico-conquista-media {
+    width: 70px;
+  }
+
+  .perfil-publico-conquista-media-emoji {
+    font-size: 24px;
   }
 
   .perfil-publico-conquista-tier {
@@ -1102,15 +1146,25 @@ function selecionarConquista(conquista) {
   }
 
   .perfil-publico-conquista {
-    padding: 10px;
+    padding: 0;
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 0;
+    min-height: auto;
   }
 
-  .perfil-publico-conquista-icon {
-    width: 38px;
-    height: 38px;
-    font-size: 18px;
+  .perfil-publico-conquista-media {
+    width: 100%;
+    height: 80px;
+    border-radius: 22px;
+    order: -1;
+  }
+
+  .perfil-publico-conquista-media-emoji {
+    font-size: 24px;
+  }
+
+  .perfil-publico-conquista-copy {
+    padding: 12px;
   }
 }
 </style>

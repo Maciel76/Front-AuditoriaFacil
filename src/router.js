@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 
+const AUDITORIA_ID_REGEX = /^[0-9a-fA-F]{24}$/;
+
 const routes = [
   {
     path: "/login",
@@ -122,5 +124,18 @@ router.beforeEach((to) => {
     return { name: "dashboard" };
   if (to.meta?.roles && !to.meta.roles.includes(auth.usuario?.role))
     return { name: "dashboard" };
+
+  if (to.name === "auditoria-detalhe") {
+    const auditoriaId = String(to.params.id || "").trim();
+
+    if (auditoriaId === "calendario") {
+      return { name: "auditorias-calendario", query: to.query };
+    }
+
+    if (!AUDITORIA_ID_REGEX.test(auditoriaId)) {
+      return { name: "auditorias", query: to.query };
+    }
+  }
+
   return true;
 });

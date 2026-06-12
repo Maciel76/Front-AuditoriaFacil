@@ -294,7 +294,7 @@ function formatarDataPtBr(chaveData) {
   <section class="audit-calendar card glow">
     <div class="audit-calendar-head">
       <div>
-        <strong>Calendário anual</strong>
+        <strong>Calendário anual de Auditorias</strong>
         <p>{{ ANO_ATUAL }} · auditorias esperadas</p>
       </div>
       <span class="badge dim">12 meses</span>

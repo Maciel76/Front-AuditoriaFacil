@@ -81,11 +81,11 @@
 | POST   | /api/auditorias/upload               | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | multipart arquivo, opcional tipo                         | Cria job de processamento de auditoria e devolve jobId                                     |
 | GET    | /api/auditorias/upload/:jobId/status | Usuario autenticado        | Mesmo usuario do job | jobId                                                    | Consulta progresso, etapa, resultado final ou erro do upload                               |
 | GET    | /api/auditorias                      | Usuario                    | Loja obrigatoria     | tipo, dataInicio, dataFim, page, limit, includeExcluidas | Lista auditorias; `includeExcluidas=true` tambem devolve as removidas do historico         |
-| GET    | /api/auditorias/:id                  | Usuario                    | Loja obrigatoria     | -                                                        | Retorna cabecalho da auditoria                                                             |
-| GET    | /api/auditorias/:id/itens            | Usuario                    | Loja obrigatoria     | situacao, conforme, q, page, limit                       | Pagina itens detalhados                                                                    |
+| GET    | /api/auditorias/:id                  | Usuario                    | Loja obrigatoria     | -                                                        | Retorna cabecalho da auditoria; ids fora do formato ObjectId respondem 404                 |
+| GET    | /api/auditorias/:id/itens            | Usuario                    | Loja obrigatoria     | situacao, conforme, q, page, limit                       | Pagina itens detalhados; ids fora do formato ObjectId respondem 404                        |
 | POST   | /api/auditorias/cancelar-dia         | SUPER_ADMIN                | Loja obrigatoria     | tipo, data, motivo opcional, lojaId                      | Cria cancelamento do dia sem planilha enviada                                              |
-| POST   | /api/auditorias/:id/cancelar         | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | motivo opcional, lojaId para SUPER_ADMIN                 | Cancela auditoria da loja, zera metricas do dia e recalcula acumulados                     |
-| DELETE | /api/auditorias/:id                  | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | -                                                        | Remove a auditoria do historico visivel, preservando o registro para calendario e reupload |
+| POST   | /api/auditorias/:id/cancelar         | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | motivo opcional, lojaId para SUPER_ADMIN                 | Cancela auditoria da loja, zera metricas do dia e recalcula acumulados; ids invalidos respondem 404 |
+| DELETE | /api/auditorias/:id                  | SUPER_ADMIN ou STORE_ADMIN | Loja obrigatoria     | -                                                        | Remove a auditoria do historico visivel, preservando o registro para calendario e reupload; ids invalidos respondem 404 |
 
 ## Grupo Metricas
 

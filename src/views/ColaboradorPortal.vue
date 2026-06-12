@@ -136,6 +136,8 @@ const TIER_INFO = {
   lendario: { ordem: 4, label: "Lendário", cor: "#f59e0b" },
   diamante: { ordem: 5, label: "Diamante", cor: "#06b6d4" },
   mitico: { ordem: 6, label: "Mítico", cor: "#ef4444" },
+  suprema: { ordem: 7, label: "Suprema", cor: "#fbbf24" },
+  transcendente: { ordem: 8, label: "Transcendente", cor: "#ec4899" },
 };
 
 const CATEGORIA_LABELS = {
@@ -365,40 +367,19 @@ const ConquistaCard = defineComponent({
                       " Bloqueada",
                     ]),
                 h("strong", { class: "conq-card-nome" }, c.nome),
+                c.proximoTier
+                  ? h("div", { class: "progress conq-bar" }, [
+                      h("span", {
+                        style: {
+                          width: c.progressoPct + "%",
+                          background: c.proximoTier.cor,
+                        },
+                      }),
+                    ])
+                  : null,
               ]),
             ],
           ),
-          h("div", { class: "conq-card-content" }, [
-            props.compact
-              ? null
-              : h("p", { class: "muted conq-card-desc" }, c.descricao || ""),
-            c.proximoTier
-              ? h("div", { class: "conq-progress" }, [
-                  h("div", { class: "conq-progress-head" }, [
-                    h("span", { class: "muted" }, [
-                      "Próx.: ",
-                      h("strong", c.proximoTier.label),
-                    ]),
-                    h(
-                      "span",
-                      { class: "conq-progress-meta" },
-                      `${Number(c.progresso).toLocaleString("pt-BR")} / ${Number(c.proximoTier.meta).toLocaleString("pt-BR")}`,
-                    ),
-                  ]),
-                  h("div", { class: "progress conq-bar" }, [
-                    h("span", {
-                      style: {
-                        width: c.progressoPct + "%",
-                        background: c.proximoTier.cor,
-                      },
-                    }),
-                  ]),
-                ])
-              : h("div", { class: "conq-progress-max" }, [
-                  h("i", { class: "fa-solid fa-medal" }),
-                  " Tier máximo alcançado!",
-                ]),
-          ]),
         ],
       );
     };
@@ -1727,8 +1708,8 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <p class="muted conq-summary-help">
-            Cada conquista evolui em até 6 tiers — Comum, Raro, Épico, Lendário,
-            Diamante e Mítico. Continue auditando para ganhar XP bônus!
+            Cada conquista evolui em até 8 tiers — Comum, Raro, Épico, Lendário,
+            Diamante, Mítico, Suprema e Transcendente. Continue auditando para ganhar XP bônus!
           </p>
         </section>
 
@@ -3445,7 +3426,6 @@ onBeforeUnmount(() => {
   height: 100%;
   display: block;
   object-fit: contain;
-  padding: 6px;
   border-radius: inherit;
 }
 
@@ -3576,7 +3556,9 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: cover;
+  object-fit: contain;
+  padding: 4px;
+  border-radius: inherit;
 }
 
 .conq-req-copy {
@@ -4028,13 +4010,16 @@ onBeforeUnmount(() => {
 /* ConquistaCard styles (não-scoped pois o componente é registrado via render h() e não recebe class hash do scoped) */
 .conq-card {
   position: relative;
-  border-radius: 18px;
-  padding: 16px;
+  border-radius: 22px;
+  padding: 0;
   border: 1px solid var(--border-strong);
   background: var(--surface-strong);
   overflow: hidden;
   display: grid;
-  gap: 12px;
+  grid-template-columns: 80px 1fr;
+  gap: 0;
+  align-items: stretch;
+  min-height: 100px;
   --tier-cor: #94a3b8;
   transition:
     transform 0.18s ease,
@@ -4062,46 +4047,45 @@ onBeforeUnmount(() => {
 .conq-card-icon {
   position: relative;
   z-index: 1;
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
+  width: 100%;
+  min-height: 100%;
   display: grid;
   place-items: center;
-  font-size: 32px;
+  font-size: 30px;
   color: #fff;
   background: linear-gradient(
     135deg,
     var(--tier-cor),
     color-mix(in srgb, var(--tier-cor) 55%, #000)
   );
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--tier-cor) 45%, transparent);
+  border-radius: 22px 0 0 22px;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 .conq-card.locked .conq-card-icon {
   background: linear-gradient(135deg, #475569, #1f2937);
   box-shadow: none;
-  font-size: 24px;
+  font-size: 22px;
 }
 .conq-card-icon.has-image {
-  overflow: hidden;
-  padding: 0;
-  background: color-mix(in srgb, var(--tier-cor) 18%, transparent);
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--tier-cor) 35%, transparent);
+  background: color-mix(in srgb, var(--tier-cor) 14%, transparent);
 }
 .conq-card-icon .conq-icon-image {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   display: block;
   object-fit: cover;
-  border-radius: inherit;
+  border-radius: 22px 0 0 22px;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .conq-card-head {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: 14px;
-  align-items: start;
+  display: contents;
 }
 
 .conq-card-body {
@@ -4109,14 +4093,9 @@ onBeforeUnmount(() => {
   z-index: 1;
   min-width: 0;
   display: grid;
-  gap: 4px;
-}
-
-.conq-card-content {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 8px;
+  gap: 6px;
+  padding: 14px;
+  align-content: center;
 }
 .conq-card-tier {
   display: inline-flex;
@@ -4143,9 +4122,7 @@ onBeforeUnmount(() => {
   font-size: 15px;
 }
 .conq-card-desc {
-  font-size: 12px;
-  margin: 4px 0 8px;
-  color: var(--text-dim);
+  display: none;
 }
 .conq-progress {
   display: grid;
@@ -4172,21 +4149,19 @@ onBeforeUnmount(() => {
   margin-top: 4px;
 }
 .conq-card.compact {
-  padding: 12px;
-  gap: 10px;
-}
-.conq-card.compact .conq-card-head {
-  grid-template-columns: 48px 1fr;
-  gap: 10px;
+  grid-template-columns: 60px 1fr;
+  min-height: 80px;
 }
 .conq-card.compact .conq-card-icon {
-  width: 48px;
-  height: 48px;
-  font-size: 24px;
-  border-radius: 14px;
+  font-size: 22px;
+  border-radius: 18px 0 0 18px;
 }
-.conq-card.compact .conq-card-content {
-  gap: 6px;
+.conq-card.compact .conq-card-icon .conq-icon-image {
+  border-radius: 18px 0 0 18px;
+}
+.conq-card.compact .conq-card-body {
+  padding: 10px;
+  gap: 4px;
 }
 .conq-card.compact .conq-card-nome {
   font-size: 13px;

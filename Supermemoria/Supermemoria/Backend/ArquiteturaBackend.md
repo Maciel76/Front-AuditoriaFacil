@@ -174,6 +174,7 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 - Exibe regras da auditoria.
 - Recebe upload, cria job em memoria, dispara processamento em background e expoe consulta de status por jobId.
 - Lista auditorias, retorna detalhe, pagina itens, cancela auditoria de loja para SUPER_ADMIN e remove auditoria.
+- Antes de consultar ou mutar por `:id`, valida o formato ObjectId no proprio router; ids invalidos como `calendario` retornam 404 e nao deixam o Mongoose gerar `CastError` 500.
 
 ### colaboradores.routes.js
 

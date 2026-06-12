@@ -27,7 +27,7 @@ const filtroCategoria = ref("");
 const editorAberto = ref(false);
 const editando = ref(null);
 
-const TIER_ORDER = ["comum", "raro", "epico", "lendario", "diamante", "mitico"];
+const TIER_ORDER = ["comum", "raro", "epico", "lendario", "diamante", "mitico", "suprema", "transcendente"];
 
 const TIER_LABELS = {
   comum: { label: "Comum", cor: "#94a3b8", emoji: "⚪" },
@@ -36,6 +36,8 @@ const TIER_LABELS = {
   lendario: { label: "Lendário", cor: "#f59e0b", emoji: "🟠" },
   diamante: { label: "Diamante", cor: "#06b6d4", emoji: "💎" },
   mitico: { label: "Mítico", cor: "#ef4444", emoji: "🔴" },
+  suprema: { label: "Suprema", cor: "#753772", emoji: "👑" },
+  transcendente: { label: "Transcendente", cor: "#d79eee", emoji: "🌟" },
 };
 
 const METRICA_LABELS = {
@@ -277,7 +279,7 @@ onMounted(carregar);
         </h2>
         <p class="muted page-sub">
           Defina os marcos que motivam os colaboradores. Cada conquista pode ter
-          múltiplos tiers — Comum, Raro, Épico, Lendário, Diamante e Mítico —
+          múltiplos tiers — Comum, Raro, Épico, Lendário, Diamante, Mítico, Suprema e Transcendente —
           desbloqueados conforme o colaborador progride na métrica.
         </p>
       </div>
