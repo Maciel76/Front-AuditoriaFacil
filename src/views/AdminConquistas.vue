@@ -179,6 +179,21 @@ function removerImagemTier(tier) {
   tier.imagemUrl = "";
 }
 
+// Verifica se o ícone atual é uma URL de imagem (não emoji)
+function iconeIsImagem(icone) {
+  if (!icone) return false;
+  return /^(https?:\/\/|\/|data:|blob:)/i.test(icone) || /\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(icone);
+}
+
+function usarImagemComoIcone(url) {
+  if (!url) return;
+  form.value.icone = url;
+}
+
+function limparIconeImagem() {
+  form.value.icone = "🏆";
+}
+
 async function carregar() {
   carregando.value = true;
   erro.value = "";
@@ -311,7 +326,15 @@ onMounted(carregar);
         :class="{ inativa: !c.ativa }"
       >
         <div class="conquista-row-head">
-          <div class="conquista-icone">{{ c.icone || "🏆" }}</div>
+          <div class="conquista-icone">
+            <img
+              v-if="iconeIsImagem(c.icone)"
+              :src="resolverUrlMidia(c.icone)"
+              :alt="c.nome"
+              class="conquista-icone-img"
+            />
+            <span v-else>{{ c.icone || "🏆" }}</span>
+          </div>
           <div class="conquista-row-info">
             <div class="row gap-2 items-center">
               <strong>{{ c.nome }}</strong>
@@ -421,8 +444,34 @@ onMounted(carregar);
               />
             </div>
             <div class="field">
-              <label>Ícone (emoji)</label>
-              <input v-model="form.icone" maxlength="4" placeholder="🎯" />
+              <label>Ícone (emoji ou imagem)</label>
+              <div class="icone-picker">
+                <div class="icone-preview">
+                  <img
+                    v-if="iconeIsImagem(form.icone)"
+                    :src="resolverUrlMidia(form.icone)"
+                    alt="Ícone"
+                    class="icone-preview-img"
+                  />
+                  <span v-else class="icone-preview-emoji">{{ form.icone || "🏆" }}</span>
+                </div>
+                <div class="icone-input-row">
+                  <input
+                    v-model="form.icone"
+                    maxlength="200"
+                    placeholder="🏆 ou URL da imagem"
+                    class="icone-input"
+                  />
+                  <button
+                    v-if="iconeIsImagem(form.icone)"
+                    class="btn ghost btn-sm"
+                    @click="limparIconeImagem"
+                    title="Voltar para emoji"
+                  >
+                    <fa icon="xmark" />
+                  </button>
+                </div>
+              </div>
             </div>
             <div class="field">
               <label>Ordem</label>
@@ -482,6 +531,34 @@ onMounted(carregar);
               Os tiers são desbloqueados na ordem do menor para o maior valor de
               meta. Use bônus de XP para premiar marcos importantes.
             </p>
+
+            <!-- Seletor rápido: usar imagem de tier como ícone -->
+            <div
+              v-if="form.tiers.some(t => t.imagemUrl)"
+              class="tier-icone-selector"
+            >
+              <span class="tier-icone-selector-label">
+                <fa icon="camera" /> Usar imagem de tier como ícone:
+              </span>
+              <div class="tier-icone-options">
+                <button
+                  v-for="t in form.tiers.filter(t => t.imagemUrl)"
+                  :key="t.nivel"
+                  class="tier-icone-opt"
+                  :class="{ active: form.icone === t.imagemUrl }"
+                  :title="`${TIER_LABELS[t.nivel]?.label || t.nivel} — usar como ícone`"
+                  @click="usarImagemComoIcone(t.imagemUrl)"
+                >
+                  <img
+                    :src="resolverUrlMidia(t.imagemUrl)"
+                    :alt="TIER_LABELS[t.nivel]?.label || t.nivel"
+                  />
+                  <span class="tier-icone-opt-badge">{{
+                    TIER_LABELS[t.nivel]?.emoji
+                  }}</span>
+                </button>
+              </div>
+            </div>
 
             <div
               v-for="(t, i) in form.tiers"
@@ -621,6 +698,111 @@ onMounted(carregar);
   font-size: 36px;
   text-align: center;
   line-height: 1;
+}
+.conquista-icone-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+/* Ícone picker no formulário */
+.icone-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.icone-preview {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.icone-preview-img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.icone-preview-emoji {
+  font-size: 26px;
+  line-height: 1;
+}
+.icone-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+.icone-input {
+  flex: 1;
+}
+
+/* Seletor de imagens dos tiers como ícone */
+.tier-icone-selector {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--border);
+}
+.tier-icone-selector-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.tier-icone-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tier-icone-opt {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  padding: 4px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tier-icone-opt:hover {
+  border-color: var(--primary);
+  transform: scale(1.08);
+}
+.tier-icone-opt.active {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+}
+.tier-icone-opt img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+.tier-icone-opt-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  font-size: 12px;
+  line-height: 1;
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 2px 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 .conquista-row-info {
   min-width: 0;
