@@ -66,6 +66,7 @@ const perfilPublicoColega = ref(null);
 const carregandoPerfilPublico = ref(false);
 const erroPerfilPublico = ref("");
 const conquistaSelecionada = ref(null);
+const imagemAmpliada = ref(null); // { url, alt } para lightbox
 const filtroCategoriaConq = ref("todas");
 const filtroStatusConq = ref("todas");
 const rankingGeral = ref({
@@ -287,7 +288,7 @@ const imagemConquistaSelecionada = computed(() =>
 // ConquistaCard como componente local definido via render function (sem template parser em runtime).
 const ConquistaCard = defineComponent({
   name: "ConquistaCard",
-  emits: ["select"],
+  emits: ["select", "imageClick"],
   props: {
     c: { type: Object, required: true },
     compact: { type: Boolean, default: false },
@@ -307,6 +308,10 @@ const ConquistaCard = defineComponent({
         .filter(Boolean)
         .join(" ");
       const abrirDetalhes = () => emit("select", c);
+      const abrirImagem = (event) => {
+        event.stopPropagation();
+        emit("imageClick", { url: imagemConquista, alt: altImagemConquista(c) });
+      };
 
       return h(
         "div",
@@ -337,17 +342,24 @@ const ConquistaCard = defineComponent({
                 },
                 [
                   imagemConquista
-                    ? h("img", {
-                        class: "conq-icon-image",
-                        src: imagemConquista,
-                        alt: altImagemConquista(c),
-                        loading: props.priority ? "eager" : "lazy",
-                        decoding: "async",
-                        fetchpriority: props.priority ? "high" : "low",
-                        width: 64,
-                        height: 64,
-                        draggable: false,
-                      })
+                    ? h("button", {
+                        class: "conq-icon-btn conq-card-img-btn",
+                        title: `Ampliar imagem de ${altImagemConquista(c)}`,
+                        onClick: abrirImagem,
+                        "aria-label": `Ampliar imagem de ${altImagemConquista(c)}`,
+                      }, [
+                        h("img", {
+                          class: "conq-icon-image",
+                          src: imagemConquista,
+                          alt: altImagemConquista(c),
+                          loading: props.priority ? "eager" : "lazy",
+                          decoding: "async",
+                          fetchpriority: props.priority ? "high" : "low",
+                          width: 64,
+                          height: 64,
+                          draggable: false,
+                        })
+                      ])
                     : c.desbloqueada
                       ? iconeConquista(c)
                       : h("i", { class: "fa-solid fa-lock" }),
@@ -461,6 +473,7 @@ function voltarParaBusca() {
   erroColegas.value = "";
   limparPerfilPublicoColega();
   conquistaSelecionada.value = null;
+  imagemAmpliada.value = null;
   limparFormularioSenha();
   etapa.value = "buscar";
 }
@@ -473,6 +486,16 @@ function abrirDetalheConquista(conquista) {
 
 function fecharDetalheConquista() {
   conquistaSelecionada.value = null;
+  imagemAmpliada.value = null;
+}
+
+function abrirVisualizacaoImagem(url, alt = "") {
+  if (!url) return;
+  imagemAmpliada.value = { url: resolverUrlMidia(url), alt };
+}
+
+function fecharVisualizacaoImagem() {
+  imagemAmpliada.value = null;
 }
 
 function voltarParaSelecao() {
@@ -1577,6 +1600,7 @@ onBeforeUnmount(() => {
               compact
               priority
               @select="abrirDetalheConquista"
+              @imageClick="({ url, alt }) => abrirVisualizacaoImagem(url, alt)"
             />
           </div>
         </section>
@@ -1759,6 +1783,7 @@ onBeforeUnmount(() => {
             :key="c.codigo"
             :c="c"
             @select="abrirDetalheConquista"
+            @imageClick="({ url, alt }) => abrirVisualizacaoImagem(url, alt)"
           />
         </div>
       </main>
@@ -2052,18 +2077,24 @@ onBeforeUnmount(() => {
                 class="conq-modal-icon"
                 :class="{ 'has-image': !!imagemConquistaSelecionada }"
               >
-                <img
+                <button
                   v-if="imagemConquistaSelecionada"
-                  class="conq-icon-image"
-                  :src="imagemConquistaSelecionada"
-                  :alt="altImagemConquista(conquistaSelecionada)"
-                  loading="eager"
-                  decoding="async"
-                  fetchpriority="high"
-                  width="84"
-                  height="84"
-                  draggable="false"
-                />
+                  class="conq-icon-btn"
+                  :title="`Ampliar imagem de ${altImagemConquista(conquistaSelecionada)}`"
+                  @click="abrirVisualizacaoImagem(imagemConquistaSelecionada, altImagemConquista(conquistaSelecionada))"
+                >
+                  <img
+                    class="conq-icon-image"
+                    :src="imagemConquistaSelecionada"
+                    :alt="altImagemConquista(conquistaSelecionada)"
+                    loading="eager"
+                    decoding="async"
+                    fetchpriority="high"
+                    width="84"
+                    height="84"
+                    draggable="false"
+                  />
+                </button>
                 <template v-else>
                   {{
                     conquistaSelecionada.desbloqueada
@@ -2150,17 +2181,26 @@ onBeforeUnmount(() => {
                         ),
                       }"
                     >
-                      <img
+                      <button
                         v-if="imagemConquistaPorTier(conquistaSelecionada, tier.nivel)"
-                        class="conq-req-tier-image"
-                        :src="imagemConquistaPorTier(conquistaSelecionada, tier.nivel)"
-                        :alt="altImagemConquistaTier(conquistaSelecionada, tier.nivel)"
-                        loading="lazy"
-                        decoding="async"
-                        width="40"
-                        height="40"
-                        draggable="false"
-                      />
+                        class="conq-tier-img-btn"
+                        :title="`Ampliar imagem do tier ${tier.label || tier.nivel}`"
+                        @click="abrirVisualizacaoImagem(
+                          imagemConquistaPorTier(conquistaSelecionada, tier.nivel),
+                          altImagemConquistaTier(conquistaSelecionada, tier.nivel)
+                        )"
+                      >
+                        <img
+                          class="conq-req-tier-image"
+                          :src="imagemConquistaPorTier(conquistaSelecionada, tier.nivel)"
+                          :alt="altImagemConquistaTier(conquistaSelecionada, tier.nivel)"
+                          loading="lazy"
+                          decoding="async"
+                          width="40"
+                          height="40"
+                          draggable="false"
+                        />
+                      </button>
                       <template v-else>
                         {{ iconeConquista(conquistaSelecionada) }}
                       </template>
@@ -2250,17 +2290,26 @@ onBeforeUnmount(() => {
                         ),
                       }"
                     >
-                      <img
+                      <button
                         v-if="imagemConquistaPorTier(conquistaSelecionada, item.nivel)"
-                        class="conq-req-tier-image"
-                        :src="imagemConquistaPorTier(conquistaSelecionada, item.nivel)"
-                        :alt="altImagemConquistaTier(conquistaSelecionada, item.nivel)"
-                        loading="lazy"
-                        decoding="async"
-                        width="40"
-                        height="40"
-                        draggable="false"
-                      />
+                        class="conq-tier-img-btn"
+                        :title="`Ampliar imagem do tier ${item.label || item.nivel}`"
+                        @click="abrirVisualizacaoImagem(
+                          imagemConquistaPorTier(conquistaSelecionada, item.nivel),
+                          altImagemConquistaTier(conquistaSelecionada, item.nivel)
+                        )"
+                      >
+                        <img
+                          class="conq-req-tier-image"
+                          :src="imagemConquistaPorTier(conquistaSelecionada, item.nivel)"
+                          :alt="altImagemConquistaTier(conquistaSelecionada, item.nivel)"
+                          loading="lazy"
+                          decoding="async"
+                          width="40"
+                          height="40"
+                          draggable="false"
+                        />
+                      </button>
                       <template v-else>
                         {{ iconeConquista(conquistaSelecionada) }}
                       </template>
@@ -2299,6 +2348,34 @@ onBeforeUnmount(() => {
               Essa conquista ainda não possui desbloqueios registrados.
             </div>
           </section>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Lightbox para visualização ampliada de imagens de conquistas -->
+    <Transition name="img-lightbox">
+      <div
+        v-if="imagemAmpliada"
+        class="img-lightbox-backdrop"
+        @click.self="fecharVisualizacaoImagem"
+      >
+        <div class="img-lightbox-container">
+          <button
+            class="img-lightbox-close"
+            @click="fecharVisualizacaoImagem"
+            title="Fechar visualização"
+          >
+            <fa icon="xmark" />
+          </button>
+          <img
+            :src="imagemAmpliada.url"
+            :alt="imagemAmpliada.alt || 'Imagem da conquista'"
+            class="img-lightbox-image"
+            draggable="false"
+          />
+          <p v-if="imagemAmpliada.alt" class="img-lightbox-caption">
+            {{ imagemAmpliada.alt }}
+          </p>
         </div>
       </div>
     </Transition>
@@ -3429,6 +3506,124 @@ onBeforeUnmount(() => {
   border-radius: inherit;
 }
 
+/* Botão para tornar imagem do ícone da conquista clicável */
+.conq-icon-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: inherit;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+.conq-icon-btn:hover {
+  transform: scale(1.08);
+  opacity: 0.9;
+}
+.conq-icon-btn .conq-icon-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  border-radius: inherit;
+}
+
+/* Botão para tornar imagem de tier clicável */
+.conq-tier-img-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: inherit;
+  transition: transform 0.15s ease;
+}
+.conq-tier-img-btn:hover {
+  transform: scale(1.12);
+}
+
+/* Lightbox para visualização ampliada */
+.img-lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 5, 12, 0.92);
+  backdrop-filter: blur(16px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 100;
+}
+.img-lightbox-container {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  max-width: min(90vw, 640px);
+  max-height: 85vh;
+}
+.img-lightbox-close {
+  position: absolute;
+  top: -44px;
+  right: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.2s;
+  z-index: 2;
+}
+.img-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+.img-lightbox-image {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 18px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+.img-lightbox-caption {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Transições do lightbox */
+.img-lightbox-enter-active,
+.img-lightbox-leave-active {
+  transition: opacity 0.22s ease;
+}
+.img-lightbox-enter-from,
+.img-lightbox-leave-to {
+  opacity: 0;
+}
+.img-lightbox-enter-active .img-lightbox-image,
+.img-lightbox-leave-active .img-lightbox-image {
+  transition: transform 0.22s ease;
+}
+.img-lightbox-enter-from .img-lightbox-image {
+  transform: scale(0.92);
+}
+.img-lightbox-leave-to .img-lightbox-image {
+  transform: scale(0.92);
+}
+
 .conq-modal-copy {
   min-width: 0;
 }
@@ -4080,6 +4275,27 @@ onBeforeUnmount(() => {
   border-radius: 22px 0 0 22px;
   max-width: 100%;
   max-height: 100%;
+}
+
+/* Botão de imagem no card da conquista (fora do modal) */
+.conq-card-img-btn {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 22px 0 0 22px;
+  z-index: 2;
+}
+.conq-card-img-btn:hover .conq-icon-image {
+  opacity: 0.85;
+  transform: scale(1.04);
+}
+.conq-card-img-btn .conq-icon-image {
+  transition: transform 0.18s ease, opacity 0.18s ease;
 }
 
 .conq-card-head {
