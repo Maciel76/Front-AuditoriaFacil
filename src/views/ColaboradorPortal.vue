@@ -97,6 +97,11 @@ const confirmarNovaSenhaConta = ref("");
 const erroConfig = ref("");
 const sucessoConfig = ref("");
 
+// Reset de senha após 3 tentativas erradas
+const tentativasErradas = ref(0);
+const novaSenhaReset = ref("");
+const confirmarSenhaReset = ref("");
+
 let cropper;
 let temaAnterior = "";
 
@@ -433,6 +438,7 @@ function limparFormularioSenha() {
   senha.value = "";
   senhaConfirm.value = "";
   erro.value = "";
+  tentativasErradas.value = 0;
 }
 
 function localidadeLoja(loja) {
@@ -454,6 +460,9 @@ function selecionarLoja(loja) {
   lojaSlug.value = loja.slug;
   primeiroNome.value = loja.primeiroNome || loja.nome?.split(" ")[0] || "";
   limparFormularioSenha();
+  tentativasErradas.value = 0;
+  novaSenhaReset.value = "";
+  confirmarSenhaReset.value = "";
   etapa.value = loja.primeiroAcesso ? "setup" : "login";
 }
 
@@ -500,7 +509,52 @@ function fecharVisualizacaoImagem() {
 
 function voltarParaSelecao() {
   limparFormularioSenha();
+  tentativasErradas.value = 0;
+  novaSenhaReset.value = "";
+  confirmarSenhaReset.value = "";
   etapa.value = "selecionar";
+}
+
+function irParaReset() {
+  novaSenhaReset.value = "";
+  confirmarSenhaReset.value = "";
+  erro.value = "";
+  etapa.value = "reset";
+}
+
+function voltarParaLogin() {
+  limparFormularioSenha();
+  tentativasErradas.value = 0;
+  etapa.value = "login";
+}
+
+async function executarResetSenha() {
+  if (novaSenhaReset.value.length < 6) {
+    erro.value = "Mínimo de 6 caracteres.";
+    return;
+  }
+  if (novaSenhaReset.value !== confirmarSenhaReset.value) {
+    erro.value = "As senhas não coincidem.";
+    return;
+  }
+  carregando.value = true;
+  erro.value = "";
+  try {
+    const { data } = await api.post("/auth/portal/reset-senha", {
+      matricula: matricula.value.trim(),
+      lojaSlug: lojaSlug.value.trim(),
+      novaSenha: novaSenhaReset.value,
+    });
+    token.value = data.token;
+    localStorage.setItem("na_portal_token", data.token);
+    tentativasErradas.value = 0;
+    await carregarPerfil();
+    etapa.value = "portal";
+  } catch (e) {
+    erro.value = e?.response?.data?.error || "Erro ao redefinir senha.";
+  } finally {
+    carregando.value = false;
+  }
 }
 
 async function verificar() {
@@ -579,10 +633,18 @@ async function login() {
     });
     token.value = data.token;
     localStorage.setItem("na_portal_token", data.token);
+    tentativasErradas.value = 0;
     await carregarPerfil();
     etapa.value = "portal";
   } catch (e) {
-    erro.value = e?.response?.data?.error || "Credenciais inválidas.";
+    tentativasErradas.value++;
+    if (tentativasErradas.value >= 3) {
+      erro.value = "Senha incorreta 3 vezes. Deseja redefinir sua senha?";
+    } else {
+      erro.value =
+        e?.response?.data?.error ||
+        `Senha incorreta. Tentativa ${tentativasErradas.value} de 3.`;
+    }
   } finally {
     carregando.value = false;
   }
@@ -1417,6 +1479,13 @@ onBeforeUnmount(() => {
         </div>
         <div v-if="erro" class="badge bad full-w">{{ erro }}</div>
         <button
+          v-if="etapa === 'login' && tentativasErradas >= 3"
+          class="btn warn full-w"
+          @click="irParaReset"
+        >
+          <fa icon="key" /> Esqueceu a senha? Redefinir agora
+        </button>
+        <button
           class="btn primary full-w"
           :disabled="carregando"
           @click="etapa === 'setup' ? configurarSenha() : login()"
@@ -1435,6 +1504,64 @@ onBeforeUnmount(() => {
         </button>
         <button class="btn ghost full-w" @click="voltarParaSelecao">
           Trocar loja
+        </button>
+      </div>
+    </div>
+
+    <!-- Reset de senha (após 3 tentativas erradas) -->
+    <div v-else-if="etapa === 'reset'" class="portal-card">
+      <div v-if="lojaSelecionada" class="selected-store">
+        <div class="selected-store-chip">
+          <StoreAvatar
+            :nome="lojaSelecionada.nomeLoja"
+            :avatar-url="lojaSelecionada.avatarUrl"
+            :size="28"
+            :font-size="11"
+          />
+          <span class="badge info">{{ lojaSelecionada.nomeLoja }}</span>
+        </div>
+        <span class="muted" style="font-size: 12px">{{
+          resumoLojaSelecionada
+        }}</span>
+      </div>
+      <h2 class="auth-title-small">Redefinir senha</h2>
+      <p class="auth-sub">
+        {{ primeiroNome }}, sua matrícula é
+        <strong>{{ matricula }}</strong>. Defina uma nova senha abaixo.
+      </p>
+      <div class="grid gap-3">
+        <div class="field">
+          <label>Nova senha (mínimo 6 caracteres)</label>
+          <input
+            type="password"
+            v-model="novaSenhaReset"
+            placeholder="••••••"
+            @keyup.enter="executarResetSenha"
+          />
+        </div>
+        <div class="field">
+          <label>Confirmar nova senha</label>
+          <input
+            type="password"
+            v-model="confirmarSenhaReset"
+            placeholder="••••••"
+            @keyup.enter="executarResetSenha"
+          />
+        </div>
+        <div v-if="erro" class="badge bad full-w">{{ erro }}</div>
+        <button
+          class="btn primary full-w"
+          :disabled="carregando"
+          @click="executarResetSenha"
+        >
+          <fa
+            :icon="carregando ? 'spinner' : 'key'"
+            :spin="carregando"
+          />
+          {{ carregando ? "Redefinindo..." : "Redefinir senha e entrar" }}
+        </button>
+        <button class="btn ghost full-w" @click="voltarParaLogin">
+          Voltar para o login
         </button>
       </div>
     </div>
