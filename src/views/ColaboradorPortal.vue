@@ -225,7 +225,10 @@ function altImagemConquistaTier(conquista, nivel = "") {
       )
     : null;
 
-  return [conquista?.nome, tierAtual?.label || tierAtual?.nivel || conquista?.tierAtualLabel]
+  return [
+    conquista?.nome,
+    tierAtual?.label || tierAtual?.nivel || conquista?.tierAtualLabel,
+  ]
     .filter(Boolean)
     .join(" • ");
 }
@@ -315,7 +318,10 @@ const ConquistaCard = defineComponent({
       const abrirDetalhes = () => emit("select", c);
       const abrirImagem = (event) => {
         event.stopPropagation();
-        emit("imageClick", { url: imagemConquista, alt: altImagemConquista(c) });
+        emit("imageClick", {
+          url: imagemConquista,
+          alt: altImagemConquista(c),
+        });
       };
 
       return h(
@@ -336,23 +342,23 @@ const ConquistaCard = defineComponent({
         },
         [
           h("div", { class: "conq-card-bg" }),
-          h(
-            "div",
-            { class: "conq-card-head" },
-            [
-              h(
-                "div",
-                {
-                  class: ["conq-card-icon", imagemConquista ? "has-image" : ""],
-                },
-                [
-                  imagemConquista
-                    ? h("button", {
+          h("div", { class: "conq-card-head" }, [
+            h(
+              "div",
+              {
+                class: ["conq-card-icon", imagemConquista ? "has-image" : ""],
+              },
+              [
+                imagemConquista
+                  ? h(
+                      "button",
+                      {
                         class: "conq-icon-btn conq-card-img-btn",
                         title: `Ampliar imagem de ${altImagemConquista(c)}`,
                         onClick: abrirImagem,
                         "aria-label": `Ampliar imagem de ${altImagemConquista(c)}`,
-                      }, [
+                      },
+                      [
                         h("img", {
                           class: "conq-icon-image",
                           src: imagemConquista,
@@ -363,40 +369,40 @@ const ConquistaCard = defineComponent({
                           width: 64,
                           height: 64,
                           draggable: false,
-                        })
-                      ])
-                    : c.desbloqueada
-                      ? iconeConquista(c)
-                      : h("i", { class: "fa-solid fa-lock" }),
-                ],
-              ),
-              h("div", { class: "conq-card-body" }, [
-                c.tierAtual
-                  ? h("div", { class: "conq-card-tier" }, [
-                      h("span", {
-                        class: "conq-tier-dot",
-                        style: { background: tierCor },
-                      }),
-                      c.tierAtualLabel,
-                    ])
-                  : h("div", { class: "conq-card-tier locked-label" }, [
-                      h("i", { class: "fa-solid fa-lock" }),
-                      " Bloqueada",
-                    ]),
-                h("strong", { class: "conq-card-nome" }, c.nome),
-                c.proximoTier
-                  ? h("div", { class: "progress conq-bar" }, [
-                      h("span", {
-                        style: {
-                          width: c.progressoPct + "%",
-                          background: c.proximoTier.cor,
-                        },
-                      }),
-                    ])
-                  : null,
-              ]),
-            ],
-          ),
+                        }),
+                      ],
+                    )
+                  : c.desbloqueada
+                    ? iconeConquista(c)
+                    : h("i", { class: "fa-solid fa-lock" }),
+              ],
+            ),
+            h("div", { class: "conq-card-body" }, [
+              c.tierAtual
+                ? h("div", { class: "conq-card-tier" }, [
+                    h("span", {
+                      class: "conq-tier-dot",
+                      style: { background: tierCor },
+                    }),
+                    c.tierAtualLabel,
+                  ])
+                : h("div", { class: "conq-card-tier locked-label" }, [
+                    h("i", { class: "fa-solid fa-lock" }),
+                    " Bloqueada",
+                  ]),
+              h("strong", { class: "conq-card-nome" }, c.nome),
+              c.proximoTier
+                ? h("div", { class: "progress conq-bar" }, [
+                    h("span", {
+                      style: {
+                        width: c.progressoPct + "%",
+                        background: c.proximoTier.cor,
+                      },
+                    }),
+                  ])
+                : null,
+            ]),
+          ]),
         ],
       );
     };
@@ -1526,8 +1532,8 @@ onBeforeUnmount(() => {
       </div>
       <h2 class="auth-title-small">Redefinir senha</h2>
       <p class="auth-sub">
-        {{ primeiroNome }}, sua matrícula é
-        <strong>{{ matricula }}</strong>. Defina uma nova senha abaixo.
+        {{ primeiroNome }}, sua matrícula é <strong>{{ matricula }}</strong
+        >. Defina uma nova senha abaixo.
       </p>
       <div class="grid gap-3">
         <div class="field">
@@ -1554,10 +1560,7 @@ onBeforeUnmount(() => {
           :disabled="carregando"
           @click="executarResetSenha"
         >
-          <fa
-            :icon="carregando ? 'spinner' : 'key'"
-            :spin="carregando"
-          />
+          <fa :icon="carregando ? 'spinner' : 'key'" :spin="carregando" />
           {{ carregando ? "Redefinindo..." : "Redefinir senha e entrar" }}
         </button>
         <button class="btn ghost full-w" @click="voltarParaLogin">
@@ -1702,8 +1705,7 @@ onBeforeUnmount(() => {
                     ? ((t.totalConformes / t.totalLidos) * 100).toFixed(1)
                     : 0
                 }}%
-              </span
-              >
+              </span>
               <span><fa icon="bolt" /> {{ Math.round(t.pontuacao) }}</span>
             </div>
           </div>
@@ -1860,7 +1862,8 @@ onBeforeUnmount(() => {
           </div>
           <p class="muted conq-summary-help">
             Cada conquista evolui em até 8 tiers — Comum, Raro, Épico, Lendário,
-            Diamante, Mítico, Suprema e Transcendente. Continue auditando para ganhar XP bônus!
+            Diamante, Mítico, Suprema e Transcendente. Continue auditando para
+            ganhar XP bônus!
           </p>
         </section>
 
@@ -2208,7 +2211,12 @@ onBeforeUnmount(() => {
                   v-if="imagemConquistaSelecionada"
                   class="conq-icon-btn"
                   :title="`Ampliar imagem de ${altImagemConquista(conquistaSelecionada)}`"
-                  @click="abrirVisualizacaoImagem(imagemConquistaSelecionada, altImagemConquista(conquistaSelecionada))"
+                  @click="
+                    abrirVisualizacaoImagem(
+                      imagemConquistaSelecionada,
+                      altImagemConquista(conquistaSelecionada),
+                    )
+                  "
                 >
                   <img
                     class="conq-icon-image"
@@ -2309,18 +2317,41 @@ onBeforeUnmount(() => {
                       }"
                     >
                       <button
-                        v-if="imagemConquistaPorTier(conquistaSelecionada, tier.nivel)"
+                        v-if="
+                          imagemConquistaPorTier(
+                            conquistaSelecionada,
+                            tier.nivel,
+                          )
+                        "
                         class="conq-tier-img-btn"
                         :title="`Ampliar imagem do tier ${tier.label || tier.nivel}`"
-                        @click="abrirVisualizacaoImagem(
-                          imagemConquistaPorTier(conquistaSelecionada, tier.nivel),
-                          altImagemConquistaTier(conquistaSelecionada, tier.nivel)
-                        )"
+                        @click="
+                          abrirVisualizacaoImagem(
+                            imagemConquistaPorTier(
+                              conquistaSelecionada,
+                              tier.nivel,
+                            ),
+                            altImagemConquistaTier(
+                              conquistaSelecionada,
+                              tier.nivel,
+                            ),
+                          )
+                        "
                       >
                         <img
                           class="conq-req-tier-image"
-                          :src="imagemConquistaPorTier(conquistaSelecionada, tier.nivel)"
-                          :alt="altImagemConquistaTier(conquistaSelecionada, tier.nivel)"
+                          :src="
+                            imagemConquistaPorTier(
+                              conquistaSelecionada,
+                              tier.nivel,
+                            )
+                          "
+                          :alt="
+                            altImagemConquistaTier(
+                              conquistaSelecionada,
+                              tier.nivel,
+                            )
+                          "
                           loading="lazy"
                           decoding="async"
                           width="40"
@@ -2418,18 +2449,41 @@ onBeforeUnmount(() => {
                       }"
                     >
                       <button
-                        v-if="imagemConquistaPorTier(conquistaSelecionada, item.nivel)"
+                        v-if="
+                          imagemConquistaPorTier(
+                            conquistaSelecionada,
+                            item.nivel,
+                          )
+                        "
                         class="conq-tier-img-btn"
                         :title="`Ampliar imagem do tier ${item.label || item.nivel}`"
-                        @click="abrirVisualizacaoImagem(
-                          imagemConquistaPorTier(conquistaSelecionada, item.nivel),
-                          altImagemConquistaTier(conquistaSelecionada, item.nivel)
-                        )"
+                        @click="
+                          abrirVisualizacaoImagem(
+                            imagemConquistaPorTier(
+                              conquistaSelecionada,
+                              item.nivel,
+                            ),
+                            altImagemConquistaTier(
+                              conquistaSelecionada,
+                              item.nivel,
+                            ),
+                          )
+                        "
                       >
                         <img
                           class="conq-req-tier-image"
-                          :src="imagemConquistaPorTier(conquistaSelecionada, item.nivel)"
-                          :alt="altImagemConquistaTier(conquistaSelecionada, item.nivel)"
+                          :src="
+                            imagemConquistaPorTier(
+                              conquistaSelecionada,
+                              item.nivel,
+                            )
+                          "
+                          :alt="
+                            altImagemConquistaTier(
+                              conquistaSelecionada,
+                              item.nivel,
+                            )
+                          "
                           loading="lazy"
                           decoding="async"
                           width="40"
@@ -3643,7 +3697,9 @@ onBeforeUnmount(() => {
   background: transparent;
   cursor: pointer;
   border-radius: inherit;
-  transition: transform 0.18s ease, opacity 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease;
 }
 .conq-icon-btn:hover {
   transform: scale(1.08);
@@ -3865,13 +3921,15 @@ onBeforeUnmount(() => {
     var(--req-tier-cor),
     color-mix(in srgb, var(--req-tier-cor) 58%, #000)
   );
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--req-tier-cor) 26%, transparent);
+  box-shadow: 0 8px 18px
+    color-mix(in srgb, var(--req-tier-cor) 26%, transparent);
   overflow: hidden;
 }
 
 .conq-req-tier-icon.has-image {
   background: color-mix(in srgb, var(--req-tier-cor) 14%, transparent);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--req-tier-cor) 18%, transparent);
+  box-shadow: 0 8px 18px
+    color-mix(in srgb, var(--req-tier-cor) 18%, transparent);
 }
 
 .conq-req-tier-image {
@@ -4119,7 +4177,11 @@ onBeforeUnmount(() => {
       rgba(34, 197, 94, 0.12),
       transparent 56%
     ),
-    linear-gradient(180deg, rgba(240, 253, 244, 0.96), rgba(236, 253, 245, 0.92));
+    linear-gradient(
+      180deg,
+      rgba(240, 253, 244, 0.96),
+      rgba(236, 253, 245, 0.92)
+    );
   border-color: rgba(34, 197, 94, 0.26);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.78),
@@ -4422,7 +4484,9 @@ onBeforeUnmount(() => {
   transform: scale(1.04);
 }
 .conq-card-img-btn .conq-icon-image {
-  transition: transform 0.18s ease, opacity 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease;
 }
 
 .conq-card-head {
@@ -4515,5 +4579,499 @@ onBeforeUnmount(() => {
 .conq-card[role="button"]:focus-visible {
   outline: 2px solid var(--tier-cor);
   outline-offset: 3px;
+}
+
+/* ============================================================
+   Animações de raridade – vidro reflexivo no card da conquista
+   Cada tier ganha um efeito visual único que reflete sua raridade.
+   ============================================================ */
+
+/* Base do overlay reflexivo (::after comum para tiers raros) */
+.conq-card.tier-epico::after,
+.conq-card.tier-lendario::after,
+.conq-card.tier-diamante::after,
+.conq-card.tier-mitico::after,
+.conq-card.tier-suprema::after,
+.conq-card.tier-transcendente::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 22px;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+/* Ao passar o mouse, intensifica o brilho */
+.conq-card.tier-epico:hover::after,
+.conq-card.tier-lendario:hover::after,
+.conq-card.tier-diamante:hover::after,
+.conq-card.tier-mitico:hover::after,
+.conq-card.tier-suprema:hover::after,
+.conq-card.tier-transcendente:hover::after {
+  opacity: 1;
+}
+
+/* ---- ÉPICO – Faixa de luz roxa que varre na diagonal (vidro reflexivo) ---- */
+@keyframes shimmerEpico {
+  0% {
+    transform: translateX(-120%) translateY(-120%) rotate(35deg);
+  }
+  50% {
+    transform: translateX(40%) translateY(40%) rotate(35deg);
+  }
+  100% {
+    transform: translateX(220%) translateY(220%) rotate(35deg);
+  }
+}
+.conq-card.tier-epico::after {
+  opacity: 0.55;
+  background: linear-gradient(
+    135deg,
+    transparent 35%,
+    rgba(168, 85, 247, 0.12) 42%,
+    rgba(255, 255, 255, 0.28) 48%,
+    rgba(168, 85, 247, 0.12) 54%,
+    transparent 60%
+  );
+  background-size: 200% 200%;
+  animation: shimmerEpico 3.2s ease-in-out infinite;
+}
+.conq-card.tier-epico {
+  box-shadow:
+    0 0 18px rgba(168, 85, 247, 0.12),
+    inset 0 0 0 1px rgba(168, 85, 247, 0.25);
+}
+.conq-card.tier-epico:hover {
+  box-shadow:
+    0 8px 32px rgba(168, 85, 247, 0.25),
+    inset 0 0 0 1px rgba(168, 85, 247, 0.45);
+}
+
+/* ---- LENDÁRIO – Brilho dourado com cintilação de partículas ---- */
+@keyframes shimmerLendario {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+@keyframes sparkLendario {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  20%,
+  80% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+.conq-card.tier-lendario::after {
+  opacity: 0.5;
+  background:
+    radial-gradient(
+      circle at 25% 35%,
+      rgba(255, 215, 0, 0.35) 0%,
+      transparent 8%
+    ),
+    radial-gradient(
+      circle at 70% 20%,
+      rgba(255, 255, 255, 0.3) 0%,
+      transparent 6%
+    ),
+    radial-gradient(
+      circle at 50% 60%,
+      rgba(245, 158, 11, 0.25) 0%,
+      transparent 10%
+    ),
+    linear-gradient(
+      105deg,
+      transparent 40%,
+      rgba(255, 215, 0, 0.08) 45%,
+      rgba(255, 255, 255, 0.22) 50%,
+      rgba(255, 215, 0, 0.08) 55%,
+      transparent 60%
+    );
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    300% 100%;
+  animation:
+    sparkLendario 2.6s ease-in-out infinite,
+    shimmerLendario 4s linear infinite;
+}
+.conq-card.tier-lendario {
+  box-shadow:
+    0 0 22px rgba(245, 158, 11, 0.15),
+    inset 0 0 0 1px rgba(245, 158, 11, 0.3);
+}
+.conq-card.tier-lendario:hover {
+  box-shadow:
+    0 8px 36px rgba(245, 158, 11, 0.3),
+    inset 0 0 0 1px rgba(245, 158, 11, 0.5);
+}
+
+/* ---- DIAMANTE – Reflexo prismático com arco-íris sutil ---- */
+@keyframes shimmerDiamante {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+@keyframes prismDiamante {
+  0% {
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    filter: hue-rotate(30deg);
+  }
+}
+.conq-card.tier-diamante::after {
+  opacity: 0.5;
+  background: linear-gradient(
+    120deg,
+    transparent 30%,
+    rgba(6, 182, 212, 0.1) 38%,
+    rgba(255, 255, 255, 0.35) 45%,
+    rgba(147, 197, 253, 0.15) 48%,
+    rgba(6, 182, 212, 0.1) 55%,
+    transparent 65%
+  );
+  background-size: 300% 100%;
+  animation:
+    shimmerDiamante 3.6s ease-in-out infinite,
+    prismDiamante 6s linear infinite;
+}
+.conq-card.tier-diamante {
+  box-shadow:
+    0 0 24px rgba(6, 182, 212, 0.14),
+    inset 0 0 0 1px rgba(6, 182, 212, 0.35);
+}
+.conq-card.tier-diamante:hover {
+  box-shadow:
+    0 8px 40px rgba(6, 182, 212, 0.28),
+    inset 0 0 0 1px rgba(6, 182, 212, 0.55);
+}
+
+/* ---- MÍTICO – Pulsação flamejante com brilho intenso ---- */
+@keyframes shimmerMitico {
+  0% {
+    background-position: -200% center;
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.65;
+  }
+  100% {
+    background-position: 200% center;
+    opacity: 0.35;
+  }
+}
+@keyframes pulseMitico {
+  0%,
+  100% {
+    box-shadow:
+      0 0 18px rgba(239, 68, 68, 0.18),
+      inset 0 0 0 1px rgba(239, 68, 68, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 36px rgba(239, 68, 68, 0.35),
+      inset 0 0 0 1px rgba(239, 68, 68, 0.5);
+  }
+}
+.conq-card.tier-mitico::after {
+  opacity: 0.5;
+  background:
+    radial-gradient(
+      ellipse at 20% 30%,
+      rgba(255, 100, 100, 0.2) 0%,
+      transparent 30%
+    ),
+    radial-gradient(
+      ellipse at 80% 70%,
+      rgba(239, 68, 68, 0.18) 0%,
+      transparent 30%
+    ),
+    linear-gradient(
+      115deg,
+      transparent 35%,
+      rgba(239, 68, 68, 0.1) 42%,
+      rgba(255, 180, 180, 0.3) 48%,
+      rgba(239, 68, 68, 0.1) 54%,
+      transparent 60%
+    );
+  background-size:
+    100% 100%,
+    100% 100%,
+    300% 100%;
+  animation:
+    shimmerMitico 2.4s ease-in-out infinite,
+    pulseMitico 2s ease-in-out infinite;
+}
+.conq-card.tier-mitico {
+  animation: pulseMitico 2s ease-in-out infinite;
+}
+.conq-card.tier-mitico:hover {
+  animation: none;
+  box-shadow:
+    0 8px 44px rgba(239, 68, 68, 0.45),
+    inset 0 0 0 2px rgba(239, 68, 68, 0.6);
+}
+
+/* ============================================================
+   SUPREMA – Divina · Raios de luz dourada celestial
+   A mais nobre das raridades comuns. Brilho majestoso e imponente.
+   ============================================================ */
+@keyframes shimmerSuprema {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+@keyframes godRaysSuprema {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.72;
+    transform: scale(1.04);
+  }
+}
+@keyframes divineGlowSuprema {
+  0%,
+  100% {
+    box-shadow:
+      0 0 24px rgba(251, 191, 36, 0.22),
+      0 0 48px rgba(255, 255, 255, 0.08),
+      inset 0 0 0 1px rgba(251, 191, 36, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 44px rgba(251, 191, 36, 0.42),
+      0 0 72px rgba(255, 255, 255, 0.18),
+      inset 0 0 0 2px rgba(251, 191, 36, 0.6);
+  }
+}
+@keyframes divineBreathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.012);
+  }
+}
+.conq-card.tier-suprema::after {
+  opacity: 0.55;
+  background:
+    /* Raios divinos do topo */
+    conic-gradient(
+      from 180deg at 50% 0%,
+      transparent 0deg,
+      rgba(255, 255, 255, 0.18) 3deg,
+      transparent 6deg,
+      rgba(255, 255, 255, 0.14) 10deg,
+      transparent 13deg,
+      rgba(251, 191, 36, 0.12) 16deg,
+      transparent 20deg,
+      rgba(255, 255, 255, 0.16) 24deg,
+      transparent 28deg,
+      rgba(251, 191, 36, 0.1) 32deg,
+      transparent 36deg,
+      transparent 360deg
+    ),
+    /* Auréola superior */
+    radial-gradient(
+        ellipse 180px 80px at 50% 0%,
+        rgba(255, 255, 255, 0.35) 0%,
+        rgba(251, 191, 36, 0.15) 30%,
+        transparent 70%
+      ),
+    /* Sweep horizontal majestoso */
+    linear-gradient(
+        110deg,
+        transparent 32%,
+        rgba(251, 191, 36, 0.05) 40%,
+        rgba(255, 255, 255, 0.45) 47%,
+        rgba(255, 255, 255, 0.15) 50%,
+        rgba(251, 191, 36, 0.05) 58%,
+        transparent 65%
+      );
+  background-size:
+    100% 100%,
+    100% 100%,
+    350% 100%;
+  animation:
+    godRaysSuprema 3.5s ease-in-out infinite,
+    shimmerSuprema 3s ease-in-out infinite;
+}
+.conq-card.tier-suprema {
+  animation:
+    divineGlowSuprema 2.8s ease-in-out infinite,
+    divineBreathe 4s ease-in-out infinite;
+  border-color: rgba(251, 191, 36, 0.45);
+}
+.conq-card.tier-suprema:hover {
+  animation: none;
+  transform: translateY(-3px) scale(1.02);
+  box-shadow:
+    0 0 52px rgba(251, 191, 36, 0.55),
+    0 0 80px rgba(255, 255, 255, 0.22),
+    inset 0 0 0 2px rgba(251, 191, 36, 0.7);
+}
+
+/* ============================================================
+   TRANSCENDENTE – Ascensão cósmica · Aurora multicolor divina
+   A raridade suprema. Combina todas as cores em harmonia etérea.
+   ============================================================ */
+@keyframes shimmerTranscendente {
+  0% {
+    background-position: -200% center;
+    filter: hue-rotate(0deg) brightness(1);
+  }
+  25% {
+    filter: hue-rotate(20deg) brightness(1.1);
+  }
+  50% {
+    filter: hue-rotate(-10deg) brightness(1);
+  }
+  75% {
+    filter: hue-rotate(25deg) brightness(1.15);
+  }
+  100% {
+    background-position: 200% center;
+    filter: hue-rotate(0deg) brightness(1);
+  }
+}
+@keyframes cosmicPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  33% {
+    opacity: 0.75;
+  }
+  66% {
+    opacity: 0.5;
+  }
+}
+@keyframes stellarBorderTranscendente {
+  0%,
+  100% {
+    box-shadow:
+      0 0 22px rgba(236, 72, 153, 0.2),
+      0 0 44px rgba(168, 85, 247, 0.12),
+      0 0 66px rgba(6, 182, 212, 0.06),
+      inset 0 0 0 1px rgba(236, 72, 153, 0.35);
+  }
+  25% {
+    box-shadow:
+      0 0 32px rgba(168, 85, 247, 0.28),
+      0 0 56px rgba(236, 72, 153, 0.18),
+      0 0 72px rgba(251, 191, 36, 0.1),
+      inset 0 0 0 1px rgba(168, 85, 247, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 28px rgba(6, 182, 212, 0.26),
+      0 0 52px rgba(236, 72, 153, 0.16),
+      0 0 70px rgba(168, 85, 247, 0.12),
+      inset 0 0 0 1px rgba(6, 182, 212, 0.45);
+  }
+  75% {
+    box-shadow:
+      0 0 36px rgba(251, 191, 36, 0.24),
+      0 0 60px rgba(236, 72, 153, 0.2),
+      0 0 78px rgba(168, 85, 247, 0.14),
+      inset 0 0 0 1px rgba(251, 191, 36, 0.48);
+  }
+}
+.conq-card.tier-transcendente::after {
+  opacity: 0.55;
+  background:
+    /* Aurora multicolor */
+    radial-gradient(
+      ellipse at 15% 20%,
+      rgba(236, 72, 153, 0.22) 0%,
+      transparent 40%
+    ),
+    radial-gradient(
+      ellipse at 85% 80%,
+      rgba(168, 85, 247, 0.2) 0%,
+      transparent 40%
+    ),
+    radial-gradient(
+      ellipse at 50% 50%,
+      rgba(6, 182, 212, 0.14) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      ellipse at 30% 70%,
+      rgba(251, 191, 36, 0.12) 0%,
+      transparent 35%
+    ),
+    /* Faixa prismática */
+    linear-gradient(
+        125deg,
+        transparent 28%,
+        rgba(236, 72, 153, 0.06) 36%,
+        rgba(255, 255, 255, 0.38) 44%,
+        rgba(168, 85, 247, 0.08) 48%,
+        rgba(255, 255, 255, 0.18) 52%,
+        rgba(6, 182, 212, 0.06) 58%,
+        transparent 66%
+      );
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    380% 100%;
+  animation:
+    shimmerTranscendente 5s ease-in-out infinite,
+    cosmicPulse 3.8s ease-in-out infinite;
+}
+.conq-card.tier-transcendente {
+  animation: stellarBorderTranscendente 3.5s ease-in-out infinite;
+  border-color: rgba(236, 72, 153, 0.4);
+}
+.conq-card.tier-transcendente:hover {
+  animation: none;
+  transform: translateY(-3px) scale(1.02);
+  box-shadow:
+    0 0 56px rgba(236, 72, 153, 0.5),
+    0 0 72px rgba(168, 85, 247, 0.3),
+    0 0 90px rgba(6, 182, 212, 0.2),
+    inset 0 0 0 2px rgba(236, 72, 153, 0.6);
+}
+
+/* Cards bloqueados não ganham animação de raridade */
+.conq-card.locked::after {
+  display: none;
+}
+.conq-card.locked.tier-epico,
+.conq-card.locked.tier-lendario,
+.conq-card.locked.tier-diamante,
+.conq-card.locked.tier-mitico,
+.conq-card.locked.tier-suprema,
+.conq-card.locked.tier-transcendente {
+  animation: none;
+  box-shadow: none;
 }
 </style>

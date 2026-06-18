@@ -87,11 +87,11 @@ const conquistasDesbloqueadas = computed(() =>
         tierColor: conquista.tierAtualCor || tierAtual.cor,
         imagemIcone: resolverUrlMidia(
           conquista.tierAtualImagem ||
-          (Array.isArray(conquista.tiers)
-            ? (conquista.tiers.find(
-                (t) => String(t.nivel).toLowerCase() === tierSlug,
-              )?.imagemUrl || "")
-            : ""),
+            (Array.isArray(conquista.tiers)
+              ? conquista.tiers.find(
+                  (t) => String(t.nivel).toLowerCase() === tierSlug,
+                )?.imagemUrl || ""
+              : ""),
         ),
       };
     }),
@@ -177,7 +177,9 @@ const serieChart = computed(() => {
 const temSerie = computed(() => serieChart.value.datasets.length > 0);
 
 const rankingPos = computed(() => props.rankingGeral?.posicao ?? null);
-const rankingTotal = computed(() => props.rankingGeral?.totalColaboradores ?? 0);
+const rankingTotal = computed(
+  () => props.rankingGeral?.totalColaboradores ?? 0,
+);
 const rankingTrophy = computed(() => {
   if (rankingPos.value === 1) return "🏆";
   if (rankingPos.value === 2) return "🥈";
@@ -279,44 +281,60 @@ function selecionarConquista(conquista) {
         </div>
       </div>
     </header>
-     <section
-        v-if="rankingPos !== null"
-        class="perfil-publico-section card-state perfil-ranking-card"
-        :class="rankingClass"
+    <section
+      v-if="rankingPos !== null"
+      class="perfil-publico-section card-state perfil-ranking-card"
+      :class="rankingClass"
+    >
+      <!-- Varredura de brilho (top 3) -->
+      <div
+        v-if="rankingTrophy"
+        class="perfil-ranking-shine"
+        aria-hidden="true"
+      />
+
+      <!-- Partículas flutuantes (top 3) -->
+      <div
+        v-if="rankingTrophy"
+        class="perfil-ranking-particles"
+        aria-hidden="true"
       >
-        <!-- Varredura de brilho (top 3) -->
-        <div v-if="rankingTrophy" class="perfil-ranking-shine" aria-hidden="true" />
+        <span class="prk-p p1" />
+        <span class="prk-p p2" />
+        <span class="prk-p p3" />
+        <span class="prk-p p4" />
+        <span class="prk-p p5" />
+        <span class="prk-p p6" />
+      </div>
 
-        <!-- Partículas flutuantes (top 3) -->
-        <div v-if="rankingTrophy" class="perfil-ranking-particles" aria-hidden="true">
-          <span class="prk-p p1" />
-          <span class="prk-p p2" />
-          <span class="prk-p p3" />
-          <span class="prk-p p4" />
-          <span class="prk-p p5" />
-          <span class="prk-p p6" />
+      <div class="perfil-ranking-inner">
+        <div
+          class="perfil-ranking-icon"
+          :class="{ 'perfil-ranking-icon--animated': !!rankingTrophy }"
+        >
+          <span v-if="rankingTrophy" class="perfil-ranking-trophy">{{
+            rankingTrophy
+          }}</span>
+          <fa v-else icon="ranking-star" />
         </div>
-
-        <div class="perfil-ranking-inner">
-          <div
-            class="perfil-ranking-icon"
-            :class="{ 'perfil-ranking-icon--animated': !!rankingTrophy }"
+        <div class="perfil-ranking-body">
+          <small class="muted perfil-ranking-label"
+            >Ranking geral · mais itens lidos</small
           >
-            <span v-if="rankingTrophy" class="perfil-ranking-trophy">{{ rankingTrophy }}</span>
-            <fa v-else icon="ranking-star" />
+          <div class="perfil-ranking-pos" :class="rankingClass">
+            <span v-if="!rankingTrophy" class="perfil-ranking-hash">#</span
+            >{{ rankingPos }}
+            <span v-if="rankingTotal" class="perfil-ranking-total muted"
+              >/ {{ rankingTotal }}</span
+            >
           </div>
-          <div class="perfil-ranking-body">
-            <small class="muted perfil-ranking-label">Ranking geral · mais itens lidos</small>
-            <div class="perfil-ranking-pos" :class="rankingClass">
-              <span v-if="!rankingTrophy" class="perfil-ranking-hash">#</span>{{ rankingPos }}
-              <span v-if="rankingTotal" class="perfil-ranking-total muted">/ {{ rankingTotal }}</span>
-            </div>
-            <small class="muted">
-              {{ formatNum(props.rankingGeral?.totalItensLidos) }} itens lidos (histórico)
-            </small>
-          </div>
+          <small class="muted">
+            {{ formatNum(props.rankingGeral?.totalItensLidos) }} itens lidos
+            (histórico)
+          </small>
         </div>
-      </section>
+      </div>
+    </section>
 
     <div v-if="carregando" class="perfil-publico-state card-state">
       <Loader />
@@ -382,7 +400,10 @@ function selecionarConquista(conquista) {
             :aria-label="`Abrir detalhes da conquista ${conquista.nome}`"
             @click="selecionarConquista(conquista)"
           >
-            <div class="perfil-publico-conquista-media" :class="{ 'has-image': !!conquista.imagemIcone }">
+            <div
+              class="perfil-publico-conquista-media"
+              :class="{ 'has-image': !!conquista.imagemIcone }"
+            >
               <img
                 v-if="conquista.imagemIcone"
                 :src="conquista.imagemIcone"
@@ -390,7 +411,9 @@ function selecionarConquista(conquista) {
                 class="perfil-publico-conquista-media-img"
                 draggable="false"
               />
-              <span v-else class="perfil-publico-conquista-media-emoji">{{ conquista.icone || "🏅" }}</span>
+              <span v-else class="perfil-publico-conquista-media-emoji">{{
+                conquista.icone || "🏅"
+              }}</span>
             </div>
 
             <div class="perfil-publico-conquista-copy">
@@ -422,8 +445,6 @@ function selecionarConquista(conquista) {
           :options="serieChartOptions"
         />
       </section>
-
-     
     </div>
   </section>
 </template>
@@ -721,7 +742,7 @@ function selecionarConquista(conquista) {
 .perfil-publico-conquista-media-emoji {
   font-size: 36px;
   line-height: 1;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.25));
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.25));
 }
 
 /* mantido para compatibilidade */
@@ -798,38 +819,101 @@ function selecionarConquista(conquista) {
 
 /* ============ KEYFRAMES ============ */
 @keyframes rankShine {
-  0%   { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
-  15%  { opacity: 1; }
-  85%  { opacity: 1; }
-  100% { transform: translateX(220%) skewX(-18deg); opacity: 0; }
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(220%) skewX(-18deg);
+    opacity: 0;
+  }
 }
 @keyframes rankPulseOuro {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0), 0 18px 34px rgba(15,23,42,0.12); }
-  50%       { box-shadow: 0 0 0 4px rgba(245,158,11,0.28), 0 22px 44px rgba(245,158,11,0.18); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(245, 158, 11, 0),
+      0 18px 34px rgba(15, 23, 42, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(245, 158, 11, 0.28),
+      0 22px 44px rgba(245, 158, 11, 0.18);
+  }
 }
 @keyframes rankPulsePrata {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(148,163,184,0), 0 18px 34px rgba(15,23,42,0.12); }
-  50%       { box-shadow: 0 0 0 4px rgba(148,163,184,0.24), 0 22px 40px rgba(148,163,184,0.14); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(148, 163, 184, 0),
+      0 18px 34px rgba(15, 23, 42, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(148, 163, 184, 0.24),
+      0 22px 40px rgba(148, 163, 184, 0.14);
+  }
 }
 @keyframes rankPulseBronze {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(249,115,22,0), 0 18px 34px rgba(15,23,42,0.12); }
-  50%       { box-shadow: 0 0 0 4px rgba(249,115,22,0.24), 0 22px 40px rgba(249,115,22,0.16); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(249, 115, 22, 0),
+      0 18px 34px rgba(15, 23, 42, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(249, 115, 22, 0.24),
+      0 22px 40px rgba(249, 115, 22, 0.16);
+  }
 }
 @keyframes trophyBounce {
-  0%, 100% { transform: scale(1) rotate(0deg); }
-  20%       { transform: scale(1.22) rotate(-8deg); }
-  40%       { transform: scale(0.94) rotate(5deg); }
-  60%       { transform: scale(1.08) rotate(-3deg); }
-  80%       { transform: scale(0.98) rotate(2deg); }
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  20% {
+    transform: scale(1.22) rotate(-8deg);
+  }
+  40% {
+    transform: scale(0.94) rotate(5deg);
+  }
+  60% {
+    transform: scale(1.08) rotate(-3deg);
+  }
+  80% {
+    transform: scale(0.98) rotate(2deg);
+  }
 }
 @keyframes particleFloat {
-  0%   { transform: translateY(0) scale(1);   opacity: 0.7; }
-  50%  { transform: translateY(-18px) scale(1.3); opacity: 1; }
-  100% { transform: translateY(-40px) scale(0.6); opacity: 0; }
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(-18px) scale(1.3);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-40px) scale(0.6);
+    opacity: 0;
+  }
 }
 @keyframes rankReveal {
-  from { opacity: 0; transform: translateY(14px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* ---- Card ranking geral ---- */
@@ -846,27 +930,46 @@ function selecionarConquista(conquista) {
     color-mix(in srgb, var(--surface-strong) 90%, transparent);
 }
 .perfil-ranking-card.rank-ouro {
-  animation: rankReveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) both,
-             rankPulseOuro 2.8s ease-in-out 0.6s infinite;
+  animation:
+    rankReveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) both,
+    rankPulseOuro 2.8s ease-in-out 0.6s infinite;
   background:
-    radial-gradient(360px 200px at 80% 50%, rgba(245, 158, 11, 0.18), transparent 70%),
-    radial-gradient(200px 120px at 0% 0%,   rgba(245, 158, 11, 0.10), transparent 60%),
+    radial-gradient(
+      360px 200px at 80% 50%,
+      rgba(245, 158, 11, 0.18),
+      transparent 70%
+    ),
+    radial-gradient(
+      200px 120px at 0% 0%,
+      rgba(245, 158, 11, 0.1),
+      transparent 60%
+    ),
     color-mix(in srgb, var(--surface-strong) 90%, transparent);
   border-color: rgba(245, 158, 11, 0.4);
 }
 .perfil-ranking-card.rank-prata {
-  animation: rankReveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) both,
-             rankPulsePrata 3s ease-in-out 0.6s infinite;
+  animation:
+    rankReveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) both,
+    rankPulsePrata 3s ease-in-out 0.6s infinite;
   background:
-    radial-gradient(360px 160px at 100% 50%, rgba(148, 163, 184, 0.16), transparent 70%),
+    radial-gradient(
+      360px 160px at 100% 50%,
+      rgba(148, 163, 184, 0.16),
+      transparent 70%
+    ),
     color-mix(in srgb, var(--surface-strong) 90%, transparent);
   border-color: rgba(148, 163, 184, 0.35);
 }
 .perfil-ranking-card.rank-bronze {
-  animation: rankReveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) both,
-             rankPulseBronze 3.2s ease-in-out 0.6s infinite;
+  animation:
+    rankReveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) both,
+    rankPulseBronze 3.2s ease-in-out 0.6s infinite;
   background:
-    radial-gradient(360px 160px at 100% 50%, rgba(249, 115, 22, 0.16), transparent 70%),
+    radial-gradient(
+      360px 160px at 100% 50%,
+      rgba(249, 115, 22, 0.16),
+      transparent 70%
+    ),
     color-mix(in srgb, var(--surface-strong) 90%, transparent);
   border-color: rgba(249, 115, 22, 0.35);
 }
@@ -881,7 +984,7 @@ function selecionarConquista(conquista) {
   z-index: 0;
 }
 .perfil-ranking-shine::after {
-  content: '';
+  content: "";
   position: absolute;
   top: -40%;
   left: 0;
@@ -890,7 +993,7 @@ function selecionarConquista(conquista) {
   background: linear-gradient(
     105deg,
     transparent 20%,
-    rgba(255,255,255,0.13) 50%,
+    rgba(255, 255, 255, 0.13) 50%,
     transparent 80%
   );
   animation: rankShine 3.4s ease-in-out 0.3s infinite;
@@ -936,16 +1039,67 @@ function selecionarConquista(conquista) {
   animation: particleFloat 2.6s ease-in infinite;
   opacity: 0;
 }
-.rank-ouro  .prk-p { background: #f59e0b; box-shadow: 0 0 6px 1px rgba(245,158,11,0.6); }
-.rank-prata .prk-p { background: #cbd5e1; box-shadow: 0 0 6px 1px rgba(148,163,184,0.5); }
-.rank-bronze .prk-p { background: #f97316; box-shadow: 0 0 6px 1px rgba(249,115,22,0.5); }
+.rank-ouro .prk-p {
+  background: #f59e0b;
+  box-shadow: 0 0 6px 1px rgba(245, 158, 11, 0.6);
+}
+.rank-prata .prk-p {
+  background: #cbd5e1;
+  box-shadow: 0 0 6px 1px rgba(148, 163, 184, 0.5);
+}
+.rank-bronze .prk-p {
+  background: #f97316;
+  box-shadow: 0 0 6px 1px rgba(249, 115, 22, 0.5);
+}
 
-.prk-p.p1 { width:5px; height:5px; left:10%; bottom:18%; animation-delay:0s;    animation-duration:2.4s; }
-.prk-p.p2 { width:4px; height:4px; left:28%; bottom:10%; animation-delay:0.5s;  animation-duration:3s;   }
-.prk-p.p3 { width:6px; height:6px; left:50%; bottom:22%; animation-delay:0.9s;  animation-duration:2.7s; }
-.prk-p.p4 { width:3px; height:3px; left:65%; bottom:14%; animation-delay:1.3s;  animation-duration:2.2s; }
-.prk-p.p5 { width:5px; height:5px; left:80%; bottom:8%;  animation-delay:0.3s;  animation-duration:3.1s; }
-.prk-p.p6 { width:4px; height:4px; left:92%; bottom:20%; animation-delay:1.7s;  animation-duration:2.5s; }
+.prk-p.p1 {
+  width: 5px;
+  height: 5px;
+  left: 10%;
+  bottom: 18%;
+  animation-delay: 0s;
+  animation-duration: 2.4s;
+}
+.prk-p.p2 {
+  width: 4px;
+  height: 4px;
+  left: 28%;
+  bottom: 10%;
+  animation-delay: 0.5s;
+  animation-duration: 3s;
+}
+.prk-p.p3 {
+  width: 6px;
+  height: 6px;
+  left: 50%;
+  bottom: 22%;
+  animation-delay: 0.9s;
+  animation-duration: 2.7s;
+}
+.prk-p.p4 {
+  width: 3px;
+  height: 3px;
+  left: 65%;
+  bottom: 14%;
+  animation-delay: 1.3s;
+  animation-duration: 2.2s;
+}
+.prk-p.p5 {
+  width: 5px;
+  height: 5px;
+  left: 80%;
+  bottom: 8%;
+  animation-delay: 0.3s;
+  animation-duration: 3.1s;
+}
+.prk-p.p6 {
+  width: 4px;
+  height: 4px;
+  left: 92%;
+  bottom: 20%;
+  animation-delay: 1.7s;
+  animation-duration: 2.5s;
+}
 
 /* Inner layout sits above the effects */
 .perfil-ranking-inner {
@@ -1014,15 +1168,21 @@ function selecionarConquista(conquista) {
 }
 .perfil-ranking-pos.rank-ouro {
   color: #f59e0b;
-  text-shadow: 0 0 16px rgba(245, 158, 11, 0.6), 0 0 32px rgba(245, 158, 11, 0.25);
+  text-shadow:
+    0 0 16px rgba(245, 158, 11, 0.6),
+    0 0 32px rgba(245, 158, 11, 0.25);
 }
 .perfil-ranking-pos.rank-prata {
   color: #94a3b8;
-  text-shadow: 0 0 12px rgba(148, 163, 184, 0.5), 0 0 24px rgba(148, 163, 184, 0.2);
+  text-shadow:
+    0 0 12px rgba(148, 163, 184, 0.5),
+    0 0 24px rgba(148, 163, 184, 0.2);
 }
 .perfil-ranking-pos.rank-bronze {
   color: #f97316;
-  text-shadow: 0 0 12px rgba(249, 115, 22, 0.5), 0 0 24px rgba(249, 115, 22, 0.2);
+  text-shadow:
+    0 0 12px rgba(249, 115, 22, 0.5),
+    0 0 24px rgba(249, 115, 22, 0.2);
 }
 .perfil-ranking-hash {
   font-size: 1.2rem;
@@ -1166,5 +1326,541 @@ function selecionarConquista(conquista) {
   .perfil-publico-conquista-copy {
     padding: 12px;
   }
+}
+
+/* ============================================================
+   Animações de raridade – vidro reflexivo nos cards de conquista
+   Cada tier ganha um efeito visual único que reflete sua raridade.
+   ============================================================ */
+
+/* Overlay reflexivo base (::after) para tiers raros */
+.perfil-publico-conquista.tier-epico::after,
+.perfil-publico-conquista.tier-lendario::after,
+.perfil-publico-conquista.tier-diamante::after,
+.perfil-publico-conquista.tier-mitico::after,
+.perfil-publico-conquista.tier-suprema::after,
+.perfil-publico-conquista.tier-transcendente::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 22px;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.perfil-publico-conquista.tier-epico:hover::after,
+.perfil-publico-conquista.tier-lendario:hover::after,
+.perfil-publico-conquista.tier-diamante:hover::after,
+.perfil-publico-conquista.tier-mitico:hover::after,
+.perfil-publico-conquista.tier-suprema:hover::after,
+.perfil-publico-conquista.tier-transcendente:hover::after {
+  opacity: 1;
+}
+
+/* ---- ÉPICO – Faixa de luz roxa que varre na diagonal ---- */
+@keyframes ppShimmerEpico {
+  0% {
+    transform: translateX(-120%) translateY(-120%) rotate(35deg);
+  }
+  50% {
+    transform: translateX(40%) translateY(40%) rotate(35deg);
+  }
+  100% {
+    transform: translateX(220%) translateY(220%) rotate(35deg);
+  }
+}
+.perfil-publico-conquista.tier-epico::after {
+  opacity: 0.5;
+  background: linear-gradient(
+    135deg,
+    transparent 35%,
+    rgba(168, 85, 247, 0.1) 42%,
+    rgba(255, 255, 255, 0.25) 48%,
+    rgba(168, 85, 247, 0.1) 54%,
+    transparent 60%
+  );
+  background-size: 200% 200%;
+  animation: ppShimmerEpico 3.2s ease-in-out infinite;
+}
+.perfil-publico-conquista.tier-epico {
+  box-shadow:
+    0 0 18px rgba(168, 85, 247, 0.14),
+    inset 0 0 0 1px rgba(168, 85, 247, 0.28);
+}
+.perfil-publico-conquista.tier-epico:hover {
+  box-shadow:
+    0 8px 36px rgba(168, 85, 247, 0.28),
+    inset 0 0 0 1px rgba(168, 85, 247, 0.5);
+}
+
+/* ---- LENDÁRIO – Brilho dourado com cintilação ---- */
+@keyframes ppShimmerLendario {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+@keyframes ppSparkLendario {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  25%,
+  75% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+.perfil-publico-conquista.tier-lendario::after {
+  opacity: 0.45;
+  background:
+    radial-gradient(
+      circle at 25% 35%,
+      rgba(255, 215, 0, 0.3) 0%,
+      transparent 8%
+    ),
+    radial-gradient(
+      circle at 70% 20%,
+      rgba(255, 255, 255, 0.25) 0%,
+      transparent 6%
+    ),
+    radial-gradient(
+      circle at 50% 60%,
+      rgba(245, 158, 11, 0.2) 0%,
+      transparent 10%
+    ),
+    linear-gradient(
+      105deg,
+      transparent 40%,
+      rgba(255, 215, 0, 0.06) 45%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(255, 215, 0, 0.06) 55%,
+      transparent 60%
+    );
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    300% 100%;
+  animation:
+    ppSparkLendario 2.6s ease-in-out infinite,
+    ppShimmerLendario 4s linear infinite;
+}
+.perfil-publico-conquista.tier-lendario {
+  box-shadow:
+    0 0 22px rgba(245, 158, 11, 0.18),
+    inset 0 0 0 1px rgba(245, 158, 11, 0.32);
+}
+.perfil-publico-conquista.tier-lendario:hover {
+  box-shadow:
+    0 8px 40px rgba(245, 158, 11, 0.34),
+    inset 0 0 0 1px rgba(245, 158, 11, 0.55);
+}
+
+/* ---- DIAMANTE – Reflexo prismático ---- */
+@keyframes ppShimmerDiamante {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+@keyframes ppPrismDiamante {
+  0% {
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    filter: hue-rotate(30deg);
+  }
+}
+.perfil-publico-conquista.tier-diamante::after {
+  opacity: 0.45;
+  background: linear-gradient(
+    120deg,
+    transparent 30%,
+    rgba(6, 182, 212, 0.08) 38%,
+    rgba(255, 255, 255, 0.32) 45%,
+    rgba(147, 197, 253, 0.12) 48%,
+    rgba(6, 182, 212, 0.08) 55%,
+    transparent 65%
+  );
+  background-size: 300% 100%;
+  animation:
+    ppShimmerDiamante 3.6s ease-in-out infinite,
+    ppPrismDiamante 6s linear infinite;
+}
+.perfil-publico-conquista.tier-diamante {
+  box-shadow:
+    0 0 24px rgba(6, 182, 212, 0.16),
+    inset 0 0 0 1px rgba(6, 182, 212, 0.38);
+}
+.perfil-publico-conquista.tier-diamante:hover {
+  box-shadow:
+    0 8px 44px rgba(6, 182, 212, 0.32),
+    inset 0 0 0 1px rgba(6, 182, 212, 0.58);
+}
+
+/* ---- MÍTICO – Pulsação flamejante ---- */
+@keyframes ppShimmerMitico {
+  0% {
+    background-position: -200% center;
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    background-position: 200% center;
+    opacity: 0.3;
+  }
+}
+@keyframes ppPulseMitico {
+  0%,
+  100% {
+    box-shadow:
+      0 0 18px rgba(239, 68, 68, 0.2),
+      inset 0 0 0 1px rgba(239, 68, 68, 0.32);
+  }
+  50% {
+    box-shadow:
+      0 0 38px rgba(239, 68, 68, 0.38),
+      inset 0 0 0 1px rgba(239, 68, 68, 0.52);
+  }
+}
+.perfil-publico-conquista.tier-mitico::after {
+  opacity: 0.45;
+  background:
+    radial-gradient(
+      ellipse at 20% 30%,
+      rgba(255, 100, 100, 0.18) 0%,
+      transparent 30%
+    ),
+    radial-gradient(
+      ellipse at 80% 70%,
+      rgba(239, 68, 68, 0.15) 0%,
+      transparent 30%
+    ),
+    linear-gradient(
+      115deg,
+      transparent 35%,
+      rgba(239, 68, 68, 0.08) 42%,
+      rgba(255, 180, 180, 0.28) 48%,
+      rgba(239, 68, 68, 0.08) 54%,
+      transparent 60%
+    );
+  background-size:
+    100% 100%,
+    100% 100%,
+    300% 100%;
+  animation:
+    ppShimmerMitico 2.4s ease-in-out infinite,
+    ppPulseMitico 2s ease-in-out infinite;
+}
+.perfil-publico-conquista.tier-mitico {
+  animation: ppPulseMitico 2s ease-in-out infinite;
+}
+.perfil-publico-conquista.tier-mitico:hover {
+  animation: none;
+  box-shadow:
+    0 8px 48px rgba(239, 68, 68, 0.48),
+    inset 0 0 0 2px rgba(239, 68, 68, 0.62);
+}
+
+/* ============================================================
+   SUPREMA – Divina · Raios de luz dourada celestial
+   A mais nobre das raridades comuns. Brilho majestoso e imponente.
+   ============================================================ */
+@keyframes ppShimmerSuprema {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+@keyframes ppGodRaysSuprema {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+@keyframes ppDivineGlowSuprema {
+  0%,
+  100% {
+    box-shadow:
+      0 0 24px rgba(251, 191, 36, 0.22),
+      0 0 48px rgba(255, 255, 255, 0.08),
+      inset 0 0 0 1px rgba(251, 191, 36, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 44px rgba(251, 191, 36, 0.42),
+      0 0 72px rgba(255, 255, 255, 0.18),
+      inset 0 0 0 2px rgba(251, 191, 36, 0.6);
+  }
+}
+@keyframes ppDivineBreathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.012);
+  }
+}
+.perfil-publico-conquista.tier-suprema::after {
+  opacity: 0.55;
+  background:
+    /* Raios divinos do topo */
+    conic-gradient(
+      from 180deg at 50% 0%,
+      transparent 0deg,
+      rgba(255, 255, 255, 0.18) 3deg,
+      transparent 6deg,
+      rgba(255, 255, 255, 0.14) 10deg,
+      transparent 13deg,
+      rgba(251, 191, 36, 0.12) 16deg,
+      transparent 20deg,
+      rgba(255, 255, 255, 0.16) 24deg,
+      transparent 28deg,
+      rgba(251, 191, 36, 0.1) 32deg,
+      transparent 36deg,
+      transparent 360deg
+    ),
+    /* Auréola superior */
+    radial-gradient(
+        ellipse 180px 80px at 50% 0%,
+        rgba(255, 255, 255, 0.35) 0%,
+        rgba(251, 191, 36, 0.15) 30%,
+        transparent 70%
+      ),
+    /* Sweep horizontal majestoso */
+    linear-gradient(
+        110deg,
+        transparent 32%,
+        rgba(251, 191, 36, 0.05) 40%,
+        rgba(255, 255, 255, 0.45) 47%,
+        rgba(255, 255, 255, 0.15) 50%,
+        rgba(251, 191, 36, 0.05) 58%,
+        transparent 65%
+      );
+  background-size:
+    100% 100%,
+    100% 100%,
+    350% 100%;
+  animation:
+    ppGodRaysSuprema 3.5s ease-in-out infinite,
+    ppShimmerSuprema 3s ease-in-out infinite;
+}
+.perfil-publico-conquista.tier-suprema {
+  animation:
+    ppDivineGlowSuprema 2.8s ease-in-out infinite,
+    ppDivineBreathe 4s ease-in-out infinite;
+  border-color: rgba(251, 191, 36, 0.45);
+}
+.perfil-publico-conquista.tier-suprema:hover {
+  animation: none;
+  transform: translateY(-3px) scale(1.02);
+  box-shadow:
+    0 0 52px rgba(251, 191, 36, 0.55),
+    0 0 80px rgba(255, 255, 255, 0.22),
+    inset 0 0 0 2px rgba(251, 191, 36, 0.7);
+}
+
+/* ============================================================
+   TRANSCENDENTE – Ascensão cósmica · Aurora multicolor divina
+   A raridade suprema. Combina todas as cores em harmonia etérea.
+   ============================================================ */
+@keyframes ppAuroraTranscendente {
+  0% {
+    background-position: -200% center;
+    filter: hue-rotate(0deg) brightness(1);
+  }
+  25% {
+    filter: hue-rotate(20deg) brightness(1.1);
+  }
+  50% {
+    filter: hue-rotate(-10deg) brightness(1);
+  }
+  75% {
+    filter: hue-rotate(25deg) brightness(1.15);
+  }
+  100% {
+    background-position: 200% center;
+    filter: hue-rotate(0deg) brightness(1);
+  }
+}
+@keyframes ppCosmicPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  33% {
+    opacity: 0.75;
+  }
+  66% {
+    opacity: 0.5;
+  }
+}
+@keyframes ppStellarBorderTranscendente {
+  0%,
+  100% {
+    box-shadow:
+      0 0 22px rgba(236, 72, 153, 0.2),
+      0 0 44px rgba(168, 85, 247, 0.12),
+      0 0 66px rgba(6, 182, 212, 0.06),
+      inset 0 0 0 1px rgba(236, 72, 153, 0.35);
+  }
+  25% {
+    box-shadow:
+      0 0 32px rgba(168, 85, 247, 0.28),
+      0 0 56px rgba(236, 72, 153, 0.18),
+      0 0 72px rgba(251, 191, 36, 0.1),
+      inset 0 0 0 1px rgba(168, 85, 247, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 28px rgba(6, 182, 212, 0.26),
+      0 0 52px rgba(236, 72, 153, 0.16),
+      0 0 70px rgba(168, 85, 247, 0.12),
+      inset 0 0 0 1px rgba(6, 182, 212, 0.45);
+  }
+  75% {
+    box-shadow:
+      0 0 36px rgba(251, 191, 36, 0.24),
+      0 0 60px rgba(236, 72, 153, 0.2),
+      0 0 78px rgba(168, 85, 247, 0.14),
+      inset 0 0 0 1px rgba(251, 191, 36, 0.48);
+  }
+}
+@keyframes ppStardustTranscendente {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(0) scale(0.5);
+  }
+  20% {
+    opacity: 0.8;
+  }
+  80% {
+    opacity: 0;
+    transform: translateY(-30px) scale(1.3);
+  }
+}
+.perfil-publico-conquista.tier-transcendente::after {
+  opacity: 0.55;
+  background:
+    /* Aurora multicolor */
+    radial-gradient(
+      ellipse at 15% 20%,
+      rgba(236, 72, 153, 0.22) 0%,
+      transparent 40%
+    ),
+    radial-gradient(
+      ellipse at 85% 80%,
+      rgba(168, 85, 247, 0.2) 0%,
+      transparent 40%
+    ),
+    radial-gradient(
+      ellipse at 50% 50%,
+      rgba(6, 182, 212, 0.14) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      ellipse at 30% 70%,
+      rgba(251, 191, 36, 0.12) 0%,
+      transparent 35%
+    ),
+    /* Faixa prismática */
+    linear-gradient(
+        125deg,
+        transparent 28%,
+        rgba(236, 72, 153, 0.06) 36%,
+        rgba(255, 255, 255, 0.38) 44%,
+        rgba(168, 85, 247, 0.08) 48%,
+        rgba(255, 255, 255, 0.18) 52%,
+        rgba(6, 182, 212, 0.06) 58%,
+        transparent 66%
+      );
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    380% 100%;
+  animation:
+    ppAuroraTranscendente 5s ease-in-out infinite,
+    ppCosmicPulse 3.8s ease-in-out infinite;
+}
+.perfil-publico-conquista.tier-transcendente {
+  animation: ppStellarBorderTranscendente 3.5s ease-in-out infinite;
+  border-color: rgba(236, 72, 153, 0.4);
+}
+.perfil-publico-conquista.tier-transcendente:hover {
+  animation: none;
+  transform: translateY(-3px) scale(1.02);
+  box-shadow:
+    0 0 56px rgba(236, 72, 153, 0.5),
+    0 0 72px rgba(168, 85, 247, 0.3),
+    0 0 90px rgba(6, 182, 212, 0.2),
+    inset 0 0 0 2px rgba(236, 72, 153, 0.6);
+}
+
+/* Partículas estelares para Transcendente (pseudo-elementos no container) */
+.perfil-publico-conquista.tier-transcendente
+  .perfil-publico-conquista-media::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(
+      1.5px 1.5px at 20% 30%,
+      rgba(255, 255, 255, 0.9) 0%,
+      transparent 100%
+    ),
+    radial-gradient(
+      1px 1px at 60% 25%,
+      rgba(255, 255, 255, 0.7) 0%,
+      transparent 100%
+    ),
+    radial-gradient(
+      2px 2px at 35% 60%,
+      rgba(255, 255, 255, 0.8) 0%,
+      transparent 100%
+    ),
+    radial-gradient(
+      1px 1px at 75% 55%,
+      rgba(255, 255, 255, 0.65) 0%,
+      transparent 100%
+    ),
+    radial-gradient(
+      1.5px 1.5px at 50% 70%,
+      rgba(255, 255, 255, 0.75) 0%,
+      transparent 100%
+    ),
+    radial-gradient(
+      1px 1px at 85% 40%,
+      rgba(255, 255, 255, 0.6) 0%,
+      transparent 100%
+    );
+  animation: ppStardustTranscendente 3s ease-in-out infinite;
 }
 </style>
