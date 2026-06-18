@@ -1683,69 +1683,76 @@ function selecionarConquista(conquista) {
 }
 
 /* ============================================================
-   TRANSCENDENTE – Ascensão cósmica · Aurora multicolor divina
-   A raridade suprema. Combina todas as cores em harmonia etérea.
+   TRANSCENDENTE – Arco-Íris da Glória · O esplendor máximo
+   A raridade suprema. Um arco-íris completo desliza majestoso
+   sobre o card, refletindo toda a glória desta conquista.
    ============================================================ */
-@keyframes ppAuroraTranscendente {
+@keyframes ppRainbowShimmerTranscendente {
   0% {
-    background-position: -200% center;
-    filter: hue-rotate(0deg) brightness(1);
-  }
-  25% {
-    filter: hue-rotate(20deg) brightness(1.1);
-  }
-  50% {
-    filter: hue-rotate(-10deg) brightness(1);
-  }
-  75% {
-    filter: hue-rotate(25deg) brightness(1.15);
+    background-position: -300% center;
   }
   100% {
-    background-position: 200% center;
-    filter: hue-rotate(0deg) brightness(1);
+    background-position: 300% center;
   }
 }
-@keyframes ppCosmicPulse {
-  0%,
-  100% {
-    opacity: 0.45;
-  }
-  33% {
-    opacity: 0.75;
-  }
-  66% {
+@keyframes ppRainbowAuraTranscendente {
+  0% {
     opacity: 0.5;
+    filter: hue-rotate(0deg);
+  }
+  100% {
+    opacity: 0.7;
+    filter: hue-rotate(360deg);
   }
 }
-@keyframes ppStellarBorderTranscendente {
-  0%,
+@keyframes ppRainbowBorderTranscendente {
+  0% {
+    box-shadow:
+      0 0 18px rgba(239, 68, 68, 0.18),
+      0 0 36px rgba(249, 115, 22, 0.1),
+      inset 0 0 0 1px rgba(239, 68, 68, 0.3);
+  }
+  14% {
+    box-shadow:
+      0 0 22px rgba(249, 115, 22, 0.22),
+      0 0 42px rgba(245, 158, 11, 0.14),
+      inset 0 0 0 1px rgba(249, 115, 22, 0.38);
+  }
+  28% {
+    box-shadow:
+      0 0 24px rgba(245, 158, 11, 0.24),
+      0 0 46px rgba(251, 191, 36, 0.16),
+      inset 0 0 0 1px rgba(245, 158, 11, 0.42);
+  }
+  42% {
+    box-shadow:
+      0 0 22px rgba(34, 197, 94, 0.22),
+      0 0 44px rgba(6, 182, 212, 0.14),
+      inset 0 0 0 1px rgba(34, 197, 94, 0.38);
+  }
+  57% {
+    box-shadow:
+      0 0 24px rgba(6, 182, 212, 0.24),
+      0 0 48px rgba(59, 130, 246, 0.16),
+      inset 0 0 0 1px rgba(6, 182, 212, 0.42);
+  }
+  71% {
+    box-shadow:
+      0 0 22px rgba(59, 130, 246, 0.22),
+      0 0 44px rgba(168, 85, 247, 0.14),
+      inset 0 0 0 1px rgba(59, 130, 246, 0.38);
+  }
+  85% {
+    box-shadow:
+      0 0 26px rgba(168, 85, 247, 0.26),
+      0 0 50px rgba(236, 72, 153, 0.18),
+      inset 0 0 0 1px rgba(168, 85, 247, 0.44);
+  }
   100% {
     box-shadow:
-      0 0 22px rgba(236, 72, 153, 0.2),
-      0 0 44px rgba(168, 85, 247, 0.12),
-      0 0 66px rgba(6, 182, 212, 0.06),
-      inset 0 0 0 1px rgba(236, 72, 153, 0.35);
-  }
-  25% {
-    box-shadow:
-      0 0 32px rgba(168, 85, 247, 0.28),
-      0 0 56px rgba(236, 72, 153, 0.18),
-      0 0 72px rgba(251, 191, 36, 0.1),
-      inset 0 0 0 1px rgba(168, 85, 247, 0.5);
-  }
-  50% {
-    box-shadow:
-      0 0 28px rgba(6, 182, 212, 0.26),
-      0 0 52px rgba(236, 72, 153, 0.16),
-      0 0 70px rgba(168, 85, 247, 0.12),
-      inset 0 0 0 1px rgba(6, 182, 212, 0.45);
-  }
-  75% {
-    box-shadow:
-      0 0 36px rgba(251, 191, 36, 0.24),
-      0 0 60px rgba(236, 72, 153, 0.2),
-      0 0 78px rgba(168, 85, 247, 0.14),
-      inset 0 0 0 1px rgba(251, 191, 36, 0.48);
+      0 0 18px rgba(239, 68, 68, 0.18),
+      0 0 36px rgba(249, 115, 22, 0.1),
+      inset 0 0 0 1px rgba(239, 68, 68, 0.3);
   }
 }
 @keyframes ppStardustTranscendente {
@@ -1763,62 +1770,53 @@ function selecionarConquista(conquista) {
   }
 }
 .perfil-publico-conquista.tier-transcendente::after {
-  opacity: 0.55;
+  opacity: 0.5;
   background:
-    /* Aurora multicolor */
-    radial-gradient(
-      ellipse at 15% 20%,
-      rgba(236, 72, 153, 0.22) 0%,
-      transparent 40%
-    ),
-    radial-gradient(
-      ellipse at 85% 80%,
-      rgba(168, 85, 247, 0.2) 0%,
-      transparent 40%
-    ),
-    radial-gradient(
-      ellipse at 50% 50%,
-      rgba(6, 182, 212, 0.14) 0%,
-      transparent 45%
-    ),
-    radial-gradient(
-      ellipse at 30% 70%,
-      rgba(251, 191, 36, 0.12) 0%,
-      transparent 35%
-    ),
-    /* Faixa prismática */
+    /* Arco-íris completo – 7 cores deslizando majestosamente */
     linear-gradient(
-        125deg,
-        transparent 28%,
-        rgba(236, 72, 153, 0.06) 36%,
-        rgba(255, 255, 255, 0.38) 44%,
-        rgba(168, 85, 247, 0.08) 48%,
-        rgba(255, 255, 255, 0.18) 52%,
-        rgba(6, 182, 212, 0.06) 58%,
-        transparent 66%
+      130deg,
+      transparent 20%,
+      rgba(239, 68, 68, 0.12) 24%,
+      rgba(249, 115, 22, 0.1) 28%,
+      rgba(245, 158, 11, 0.1) 32%,
+      rgba(251, 191, 36, 0.1) 35%,
+      rgba(34, 197, 94, 0.09) 38%,
+      rgba(6, 182, 212, 0.1) 42%,
+      rgba(59, 130, 246, 0.1) 46%,
+      rgba(168, 85, 247, 0.09) 50%,
+      rgba(236, 72, 153, 0.08) 54%,
+      transparent 60%
+    ),
+    /* Reflexo branco puríssimo (glória) */
+    linear-gradient(
+        115deg,
+        transparent 38%,
+        rgba(255, 255, 255, 0.08) 44%,
+        rgba(255, 255, 255, 0.42) 48%,
+        rgba(255, 255, 255, 0.22) 50%,
+        rgba(255, 255, 255, 0.08) 54%,
+        transparent 60%
       );
   background-size:
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    380% 100%;
+    500% 100%,
+    400% 100%;
   animation:
-    ppAuroraTranscendente 5s ease-in-out infinite,
-    ppCosmicPulse 3.8s ease-in-out infinite;
+    ppRainbowShimmerTranscendente 8s ease-in-out infinite,
+    ppRainbowAuraTranscendente 12s linear infinite;
 }
 .perfil-publico-conquista.tier-transcendente {
-  animation: ppStellarBorderTranscendente 3.5s ease-in-out infinite;
-  border-color: rgba(236, 72, 153, 0.4);
+  animation: ppRainbowBorderTranscendente 7s ease-in-out infinite;
+  border-color: rgba(168, 85, 247, 0.35);
 }
 .perfil-publico-conquista.tier-transcendente:hover {
   animation: none;
   transform: translateY(-3px) scale(1.02);
   box-shadow:
-    0 0 56px rgba(236, 72, 153, 0.5),
-    0 0 72px rgba(168, 85, 247, 0.3),
-    0 0 90px rgba(6, 182, 212, 0.2),
-    inset 0 0 0 2px rgba(236, 72, 153, 0.6);
+    0 0 60px rgba(236, 72, 153, 0.45),
+    0 0 80px rgba(168, 85, 247, 0.3),
+    0 0 100px rgba(6, 182, 212, 0.2),
+    0 0 120px rgba(245, 158, 11, 0.12),
+    inset 0 0 0 2px rgba(236, 72, 153, 0.55);
 }
 
 /* Partículas estelares para Transcendente (pseudo-elementos no container) */
@@ -1861,6 +1859,6 @@ function selecionarConquista(conquista) {
       rgba(255, 255, 255, 0.6) 0%,
       transparent 100%
     );
-  animation: ppStardustTranscendente 3s ease-in-out infinite;
+  animation: ppStardustTranscendente 4s ease-in-out infinite;
 }
 </style>
