@@ -27,6 +27,7 @@ const erroLojas = ref('');
 const carregando  = ref(true);
 const refreshing  = ref(false);
 const captureArea = ref(null);
+const ultimasAuditoriasRef = ref(null);
 const exportando  = ref(false);
 const dataKey     = ref(0);
 const dados       = ref(null);
@@ -538,6 +539,10 @@ async function compartilhar() {
     clonedTarget.style.maxWidth = 'none';
     clonedTarget.style.overflow = 'visible';
 
+    // Remove a seção de últimas auditorias do clone (não deve aparecer no print)
+    const cloneUltimasAuditorias = clonedTarget.querySelector('[data-ultimas-auditorias]');
+    if (cloneUltimasAuditorias) cloneUltimasAuditorias.remove();
+
     tempContainer.appendChild(clonedTarget);
     document.body.appendChild(tempContainer);
 
@@ -590,7 +595,7 @@ const taxaCentro = computed(() => {
 </script>
 
 <template>
-  <div ref="captureArea" class="grid gap-3">
+  <div ref="captureArea" class="grid gap-3 dash-capture-area">
     <div class="row">
       <PeriodoSelector
         v-model="periodo"
@@ -715,9 +720,10 @@ const taxaCentro = computed(() => {
           </template>
         </div>
       </div>
+      </div> <!-- fecha dash-content -->
 
       <!-- Últimas auditorias -->
-      <div class="card">
+      <div ref="ultimasAuditoriasRef" class="card" data-ultimas-auditorias>
         <div class="row mb-2">
           <h3 class="mt-0 mb-0">Últimas auditorias</h3>
           <span class="spacer" />
@@ -744,7 +750,6 @@ const taxaCentro = computed(() => {
           </table>
         </div>
       </div>
-      </div>
     </template>
   </div>
 </template>
@@ -760,6 +765,11 @@ const taxaCentro = computed(() => {
   opacity: 0.45;
   filter: blur(1.5px);
   pointer-events: none;
+}
+
+/* Área de captura (Compartilhar) — padding p/ margens no print */
+.dash-capture-area {
+  padding: 20px 24px 28px;
 }
 
 /* KPI cards stagger */
