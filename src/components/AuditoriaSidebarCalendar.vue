@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth";
 import {
@@ -15,6 +16,7 @@ const props = defineProps({
 });
 
 const auth = useAuthStore();
+const router = useRouter();
 
 const ANO_ATUAL = new Date().getFullYear();
 const HOJE_CHAVE = formatarChaveLocal(new Date());
@@ -99,6 +101,7 @@ const mesesCalendario = computed(() =>
         dia,
         tipo,
         status,
+        auditoriaId: auditoria?._id || null,
         descricao: descreverStatus(status, auditoria),
         tooltip: montarTooltip(chaveData, tipo, status, auditoria),
       };
@@ -288,6 +291,13 @@ function formatarDataPtBr(chaveData) {
   if (!ano || !mes || !dia) return "";
   return `${dia}/${mes}/${ano}`;
 }
+
+function navegarParaAuditoria(dia) {
+  if (!dia?.auditoriaId) return;
+  const lojaId = lojaEscopoId.value;
+  const query = lojaId ? { lojaId } : {};
+  router.push({ path: `/auditorias/${dia.auditoriaId}`, query });
+}
 </script>
 
 <template>
@@ -365,8 +375,12 @@ function formatarDataPtBr(chaveData) {
               v-for="(dia, indice) in semana.dias"
               :key="dia?.chave || `${semana.chave}-${indice}`"
               class="day-cell"
-              :class="dia ? [dia.status, 'tipo-' + dia.tipo] : 'empty'"
-              :title="dia?.tooltip || ''"
+              :class="[
+                dia ? [dia.status, 'tipo-' + dia.tipo] : 'empty',
+                { clickable: dia?.auditoriaId },
+              ]"
+              :title="(dia?.auditoriaId ? 'Clique para ver detalhes — ' : '') + (dia?.tooltip || '')"
+              @click="dia?.auditoriaId && navegarParaAuditoria(dia)"
             >
               <template v-if="dia">
                 <strong>{{ dia.dia }}</strong>
@@ -636,6 +650,21 @@ function formatarDataPtBr(chaveData) {
 .day-cell.empty {
   min-height: 20px;
   background: transparent;
+}
+
+.day-cell.clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.day-cell.clickable:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.12);
+  z-index: 2;
+}
+
+.day-cell.clickable:active {
+  transform: scale(0.96);
 }
 
 [data-theme="light"] .audit-calendar {
