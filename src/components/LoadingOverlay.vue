@@ -8,15 +8,15 @@ defineProps({
   <Transition name="overlay-fade">
     <div v-if="show" class="loading-overlay">
       <div class="loading-dots-grid">
-        <div class="ld-dot ld-dot--primary"></div>
+        <div class="ld-dot ld-dot--danger"></div>
         <div class="ld-dot ld-dot--rotate-top ld-dot--primary"></div>
-        <div class="ld-dot ld-dot--gradient ld-dot--sm"></div>
+        <div class="ld-dot ld-dot--good ld-dot--sm"></div>
         <div class="ld-dot ld-dot--rotate-right ld-dot--primary"></div>
         <div class="ld-dot ld-dot--warning ld-dot--lg"></div>
         <div class="ld-dot ld-dot--rotate-left ld-dot--primary"></div>
-        <div class="ld-dot ld-dot--gradient ld-dot--sm"></div>
+        <div class="ld-dot ld-dot--excellent ld-dot--sm"></div>
         <div class="ld-dot ld-dot--rotate-bottom ld-dot--primary"></div>
-        <div class="ld-dot ld-dot--primary ld-dot--sm"></div>
+        <div class="ld-dot ld-dot--accent ld-dot--sm"></div>
       </div>
       <p class="loading-overlay-text">Atualizando dados...</p>
     </div>
@@ -99,6 +99,21 @@ defineProps({
 .ld-dot--warning::before,
 .ld-dot--warning::after {
   background-color: var(--warning, #f59e0b);
+}
+
+.ld-dot--danger::before,
+.ld-dot--danger::after {
+  background-color: var(--danger, #ef4444);
+}
+
+.ld-dot--good::before,
+.ld-dot--good::after {
+  background-color: #4f9cf0;
+}
+
+.ld-dot--excellent::before,
+.ld-dot--excellent::after {
+  background-color: var(--success, #22c55e);
 }
 
 .ld-dot--gradient::before,
@@ -277,6 +292,22 @@ defineProps({
 :global([data-theme="light"]) .ld-dot--warning::after {
   background-color: var(--warning, #f59e0b);
 }
+
+:global([data-theme="light"]) .ld-dot--danger::before,
+:global([data-theme="light"]) .ld-dot--danger::after {
+  background-color: var(--danger, #ef4444);
+}
+
+:global([data-theme="light"]) .ld-dot--good::before,
+:global([data-theme="light"]) .ld-dot--good::after {
+  background-color: #4f9cf0;
+}
+
+:global([data-theme="light"]) .ld-dot--excellent::before,
+:global([data-theme="light"]) .ld-dot--excellent::after {
+  background-color: var(--success, #22c55e);
+}
+
 :global([data-theme="light"]) .ld-dot--gradient::before,
 :global([data-theme="light"]) .ld-dot--gradient::after {
   background: linear-gradient(135deg, var(--primary, #6d5cff), var(--accent, #06b6d4));

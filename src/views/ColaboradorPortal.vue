@@ -1323,16 +1323,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="portal-shell">
-    <header v-if="etapa !== 'portal'" class="portal-header">
-      <div class="portal-brand">
-        <div class="brand-mark"><fa icon="bolt" /></div>
-        <span class="brand-name"
-          >Flashrub <small>Portal do Colaborador</small></span
-        >
-      </div>
-    </header>
-
+  <div :class="['portal-shell', { 'portal-shell-auth': etapa !== 'portal' }]">
     <InstallPWA
       v-if="etapa !== 'portal'"
       :user-key="matricula"
@@ -1342,7 +1333,9 @@ onBeforeUnmount(() => {
     <!-- Buscar matrícula -->
     <div v-if="etapa === 'buscar'" class="portal-card">
       <div class="center mb-4">
-        <div class="brand-mark big"><fa icon="id-badge" /></div>
+        <div class="brand-mark big"><fa icon="bolt" /></div>
+        <h3 class="portal-brand-name">Flashrub</h3>
+        <p class="portal-brand-sub">Portal do Colaborador</p>
       </div>
       <h2 class="auth-title">Acesse seu perfil</h2>
       <p class="auth-sub">
@@ -1380,7 +1373,9 @@ onBeforeUnmount(() => {
       class="portal-card portal-card-wide"
     >
       <div class="center mb-4">
-        <div class="brand-mark big"><fa icon="store" /></div>
+        <div class="brand-mark big"><fa icon="bolt" /></div>
+        <h3 class="portal-brand-name">Flashrub</h3>
+        <p class="portal-brand-sub">Portal do Colaborador</p>
       </div>
       <h2 class="auth-title">Escolha a loja</h2>
       <p class="auth-sub">
@@ -1437,6 +1432,11 @@ onBeforeUnmount(() => {
 
     <!-- Setup / Login -->
     <div v-else-if="etapa === 'setup' || etapa === 'login'" class="portal-card">
+      <div class="center mb-4">
+        <div class="brand-mark big"><fa icon="bolt" /></div>
+        <h3 class="portal-brand-name">Flashrub</h3>
+        <p class="portal-brand-sub">Portal do Colaborador</p>
+      </div>
       <div v-if="lojaSelecionada" class="selected-store">
         <div class="selected-store-chip">
           <StoreAvatar
@@ -1516,6 +1516,11 @@ onBeforeUnmount(() => {
 
     <!-- Reset de senha (após 3 tentativas erradas) -->
     <div v-else-if="etapa === 'reset'" class="portal-card">
+      <div class="center mb-4">
+        <div class="brand-mark big"><fa icon="bolt" /></div>
+        <h3 class="portal-brand-name">Flashrub</h3>
+        <p class="portal-brand-sub">Portal do Colaborador</p>
+      </div>
       <div v-if="lojaSelecionada" class="selected-store">
         <div class="selected-store-chip">
           <StoreAvatar
@@ -2638,28 +2643,22 @@ onBeforeUnmount(() => {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-.portal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 22px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(11, 15, 26, 0.55);
-  backdrop-filter: blur(10px);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+/* Fundo escuro com + apenas na tela de login */
+.portal-shell-auth {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background-color: #0d0b1a;
+  background-image:
+    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M29 22v8h-8v1h8v8h1v-8h8v-1h-8v-8z' fill='rgba(124,92,255,0.06)'/%3E%3C/svg%3E"),
+    linear-gradient(160deg, #0f0c29 0%, #1a1040 40%, #0f1424 100%);
 }
-.portal-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+
 .brand-mark {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
-  background: var(--grad-primary);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #7c5cff, #4a6cf7);
   display: grid;
   place-items: center;
   color: #fff;
@@ -2672,26 +2671,34 @@ onBeforeUnmount(() => {
   border-radius: 18px;
   font-size: 28px;
   margin: 0 auto;
+  background: linear-gradient(135deg, #7c5cff, #4a6cf7);
 }
-.brand-name {
-  font-weight: 700;
-  color: var(--text);
+
+.portal-brand-name {
+  margin: 12px 0 2px;
+  font-size: 22px;
+  font-weight: 800;
+  color: #1a1e35;
+  text-align: center;
 }
-.brand-name small {
-  display: block;
-  font-size: 11px;
-  color: var(--text-dim);
-  font-weight: 400;
+
+.portal-brand-sub {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: #6b7393;
+  text-align: center;
+  font-weight: 500;
 }
 .portal-card {
   max-width: 440px;
-  margin: 40px auto;
-  background: var(--surface-strong);
-  border: 1px solid var(--border-strong);
+  width: 100%;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: var(--radius-lg);
-  padding: 28px 22px;
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(10px);
+  padding: 36px 28px;
+  box-shadow:
+    0 20px 60px rgba(53, 70, 120, 0.14),
+    0 4px 16px rgba(0, 0, 0, 0.06);
 }
 .portal-card-wide {
   max-width: 560px;
@@ -2700,16 +2707,20 @@ onBeforeUnmount(() => {
   text-align: center;
   margin: 0 0 6px;
   font-size: 22px;
+  font-weight: 800;
+  color: #1a1e35;
 }
 .auth-title-small {
   margin: 0 0 4px;
   font-size: 20px;
+  font-weight: 700;
+  color: #1a1e35;
 }
 .auth-sub {
   text-align: center;
-  font-size: 14px;
-  color: var(--text-dim);
-  margin: 0 0 20px;
+  font-size: 13px;
+  color: #6b7393;
+  margin: 0 0 24px;
 }
 .full-w {
   width: 100%;
@@ -2737,15 +2748,20 @@ onBeforeUnmount(() => {
   gap: 12px;
   padding: 14px;
   border-radius: 14px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
+  border: 1.5px solid #dde3f0;
+  background: #f8fafd;
+  color: #1a1e35;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 .store-option:hover {
-  border-color: var(--border-strong);
+  border-color: #7c5cff;
+  background: #f4f2ff;
 }
 .store-option.preferred {
-  border-color: rgba(124, 92, 255, 0.32);
+  border-color: #7c5cff;
+  background: #f4f2ff;
 }
 .store-option-main {
   display: flex;

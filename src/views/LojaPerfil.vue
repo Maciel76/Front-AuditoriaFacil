@@ -429,6 +429,7 @@ const topCorredores = computed(() =>
 </script>
 
 <template>
+  <LoadingOverlay :show="carregando" />
   <div class="store-profile-shell">
     <div class="row store-profile-toolbar">
       <div class="row" style="gap: 10px; flex-wrap: wrap">
