@@ -454,6 +454,7 @@ async function confirmarCropAvatar() {
         v-model="periodo"
         v-model:dataInicio="dataInicio"
         v-model:dataFim="dataFim"
+        :loading="carregando"
       />
 
       <select v-model="tipo" class="btn ghost colaborador-tipo-select">

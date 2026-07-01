@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth";
 import AuditoriaSidebarCalendar from "@/components/AuditoriaSidebarCalendar.vue";
+import LoadingOverlay from "@/components/LoadingOverlay.vue";
 import { exportarAreaComoImagem, slugArquivo } from "@/utils/captureExport";
 import {
   lerLojaDestinoAuditorias,

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import api from "@/services/api";
 import Loader from "@/components/Loader.vue";
+import LoadingOverlay from "@/components/LoadingOverlay.vue";
 import PeriodoSelector from "@/components/PeriodoSelector.vue";
 import StoreAvatar from "@/components/StoreAvatar.vue";
 import RankingModeSelector from "@/components/RankingModeSelector.vue";
@@ -217,12 +218,14 @@ const visualizacaoKey = computed(() => {
 </script>
 
 <template>
+  <LoadingOverlay :show="carregando" />
   <div ref="captureArea" class="grid gap-3">
     <div class="row toolbar-wrap">
       <PeriodoSelector
         v-model="periodo"
         v-model:dataInicio="dataInicio"
         v-model:dataFim="dataFim"
+        :loading="carregando"
       />
 
       <select v-model="tipo" class="btn ghost" style="padding: 8px 14px">

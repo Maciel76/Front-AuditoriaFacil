@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import api from "@/services/api";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
 import Loader from "@/components/Loader.vue";
+import LoadingOverlay from "@/components/LoadingOverlay.vue";
 import { useUiStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
 import { RouterLink, useRoute, useRouter } from "vue-router";
@@ -245,6 +246,7 @@ async function alternarAtivo(colaborador) {
 </script>
 
 <template>
+  <LoadingOverlay :show="carregando || carregandoLojas" />
   <div class="grid gap-3">
     <div class="row">
       <div class="row" style="gap: 8px">

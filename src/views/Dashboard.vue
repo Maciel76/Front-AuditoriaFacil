@@ -7,6 +7,7 @@ import KpiCard from '@/components/KpiCard.vue';
 import AppChart from '@/components/AppChart.vue';
 import DashboardDesempenhoHoje from '@/components/DashboardDesempenhoHoje.vue';
 import Loader from '@/components/Loader.vue';
+import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import PeriodoSelector from '@/components/PeriodoSelector.vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import html2canvas from 'html2canvas';
@@ -595,12 +596,14 @@ const taxaCentro = computed(() => {
 </script>
 
 <template>
+  <LoadingOverlay :show="carregando || refreshing" />
   <div ref="captureArea" class="grid gap-3 dash-capture-area">
     <div class="row">
       <PeriodoSelector
         v-model="periodo"
         v-model:dataInicio="dataInicio"
         v-model:dataFim="dataFim"
+        :loading="carregando || refreshing"
       />
       <select v-model="tipo" class="btn ghost" style="padding: 8px 14px">
         <option value="">Todos os tipos</option>

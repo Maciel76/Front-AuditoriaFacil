@@ -255,6 +255,7 @@ const lojasFiltradas = computed(() => {
         v-model="periodo"
         v-model:dataInicio="dataInicio"
         v-model:dataFim="dataFim"
+        :loading="carregando"
       />
       <input
         v-model="busca"

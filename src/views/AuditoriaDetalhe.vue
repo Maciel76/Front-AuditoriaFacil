@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 import ColaboradorAvatar from '@/components/ColaboradorAvatar.vue';
 import Loader from '@/components/Loader.vue';
+import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import AppChart from '@/components/AppChart.vue';
 
 const route = useRoute();
@@ -168,6 +169,7 @@ const itensTemDados = computed(() => itens.value.length > 0);
 </script>
 
 <template>
+  <LoadingOverlay :show="carregando" />
   <Loader v-if="carregando" />
   <div v-else-if="auditoria" class="grid gap-4 audit-detail">
     <!-- Navegação -->

@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import api from "@/services/api";
 import Loader from "@/components/Loader.vue";
+import LoadingOverlay from "@/components/LoadingOverlay.vue";
 import KpiCard from "@/components/KpiCard.vue";
 import AppChart from "@/components/AppChart.vue";
 import PeriodoSelector from "@/components/PeriodoSelector.vue";
@@ -450,6 +451,7 @@ const topCorredores = computed(() =>
         v-model="periodo"
         v-model:dataInicio="dataInicio"
         v-model:dataFim="dataFim"
+        :loading="carregando"
       />
 
       <select v-model="tipo" class="btn ghost" style="padding: 8px 14px">

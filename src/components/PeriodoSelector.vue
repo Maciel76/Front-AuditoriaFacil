@@ -5,6 +5,7 @@ const props = defineProps({
   modelValue: { type: String, default: '1d' },
   dataInicio:  { type: String, default: '' },
   dataFim:     { type: String, default: '' },
+  loading:     { type: Boolean, default: false },
 });
 const emit = defineEmits(['update:modelValue', 'update:dataInicio', 'update:dataFim']);
 
@@ -54,6 +55,15 @@ watch(() => props.dataFim,    (v) => { if (v) dFim.value    = v; });
         <span class="muted">→</span>
         <input type="date" :value="dFim"    @change="dFim    = $event.target.value" class="date-inp" />
       </div>
+    </Transition>
+
+    <Transition name="periodo-panel">
+      <span v-if="loading" class="periodo-loading">
+        Atualizando
+        <span class="periodo-dot" style="animation-delay: 0s">.</span>
+        <span class="periodo-dot" style="animation-delay: .2s">.</span>
+        <span class="periodo-dot" style="animation-delay: .4s">.</span>
+      </span>
     </Transition>
   </div>
 </template>
@@ -131,6 +141,24 @@ watch(() => props.dataFim,    (v) => { if (v) dFim.value    = v; });
   0% { transform: scale(.96); }
   70% { transform: scale(1.02); }
   100% { transform: scale(1); }
+}
+
+.periodo-loading {
+  font-size: 12px;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.periodo-dot {
+  animation: periodoDotPulse 1.4s ease-in-out infinite;
+  font-weight: 700;
+}
+
+@keyframes periodoDotPulse {
+  0%, 80%, 100% { opacity: 0.2; }
+  40% { opacity: 1; }
 }
 
 @media (max-width: 700px) {

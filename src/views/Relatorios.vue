@@ -1,10 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import html2canvas from "html2canvas";
 import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
 import Loader from "@/components/Loader.vue";
+import LoadingOverlay from "@/components/LoadingOverlay.vue";
 import AppChart from "@/components/AppChart.vue";
 import PeriodoSelector from "@/components/PeriodoSelector.vue";
 
@@ -32,6 +34,10 @@ const erroDetalheCorredor = ref("");
 const filtroProdutosCorredor = ref("lidos");
 const sincronizandoRotaLoja = ref(false);
 const carregamentoInicialConcluido = ref(false);
+const corredorGridRef = ref(null);
+const exportandoCorredor = ref(false);
+const classeTableRef = ref(null);
+const exportandoClasse = ref(false);
 let requisicaoDetalheCorredor = 0;
 
 function tipoSugeridoHoje() {
@@ -714,15 +720,229 @@ const corredoresOrdenados = computed(() =>
       a.nome.localeCompare(b.nome, "pt-BR"),
   ),
 );
+
+// ============ Compartilhar corredores ============
+const COLUNAS_CAPTURA = 6;
+
+/**
+ * Substitui todas as ocorrências de color-mix(...) por uma cor sólida.
+ * Lida com parênteses aninhados em qualquer profundidade.
+ */
+function removerColorMix(texto) {
+  let resultado = '';
+  let i = 0;
+  while (i < texto.length) {
+    if (texto.startsWith('color-mix(', i)) {
+      let profundidade = 0;
+      let j = i + 'color-mix('.length;
+      for (; j < texto.length; j++) {
+        if (texto[j] === '(') profundidade++;
+        else if (texto[j] === ')') {
+          if (profundidade === 0) break;
+          profundidade--;
+        }
+      }
+      resultado += 'rgba(255,255,255,0.12)';
+      i = j + 1;
+    } else {
+      resultado += texto[i];
+      i++;
+    }
+  }
+  return resultado;
+}
+
+async function compartilharCorredor() {
+  if (!corredorGridRef.value || exportandoCorredor.value) return;
+  if (!corredoresOrdenados.value.length) return;
+
+  exportandoCorredor.value = true;
+  let tempContainer = null;
+
+  try {
+    const grid = corredorGridRef.value;
+    const rootStyles = getComputedStyle(document.documentElement);
+    const bgColor = rootStyles.getPropertyValue('--bg-0').trim() || '#0b0f1a';
+
+    // Clona a grid (padrão Dashboard)
+    const cloneGrid = grid.cloneNode(true);
+
+    // Aplica grid fixo de 6 colunas
+    const larguraCard = 252;
+    const gap = 14;
+    const padding = 24;
+    const totalCards = corredoresOrdenados.value.length;
+    const linhas = Math.ceil(totalCards / COLUNAS_CAPTURA);
+    const alturaCard = 174;
+    const larguraGrid = COLUNAS_CAPTURA * larguraCard + (COLUNAS_CAPTURA - 1) * gap;
+
+    cloneGrid.style.display = 'grid';
+    cloneGrid.style.gridTemplateColumns = `repeat(${COLUNAS_CAPTURA}, ${larguraCard}px)`;
+    cloneGrid.style.gridAutoRows = `${alturaCard}px`;
+    cloneGrid.style.gap = `${gap}px`;
+    cloneGrid.style.width = `${larguraGrid}px`;
+    cloneGrid.style.maxWidth = 'none';
+
+    // Limpa cards clonados: remove interatividade e "Ver detalhes"
+    const cardsClonados = cloneGrid.querySelectorAll('.corridor-card');
+    for (const card of cardsClonados) {
+      card.removeAttribute('tabindex');
+      card.removeAttribute('role');
+      card.style.cursor = 'default';
+      card.style.width = `${larguraCard}px`;
+      card.style.boxSizing = 'border-box';
+
+      const toggle = card.querySelector('.corridor-toggle');
+      if (toggle) toggle.remove();
+
+      const name = card.querySelector('.corridor-name');
+      if (name) {
+        name.style.whiteSpace = 'nowrap';
+        name.style.overflow = 'hidden';
+        name.style.textOverflow = 'ellipsis';
+      }
+    }
+
+    // Container off-screen (padrão Dashboard)
+    tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-20000px';
+    tempContainer.style.top = '0';
+    tempContainer.style.width = `${larguraGrid + padding * 2}px`;
+    tempContainer.style.padding = `${padding}px`;
+    tempContainer.style.boxSizing = 'border-box';
+    tempContainer.style.background = bgColor;
+    tempContainer.style.overflow = 'visible';
+
+    tempContainer.appendChild(cloneGrid);
+    document.body.appendChild(tempContainer);
+
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    const canvas = await html2canvas(tempContainer, {
+      backgroundColor: bgColor,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      imageTimeout: 15000,
+      scale: Math.max(2, window.devicePixelRatio || 1),
+      width: Math.ceil(tempContainer.scrollWidth),
+      height: Math.ceil(tempContainer.scrollHeight),
+      scrollX: 0,
+      scrollY: 0,
+      onclone: (clonedDoc) => {
+        // ÚNICA modificação: substitui color-mix() por 'transparent'
+        // em todas as folhas de estilo. O resto fica intacto.
+        clonedDoc.querySelectorAll('style').forEach((s) => {
+          if (s.textContent && s.textContent.includes('color-mix')) {
+            s.textContent = removerColorMix(s.textContent);
+          }
+        });
+      },
+    });
+
+    const link = document.createElement('a');
+    const periodoLabel = periodo.value === '1d' ? 'hoje' : periodo.value || 'periodo';
+    link.download = `corredores-${periodoLabel}-${new Date().toISOString().slice(0, 10)}.png`;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (err) {
+    console.error('Falha ao gerar imagem dos corredores:', err);
+  } finally {
+    if (tempContainer?.parentNode) tempContainer.parentNode.removeChild(tempContainer);
+    exportandoCorredor.value = false;
+  }
+}
+
+async function compartilharClasse() {
+  if (!classeTableRef.value || exportandoClasse.value) return;
+  if (!classesOrdenadas.value.length) return;
+
+  exportandoClasse.value = true;
+  let tempContainer = null;
+
+  try {
+    const table = classeTableRef.value;
+    const rootStyles = getComputedStyle(document.documentElement);
+    const bgColor = rootStyles.getPropertyValue('--bg-0').trim() || '#0b0f1a';
+
+    // Clona a tabela (padrão Dashboard)
+    const cloneTable = table.cloneNode(true);
+
+    // Largura fixa para caber todas as colunas
+    const larguraTabela = 1100;
+    const padding = 24;
+
+    cloneTable.style.width = `${larguraTabela}px`;
+    cloneTable.style.maxWidth = 'none';
+    cloneTable.style.overflow = 'visible';
+
+    // Remove botões "Ver mais" do clone
+    cloneTable.querySelectorAll('.class-collab-toggle').forEach((btn) => btn.remove());
+
+    // Container off-screen (padrão Dashboard)
+    tempContainer = document.createElement('div');
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.left = '-20000px';
+    tempContainer.style.top = '0';
+    tempContainer.style.width = `${larguraTabela + padding * 2}px`;
+    tempContainer.style.padding = `${padding}px`;
+    tempContainer.style.boxSizing = 'border-box';
+    tempContainer.style.background = bgColor;
+    tempContainer.style.overflow = 'visible';
+
+    tempContainer.appendChild(cloneTable);
+    document.body.appendChild(tempContainer);
+
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    const canvas = await html2canvas(tempContainer, {
+      backgroundColor: bgColor,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      imageTimeout: 15000,
+      scale: Math.max(2, window.devicePixelRatio || 1),
+      width: Math.ceil(tempContainer.scrollWidth),
+      height: Math.ceil(tempContainer.scrollHeight),
+      scrollX: 0,
+      scrollY: 0,
+      onclone: (clonedDoc) => {
+        clonedDoc.querySelectorAll('style').forEach((s) => {
+          if (s.textContent && s.textContent.includes('color-mix')) {
+            s.textContent = removerColorMix(s.textContent);
+          }
+        });
+      },
+    });
+
+    const link = document.createElement('a');
+    const periodoLabel = periodo.value === '1d' ? 'hoje' : periodo.value || 'periodo';
+    link.download = `classes-${periodoLabel}-${new Date().toISOString().slice(0, 10)}.png`;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (err) {
+    console.error('Falha ao gerar imagem das classes:', err);
+  } finally {
+    if (tempContainer?.parentNode) tempContainer.parentNode.removeChild(tempContainer);
+    exportandoClasse.value = false;
+  }
+}
 </script>
 
 <template>
+  <LoadingOverlay :show="carregando || refreshing" />
   <div class="grid gap-3">
     <div class="row reports-toolbar">
       <PeriodoSelector
         v-model="periodo"
         v-model:dataInicio="dataInicio"
         v-model:dataFim="dataFim"
+        :loading="carregando || refreshing"
       />
       <select v-model="tipo" class="btn ghost" style="padding: 8px 14px">
         <option value="">Todos os tipos</option>
@@ -835,9 +1055,22 @@ const corredoresOrdenados = computed(() =>
               }}
               corredores</span
             >
+            <button
+              class="btn ghost"
+              :disabled="exportandoCorredor"
+              :aria-busy="exportandoCorredor"
+              title="Compartilhar relatório de corredores"
+              @click="compartilharCorredor"
+            >
+              <fa
+                :icon="exportandoCorredor ? 'spinner' : 'share-nodes'"
+                :spin="exportandoCorredor"
+              />
+              Compartilhar
+            </button>
           </div>
 
-          <div class="corridor-grid">
+          <div ref="corredorGridRef" class="corridor-grid">
             <article
               v-for="item in corredoresOrdenados"
               :key="item.nome"
@@ -896,8 +1129,8 @@ const corredoresOrdenados = computed(() =>
                   itens</span
                 >
                 <span
-                  ><strong>{{ formatarInteiro(item.naoConformes) }}</strong>
-                  desvios</span
+                  ><strong>{{ formatarInteiro(item.totalColaboradores || 0) }}</strong>
+                  colaboradores</span
                 >
               </div>
 
@@ -921,9 +1154,22 @@ const corredoresOrdenados = computed(() =>
             <span class="badge dim"
               >{{ formatarInteiro(classesOrdenadas.length) }} classes</span
             >
+            <button
+              class="btn ghost"
+              :disabled="exportandoClasse"
+              :aria-busy="exportandoClasse"
+              title="Compartilhar relatório de classes"
+              @click="compartilharClasse"
+            >
+              <fa
+                :icon="exportandoClasse ? 'spinner' : 'share-nodes'"
+                :spin="exportandoClasse"
+              />
+              Compartilhar
+            </button>
           </div>
 
-          <div class="table-wrap report-table-wrap">
+          <div ref="classeTableRef" class="table-wrap report-table-wrap">
             <table class="table report-table">
               <thead>
                 <tr>
