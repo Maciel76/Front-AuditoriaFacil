@@ -2225,8 +2225,8 @@ onBeforeUnmount(() => {
                     loading="eager"
                     decoding="async"
                     fetchpriority="high"
-                    width="84"
-                    height="84"
+                    width="100"
+                    height="100"
                     draggable="false"
                   />
                 </button>
@@ -2354,8 +2354,8 @@ onBeforeUnmount(() => {
                           "
                           loading="lazy"
                           decoding="async"
-                          width="40"
-                          height="40"
+                          width="56"
+                          height="56"
                           draggable="false"
                         />
                       </button>
@@ -2486,8 +2486,8 @@ onBeforeUnmount(() => {
                           "
                           loading="lazy"
                           decoding="async"
-                          width="40"
-                          height="40"
+                          width="56"
+                          height="56"
                           draggable="false"
                         />
                       </button>
@@ -3652,14 +3652,14 @@ onBeforeUnmount(() => {
 
 .conq-modal-hero {
   display: grid;
-  grid-template-columns: 84px 1fr;
+  grid-template-columns: 100px 1fr;
   gap: 16px;
   min-width: 0;
 }
 
 .conq-modal-icon {
-  width: 84px;
-  height: 84px;
+  width: 100px;
+  height: 100px;
   border-radius: 26px;
   display: grid;
   place-items: center;
@@ -3908,9 +3908,9 @@ onBeforeUnmount(() => {
 }
 
 .conq-req-tier-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -3937,7 +3937,7 @@ onBeforeUnmount(() => {
   height: 100%;
   display: block;
   object-fit: contain;
-  padding: 4px;
+  padding: 3px;
   border-radius: inherit;
 }
 
