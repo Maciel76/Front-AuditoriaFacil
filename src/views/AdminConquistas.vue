@@ -13,6 +13,7 @@ import Loader from "@/components/Loader.vue";
 
 const carregando = ref(false);
 const salvando = ref(false);
+const recalculando = ref(false);
 const items = ref([]);
 const meta = ref({
   tiers: [],
@@ -244,10 +245,12 @@ async function salvar() {
 
     if (editando.value) {
       await api.put(`/conquistas/${editando.value}`, payload);
-      sucesso.value = "Conquista atualizada.";
+      sucesso.value =
+        "Conquista atualizada. Use “Recalcular colaboradores” para aplicar metas e XP aos dados existentes.";
     } else {
       await api.post("/conquistas", payload);
-      sucesso.value = "Conquista criada.";
+      sucesso.value =
+        "Conquista criada. Use “Recalcular colaboradores” para aplicá-la aos dados existentes.";
     }
     editorAberto.value = false;
     await carregar();
@@ -267,7 +270,8 @@ async function excluir(c) {
   try {
     await api.delete(`/conquistas/${c._id}`);
     items.value = items.value.filter((x) => x._id !== c._id);
-    sucesso.value = "Conquista removida.";
+    sucesso.value =
+      "Conquista removida. Recalcule os colaboradores para retirar o XP relacionado.";
   } catch (e) {
     erro.value = e?.response?.data?.error || "Erro ao excluir.";
   }
@@ -277,8 +281,39 @@ async function alternarAtiva(c) {
   try {
     const { data } = await api.put(`/conquistas/${c._id}`, { ativa: !c.ativa });
     Object.assign(c, data);
+    sucesso.value =
+      "Status alterado. Recalcule os colaboradores para atualizar progresso e XP.";
   } catch (e) {
     erro.value = e?.response?.data?.error || "Erro ao alterar status.";
+  }
+}
+
+async function recalcularColaboradores() {
+  if (
+    !confirm(
+      "Recalcular conquistas e XP de todos os colaboradores com as regras atuais?",
+    )
+  )
+    return;
+
+  recalculando.value = true;
+  erro.value = "";
+  sucesso.value = "";
+  try {
+    const { data } = await api.post("/conquistas/recalcular");
+    const resumo = data.resumo || {};
+    sucesso.value = `${resumo.colaboradores || 0} colaboradores recalculados; ${
+      resumo.alterados || 0
+    } tiveram o XP ajustado (${Number(resumo.diferencaXp || 0).toLocaleString(
+      "pt-BR",
+    )} XP no total).`;
+  } catch (e) {
+    erro.value =
+      e?.response?.data?.error ||
+      e?.response?.data?.message ||
+      "Erro ao recalcular colaboradores.";
+  } finally {
+    recalculando.value = false;
   }
 }
 
@@ -305,6 +340,18 @@ onMounted(carregar);
             {{ CATEGORIA_LABELS[c] || c }}
           </option>
         </select>
+        <button
+          class="btn ghost"
+          :disabled="recalculando"
+          title="Reavaliar progresso e XP com as regras atuais"
+          @click="recalcularColaboradores"
+        >
+          <fa
+            :icon="recalculando ? 'spinner' : 'rotate'"
+            :spin="recalculando"
+          />
+          {{ recalculando ? "Recalculando..." : "Recalcular colaboradores" }}
+        </button>
         <button class="btn primary" @click="abrirNovo">
           <fa icon="plus" /> Nova conquista
         </button>

@@ -59,6 +59,7 @@ import {
   faLock,
   faUnlock,
   faShareNodes,
+  faRotate,
 } from "@fortawesome/free-solid-svg-icons";
 
 library.add(
@@ -114,6 +115,7 @@ library.add(
   faLock,
   faUnlock,
   faShareNodes,
+  faRotate,
 );
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
