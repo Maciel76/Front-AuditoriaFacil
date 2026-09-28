@@ -30,6 +30,8 @@ const conectando = ref(false);
 const sincronizandoGrupos = ref(false);
 const salvando = ref(false);
 const enviandoTeste = ref(false);
+const reenviando = ref(false);
+const detalheReenvio = ref("");
 const detalheTeste = ref("");
 const compartilhamentoRef = ref(null);
 
@@ -118,6 +120,10 @@ const jidsEscolhidos = computed(() => new Set(form.value.grupos.map((g) => g.jid
 const algumPainelLigado = computed(() =>
   PAINEIS.some((p) => form.value[p.campo]),
 );
+
+const ultimoEnvio = computed(() => conexao.value?.ultimoEnvio || null);
+
+const podeReenviar = computed(() => !!ultimoEnvio.value && conectado.value);
 
 const periodoEscolhido = computed(
   () =>
@@ -381,6 +387,7 @@ async function enviarTeste() {
   } finally {
     enviandoTeste.value = false;
     detalheTeste.value = "";
+    await atualizarUltimoEnvio();
   }
 }
 
@@ -397,8 +404,72 @@ function explicarMotivo(retorno) {
   return MOTIVOS[retorno?.motivo] || retorno?.motivo || "falha desconhecida";
 }
 
+/** Relê só a ficha do último envio, sem encostar no formulário em edição. */
+async function atualizarUltimoEnvio() {
+  try {
+    const { data } = await api.get("/whatsapp/conexao", { params: paramsLoja() });
+    if (conexao.value) conexao.value.ultimoEnvio = data.ultimoEnvio || null;
+  } catch {
+    /* a ficha volta na próxima leitura */
+  }
+}
+
+/**
+ * Refaz e manda de novo os painéis do último envio.
+ *
+ * Nada fica guardado no servidor: as imagens são geradas na hora, em memória,
+ * com o MESMO recorte daquele envio (mesma auditoria, mesmo tipo, mesmo
+ * período) — por isso o print sai equivalente ao primeiro, sem ocupar disco
+ * nenhum no intervalo.
+ */
+async function reenviar() {
+  if (!podeReenviar.value || reenviando.value) return;
+
+  const contexto = ultimoEnvio.value?.contexto || {};
+
+  reenviando.value = true;
+  detalheReenvio.value = "Gerando as imagens";
+  try {
+    const retorno = await compartilhamentoRef.value.dispararParaAuditoria({
+      lojaId: auth.isSuperAdmin ? lojaSelecionadaId.value : "",
+      auditoria: {
+        tipo: contexto.tipo || "",
+        dataAuditoria: contexto.data || null,
+        taxaConformidade: contexto.taxaConformidade,
+        totalLidos: contexto.totalLidos,
+      },
+      teste: true,
+      periodoForcado: contexto.periodoCaptura || null,
+    });
+
+    if (retorno?.enviado) {
+      const falhas = retorno.totalFalhas
+        ? ` (${retorno.totalFalhas} não entregue(s))`
+        : "";
+      ui.sucesso(`Reenviado: ${retorno.totalEnviados} imagem(ns)${falhas}`);
+    } else {
+      ui.erro(`Não foi possível reenviar: ${explicarMotivo(retorno)}`);
+    }
+  } finally {
+    reenviando.value = false;
+    detalheReenvio.value = "";
+    await atualizarUltimoEnvio();
+  }
+}
+
+function formatarDataHora(valor) {
+  if (!valor) return "";
+  return new Date(valor).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function aoProgressoTeste(mensagem) {
   detalheTeste.value = mensagem;
+  if (reenviando.value) detalheReenvio.value = mensagem;
 }
 
 function formatarTelefone(numero) {
@@ -568,6 +639,45 @@ onBeforeUnmount(pararPolling);
         </p>
       </div>
 
+      <!-- ── Último envio / reenvio ── -->
+      <div v-if="conectado && ultimoEnvio" class="card">
+        <div class="row" style="align-items: center">
+          <h3 class="mt-0 mb-0"><fa icon="rotate" /> Último envio</h3>
+          <span class="spacer" />
+          <button
+            class="btn primary"
+            :disabled="!podeReenviar || reenviando"
+            @click="reenviar"
+          >
+            <fa icon="paper-plane" />
+            {{ reenviando ? "Reenviando…" : "Reenviar" }}
+          </button>
+        </div>
+
+        <p class="muted" style="margin-bottom: 6px">
+          {{ formatarDataHora(ultimoEnvio.em) }} —
+          {{ ultimoEnvio.totalEnviados }} imagem(ns) para
+          {{ ultimoEnvio.grupos.join(", ") || "—" }}.
+        </p>
+
+        <ul class="envio-paineis">
+          <li v-for="painel in ultimoEnvio.paineis" :key="painel.chave">
+            {{ painel.titulo || painel.chave }}
+          </li>
+        </ul>
+
+        <p v-if="reenviando" class="muted" style="font-size: 13px">
+          {{ detalheReenvio }}
+        </p>
+
+        <p class="muted" style="font-size: 13px; margin-bottom: 0">
+          <fa icon="lock" />
+          Nenhuma imagem fica guardada no servidor: o reenvio gera tudo de novo
+          na hora, com o mesmo recorte desta auditoria, e manda para os grupos
+          marcados agora.
+        </p>
+      </div>
+
       <!-- ── Compartilhamento automático ── -->
       <div v-if="conectado" class="card">
         <h3 class="mt-0"><fa icon="share-nodes" /> Compartilhamento automático</h3>
@@ -693,6 +803,13 @@ onBeforeUnmount(pararPolling);
 .grupo-meta {
   margin-left: auto;
   font-size: 13px;
+}
+
+.envio-paineis {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--text-dim);
 }
 
 .linha-toggle {

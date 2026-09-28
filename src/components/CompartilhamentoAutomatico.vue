@@ -160,7 +160,12 @@ function paramsLoja(lojaId) {
  * taxa, itens) e `lojaId` é a loja de destino do upload. Nunca lança — falha
  * de compartilhamento não pode transformar um upload bem-sucedido em erro.
  */
-async function dispararParaAuditoria({ lojaId, auditoria, teste = false }) {
+async function dispararParaAuditoria({
+  lojaId,
+  auditoria,
+  teste = false,
+  periodoForcado = null,
+}) {
   try {
     const { data: conexao } = await api.get("/whatsapp/conexao", {
       params: paramsLoja(lojaId),
@@ -188,7 +193,10 @@ async function dispararParaAuditoria({ lojaId, auditoria, teste = false }) {
 
     if (teste) emit("progresso", "Montando as telas");
 
-    const periodoCaptura = config.periodoCaptura || "auditoria";
+    // O reenvio refaz a MESMA auditoria, então traz o recorte daquele envio
+    // em vez do que estiver configurado agora.
+    const periodoCaptura =
+      periodoForcado || config.periodoCaptura || "auditoria";
     const dia = auditoria?.dataAuditoria
       ? new Date(auditoria.dataAuditoria).toISOString().slice(0, 10)
       : new Date().toISOString().slice(0, 10);
