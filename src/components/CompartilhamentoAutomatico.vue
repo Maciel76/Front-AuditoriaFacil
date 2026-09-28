@@ -30,10 +30,25 @@ const viewRef = shallowRef(null);
 
 const emit = defineEmits(["progresso"]);
 
+/**
+ * Dois quadros de renderização, ou 400ms, o que vier primeiro.
+ *
+ * O prazo importa: com a aba em segundo plano — upload rodando enquanto o
+ * usuário olha outra coisa — `requestAnimationFrame` não dispara e a captura
+ * ficaria pendurada sem nunca mandar nada para o grupo.
+ */
 function esperarFrame() {
-  return new Promise((resolve) =>
-    requestAnimationFrame(() => requestAnimationFrame(resolve)),
-  );
+  return new Promise((resolve) => {
+    let concluido = false;
+    const concluir = () => {
+      if (concluido) return;
+      concluido = true;
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(concluir, 400);
+    requestAnimationFrame(() => requestAnimationFrame(concluir));
+  });
 }
 
 /**

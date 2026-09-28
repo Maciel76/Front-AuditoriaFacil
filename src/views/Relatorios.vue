@@ -2,7 +2,10 @@
 import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import html2canvas from "html2canvas";
-import { canvasParaBlob } from "@/utils/captureExport";
+import {
+  canvasParaBlob,
+  normalizarCoresParaCaptura,
+} from "@/utils/captureExport";
 import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
@@ -820,6 +823,9 @@ async function gerarCanvasCorredor() {
     // Clona a grid (padrao Dashboard)
     const cloneGrid = grid.cloneNode(true);
 
+    // Antes de remover qualquer no: o pareamento original/clone e por indice.
+    normalizarCoresParaCaptura(grid, cloneGrid);
+
     // Aplica grid fixo de 6 colunas
     const larguraCard = 252;
     const gap = 14;
@@ -939,6 +945,9 @@ async function gerarCanvasClasse() {
 
     // Clona a tabela (padrao Dashboard)
     const cloneTable = table.cloneNode(true);
+
+    // Antes de remover qualquer no: o pareamento original/clone e por indice.
+    normalizarCoresParaCaptura(table, cloneTable);
 
     // Largura fixa para caber todas as colunas
     const larguraTabela = 1100;

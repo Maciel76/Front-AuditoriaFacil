@@ -11,7 +11,11 @@ import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import PeriodoSelector from '@/components/PeriodoSelector.vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import html2canvas from 'html2canvas';
-import { canvasParaBlob } from '@/utils/captureExport';
+import {
+  canvasParaBlob,
+  normalizarCoresParaCaptura,
+  normalizarCoresDoElemento,
+} from '@/utils/captureExport';
 
 /**
  * `modoCaptura` monta esta tela fora do fluxo de navegação, só para virar
@@ -464,9 +468,32 @@ const tituloCardTipo = computed(() => {
   return 'Média geral';
 });
 
+/**
+ * Espera dois quadros de renderização, ou o prazo, o que vier primeiro.
+ *
+ * Os dois quadros deixam o layout assentar antes do print; o prazo é a saída
+ * para a aba em segundo plano, onde `requestAnimationFrame` não dispara.
+ */
+function esperarQuadrosOuPrazo(prazoMs = 400) {
+  return new Promise((resolve) => {
+    let concluido = false;
+    const concluir = () => {
+      if (concluido) return;
+      concluido = true;
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(concluir, prazoMs);
+    requestAnimationFrame(() => requestAnimationFrame(concluir));
+  });
+}
+
 async function esperarCapturaEstavel() {
   await nextTick();
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  // Aba em segundo plano não executa requestAnimationFrame. Sem o prazo
+  // máximo, uma captura disparada enquanto o usuário troca de aba (upload de
+  // planilha, por exemplo) ficaria esperando para sempre.
+  await esperarQuadrosOuPrazo();
 }
 
 function sincronizarCamposDeFormulario(originalRoot, clonedRoot) {
@@ -600,6 +627,10 @@ async function gerarCanvasCompartilhamento() {
     clonedTarget.style.width = '100%';
     clonedTarget.style.maxWidth = 'none';
     clonedTarget.style.overflow = 'visible';
+
+    // Antes de remover qualquer nó: o pareamento original/clone é por índice.
+    normalizarCoresParaCaptura(target, clonedTarget);
+    normalizarCoresDoElemento(tempContainer);
 
     // Remove a seção de últimas auditorias do clone (não deve aparecer no print)
     const cloneUltimasAuditorias = clonedTarget.querySelector('[data-ultimas-auditorias]');

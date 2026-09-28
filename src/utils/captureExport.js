@@ -1,9 +1,32 @@
 import { nextTick } from 'vue';
 import html2canvas from 'html2canvas';
 
+/**
+ * Espera dois quadros de renderização, ou o prazo, o que vier primeiro.
+ *
+ * Os dois quadros deixam o layout assentar antes do print; o prazo é a saída
+ * para a aba em segundo plano, onde `requestAnimationFrame` não dispara.
+ */
+function esperarQuadrosOuPrazo(prazoMs = 400) {
+  return new Promise((resolve) => {
+    let concluido = false;
+    const concluir = () => {
+      if (concluido) return;
+      concluido = true;
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(concluir, prazoMs);
+    requestAnimationFrame(() => requestAnimationFrame(concluir));
+  });
+}
+
 export async function esperarCapturaEstavel() {
   await nextTick();
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  // Aba em segundo plano não executa requestAnimationFrame. Sem o prazo
+  // máximo, uma captura disparada enquanto o usuário troca de aba (upload de
+  // planilha, por exemplo) ficaria esperando para sempre.
+  await esperarQuadrosOuPrazo();
 }
 
 function sincronizarCamposDeFormulario(originalRoot, clonedRoot) {
@@ -35,6 +58,164 @@ function copiarCanvases(originalRoot, clonedRoot) {
     const context = clonedCanvas.getContext('2d');
     if (context) context.drawImage(canvas, 0, 0);
   });
+}
+
+/*
+ * ── Cores modernas x html2canvas ──────────────────────────────────────────
+ *
+ * O projeto usa `color-mix()` em quase 90 regras. O Chrome resolve isso, no
+ * estilo computado, para `color(srgb r g b / a)` — sintaxe do CSS Color 4 que
+ * o html2canvas 1.4.1 não sabe ler: ele lança "unsupported color function" e a
+ * captura inteira morre. (Localmente pode passar: navegador antigo ainda
+ * devolve `rgba()`.)
+ *
+ * A saída é reescrever, no clone, toda cor computada que use função moderna
+ * como `rgba()` comum. O clone é o que o html2canvas fotografa; o estilo
+ * inline vence as regras da folha, então a aparência não muda.
+ */
+const REGEX_COR_MODERNA = /\b(?:color|oklch|oklab|lch|lab|hwb)\(\s*[^()]*\)/gi;
+
+const PROPRIEDADES_DE_COR = [
+  'color',
+  'background-color',
+  'background-image',
+  'border-top-color',
+  'border-right-color',
+  'border-bottom-color',
+  'border-left-color',
+  'outline-color',
+  'box-shadow',
+  'text-decoration-color',
+  'caret-color',
+  'column-rule-color',
+  'fill',
+  'stroke',
+  '-webkit-text-fill-color',
+];
+
+function temCorModerna(valor) {
+  return !!valor && /\b(?:color|oklch|oklab|lch|lab|hwb)\(/i.test(valor);
+}
+
+function componenteParaByte(token) {
+  if (!token || token === 'none') return 0;
+  const numero = token.endsWith('%') ? parseFloat(token) / 100 : parseFloat(token);
+  if (Number.isNaN(numero)) return 0;
+  // display-p3 e afins produzem valores fora do intervalo ao virar sRGB.
+  return Math.round(Math.min(1, Math.max(0, numero)) * 255);
+}
+
+function alfaParaNumero(token) {
+  if (!token || token === 'none') return 1;
+  const numero = token.endsWith('%') ? parseFloat(token) / 100 : parseFloat(token);
+  if (Number.isNaN(numero)) return 1;
+  return Math.min(1, Math.max(0, numero));
+}
+
+/**
+ * Força qualquer função de cor moderna a virar `color(srgb ...)`.
+ *
+ * Um `color-mix` de 100% com transparente a 0% não muda a cor, mas obriga o
+ * navegador a devolvê-la no espaço sRGB — é como oklch, lab e display-p3
+ * chegam a um formato que dá para converter.
+ */
+function forcarSrgb(valor, sonda) {
+  if (!sonda) return null;
+  try {
+    sonda.style.color = '';
+    sonda.style.color = `color-mix(in srgb, ${valor} 100%, transparent 0%)`;
+    const computado = getComputedStyle(sonda).color;
+    return computado && computado !== valor ? computado : null;
+  } catch {
+    return null;
+  }
+}
+
+function converterCorModerna(valor, sonda) {
+  let srgb = valor;
+
+  if (!/^color\(\s*srgb\s/i.test(srgb)) {
+    srgb = forcarSrgb(valor, sonda);
+    if (!srgb) return valor;
+  }
+
+  const conteudo = srgb.match(/^color\(\s*srgb\s+([^)]*)\)$/i)?.[1];
+  if (!conteudo) return valor;
+
+  const [canais, alfa] = conteudo.split('/');
+  const partes = canais.trim().split(/\s+/);
+  if (partes.length < 3) return valor;
+
+  const [r, g, b] = partes.map(componenteParaByte);
+  return `rgba(${r}, ${g}, ${b}, ${alfaParaNumero((alfa || '').trim())})`;
+}
+
+function normalizarValorDeCor(valor, sonda) {
+  return valor.replace(REGEX_COR_MODERNA, (trecho) =>
+    converterCorModerna(trecho, sonda),
+  );
+}
+
+/** Reescreve as funções de cor modernas do próprio atributo `style`. */
+function normalizarEstiloInline(elemento, sonda) {
+  if (!(elemento instanceof HTMLElement)) return;
+  for (const propriedade of PROPRIEDADES_DE_COR) {
+    const valor = elemento.style.getPropertyValue(propriedade);
+    if (!temCorModerna(valor)) continue;
+    elemento.style.setProperty(propriedade, normalizarValorDeCor(valor, sonda));
+  }
+}
+
+/**
+ * Copia as cores do original para o clone já convertidas.
+ *
+ * Lê o estilo COMPUTADO do original (que está no documento e portanto tem as
+ * variáveis resolvidas) e grava inline no clone. Precisa rodar antes de
+ * qualquer remoção de nó no clone: o pareamento é por índice, como nos demais
+ * ajudantes daqui.
+ */
+export function normalizarCoresParaCaptura(raizOriginal, raizClone) {
+  if (!raizOriginal || !raizClone) return;
+
+  const sonda = document.createElement('div');
+  sonda.style.position = 'absolute';
+  sonda.style.left = '-99999px';
+  document.body.appendChild(sonda);
+
+  try {
+    const originais = [raizOriginal, ...raizOriginal.querySelectorAll('*')];
+    const clones = [raizClone, ...raizClone.querySelectorAll('*')];
+
+    originais.forEach((original, indice) => {
+      const clone = clones[indice];
+      if (!clone || !(clone instanceof HTMLElement)) return;
+
+      const estilo = getComputedStyle(original);
+      for (const propriedade of PROPRIEDADES_DE_COR) {
+        const valor = estilo.getPropertyValue(propriedade);
+        if (!temCorModerna(valor)) continue;
+        clone.style.setProperty(
+          propriedade,
+          normalizarValorDeCor(valor, sonda),
+        );
+      }
+    });
+  } finally {
+    sonda.remove();
+  }
+}
+
+/** Versão para um elemento solto (ex.: o container temporário da captura). */
+export function normalizarCoresDoElemento(elemento) {
+  const sonda = document.createElement('div');
+  sonda.style.position = 'absolute';
+  sonda.style.left = '-99999px';
+  document.body.appendChild(sonda);
+  try {
+    normalizarEstiloInline(elemento, sonda);
+  } finally {
+    sonda.remove();
+  }
 }
 
 function limparEstadosTransitorios(clonedRoot, { buttonSelector, classesParaRemover = [] } = {}) {
@@ -198,6 +379,8 @@ export async function exportarAreaComoImagem({
 
     sincronizarCamposDeFormulario(target, clonedTarget);
     copiarCanvases(target, clonedTarget);
+    normalizarCoresParaCaptura(target, clonedTarget);
+    normalizarCoresDoElemento(tempContainer);
     limparEstadosTransitorios(clonedTarget, { buttonSelector, classesParaRemover });
     normalizarFundosSemAreaUtil(clonedTarget);
     await esperarCapturaEstavel();
