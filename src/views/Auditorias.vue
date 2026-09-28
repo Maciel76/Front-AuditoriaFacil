@@ -6,6 +6,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useRouter } from "vue-router";
 import Loader from "@/components/Loader.vue";
 import { RouterLink } from "vue-router";
+import CompartilhamentoAutomatico from "@/components/CompartilhamentoAutomatico.vue";
 import {
   AUDITORIAS_LOJA_DESTINO_STORAGE_KEY,
   salvarLojaDestinoAuditorias,
@@ -33,6 +34,11 @@ const arquivo = ref(null); // arquivo atualmente em processamento
 const fila = ref([]); // [{id, file, status, erro, resultado}]
 const tipoForcado = ref("");
 const ultimoResultado = ref(null);
+// Compartilhamento automatico no WhatsApp: roda depois que a planilha termina
+// de processar e nunca bloqueia a fila de uploads.
+const compartilhamentoRef = ref(null);
+const compartilhandoWhatsapp = ref(false);
+const detalheCompartilhamento = ref("");
 const progressoUpload = ref(0);
 const etapaUpload = ref("idle");
 const detalheProcessamento = ref("");
@@ -336,6 +342,11 @@ async function acompanharProcessamentoItem(item, jobId) {
         );
       }
       await listar();
+      // Auditoria cancelada nao vale numero nenhum: mandar o painel dela para o
+      // grupo so confundiria a loja.
+      if (!data.result?.cancelada) {
+        await compartilharNoWhatsapp(data.result);
+      }
       return;
     }
     if (data.status === "error") {
@@ -343,6 +354,49 @@ async function acompanharProcessamentoItem(item, jobId) {
     }
     await new Promise((resolve) => setTimeout(resolve, 700));
   }
+}
+
+/**
+ * Manda os paineis da auditoria recem-processada para os grupos do WhatsApp.
+ *
+ * O envio e um extra do upload: qualquer problema aqui vira aviso na tela, e
+ * nunca marca a planilha como falha. Quem decide o que vai (e para onde) e a
+ * configuracao da loja em Configuracoes > WhatsApp.
+ */
+async function compartilharNoWhatsapp(resultado) {
+  if (!compartilhamentoRef.value) return;
+
+  compartilhandoWhatsapp.value = true;
+  detalheCompartilhamento.value = "Preparando imagens";
+  try {
+    const retorno = await compartilhamentoRef.value.dispararParaAuditoria({
+      lojaId: auth.isSuperAdmin ? lojaDestinoId.value : "",
+      auditoria: resultado,
+    });
+
+    if (retorno?.ignorado) return;
+
+    if (retorno?.enviado) {
+      const falhas = retorno.totalFalhas
+        ? ` (${retorno.totalFalhas} nao entregue(s))`
+        : "";
+      ui.sucesso(
+        `WhatsApp: ${retorno.totalEnviados} imagem(ns) enviada(s) ao grupo${falhas}`,
+      );
+      return;
+    }
+
+    ui.erro(
+      `WhatsApp: ${retorno?.erro || "não foi possível compartilhar as imagens"}`,
+    );
+  } finally {
+    compartilhandoWhatsapp.value = false;
+    detalheCompartilhamento.value = "";
+  }
+}
+
+function aoProgressoCompartilhamento(mensagem) {
+  detalheCompartilhamento.value = mensagem;
 }
 
 function iniciarSimulacaoProcessamento() {
@@ -586,6 +640,20 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="grid gap-3">
+    <!-- Renderiza os paineis fora da tela para o envio automatico ao WhatsApp -->
+    <CompartilhamentoAutomatico
+      v-if="auth.podeGerenciar"
+      ref="compartilhamentoRef"
+      @progresso="aoProgressoCompartilhamento"
+    />
+
+    <div v-if="compartilhandoWhatsapp" class="card row" style="gap: 10px; align-items: center">
+      <Loader />
+      <span class="muted">
+        Compartilhando no WhatsApp… {{ detalheCompartilhamento }}
+      </span>
+    </div>
+
     <div
       v-if="auth.podeGerenciar"
       class="upload-shell card glow"

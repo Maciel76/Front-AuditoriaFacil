@@ -20,6 +20,16 @@ import {
   metaBatida,
 } from "@/utils/rankingModes";
 
+/**
+ * Em `modoCaptura` a tela é montada fora da navegação só para virar imagem do
+ * compartilhamento automático: recebe os filtros prontos e não escreve nada no
+ * localStorage, para não bagunçar a escolha do usuário na aba dele.
+ */
+const props = defineProps({
+  modoCaptura: { type: Boolean, default: false },
+  capturaFiltros: { type: Object, default: null },
+});
+
 const auth = useAuthStore();
 
 const RANKING_COLABORADORES_LOJA_STORAGE_KEY =
@@ -115,7 +125,29 @@ async function carregar() {
   }
 }
 
+function aplicarFiltrosDeCaptura() {
+  const filtros = props.capturaFiltros || {};
+  if (filtros.lojaId) lojaSelecionada.value = String(filtros.lojaId);
+  tipo.value = filtros.tipo || "";
+  if (filtros.dataInicio && filtros.dataFim) {
+    periodo.value = "custom";
+    dataInicio.value = filtros.dataInicio;
+    dataFim.value = filtros.dataFim;
+  } else if (filtros.periodo) {
+    // O compartilhamento chama de "hoje" o que esta tela chama de "1d".
+    periodo.value = filtros.periodo === "hoje" ? "1d" : filtros.periodo;
+  }
+}
+
 onMounted(async () => {
+  if (props.modoCaptura) {
+    await carregarConfig();
+    if (podeEscolherLoja.value) await carregarLojas();
+    aplicarFiltrosDeCaptura();
+    await carregar();
+    return;
+  }
+
   tipo.value = tipoSugeridoHoje();
   carregarConfig();
   if (podeEscolherLoja.value) {
@@ -147,10 +179,14 @@ async function carregarConfig() {
 }
 
 watch(modoId, (v) => {
+  if (props.modoCaptura) return;
   localStorage.setItem(RANKING_COLABORADORES_MODO_STORAGE_KEY, v);
 });
 
 watch([periodo, tipo, dataInicio, dataFim, lojaSelecionada], () => {
+  // No modo captura os filtros são aplicados de uma vez antes do primeiro
+  // carregamento; reagir aqui só renderizaria a tela duas vezes.
+  if (props.modoCaptura) return;
   if (podeEscolherLoja.value) {
     localStorage.setItem(
       RANKING_COLABORADORES_LOJA_STORAGE_KEY,
@@ -214,20 +250,23 @@ function periodoArquivoAtual() {
   );
 }
 
+function nomeArquivoCompartilhamento() {
+  const tipoLabel = tipo.value ? `-${tipo.value.toLowerCase()}` : "";
+  const lojaAtual = lojaSelecionada.value
+    ? lojas.value.find((loja) => String(loja._id) === lojaSelecionada.value)
+    : null;
+  const lojaLabel = lojaAtual?.nome ? `-${slugArquivo(lojaAtual.nome)}` : "";
+  return `ranking-colaboradores${lojaLabel}-${periodoArquivoAtual()}${tipoLabel}-${new Date().toISOString().slice(0, 10)}.png`;
+}
+
 async function compartilhar() {
   if (!captureArea.value || exportando.value) return;
 
   exportando.value = true;
   try {
-    const tipoLabel = tipo.value ? `-${tipo.value.toLowerCase()}` : "";
-    const lojaAtual = lojaSelecionada.value
-      ? lojas.value.find((loja) => String(loja._id) === lojaSelecionada.value)
-      : null;
-    const lojaLabel = lojaAtual?.nome ? `-${slugArquivo(lojaAtual.nome)}` : "";
-
     await exportarAreaComoImagem({
       target: captureArea.value,
-      filename: `ranking-colaboradores${lojaLabel}-${periodoArquivoAtual()}${tipoLabel}-${new Date().toISOString().slice(0, 10)}.png`,
+      filename: nomeArquivoCompartilhamento(),
       buttonSelector: ".ranking-share-btn",
       classesParaRemover: ["ranking-reveal"],
     });
@@ -235,6 +274,24 @@ async function compartilhar() {
     exportando.value = false;
   }
 }
+
+/** Usada pelo compartilhamento automático: devolve o pódio como Blob PNG. */
+async function gerarImagemCompartilhamento() {
+  if (!captureArea.value) return null;
+  return exportarAreaComoImagem({
+    target: captureArea.value,
+    filename: nomeArquivoCompartilhamento(),
+    buttonSelector: ".ranking-share-btn",
+    classesParaRemover: ["ranking-reveal"],
+    retornarBlob: true,
+  });
+}
+
+/** Sem colaborador no período não existe pódio para mandar ao grupo. */
+const prontoParaCaptura = computed(() => !carregando.value);
+const semDados = computed(() => !items.value.length);
+
+defineExpose({ gerarImagemCompartilhamento, prontoParaCaptura, semDados });
 
 const subtituloPodio = computed(() => {
   const tipoLabel = tipo.value
@@ -268,7 +325,8 @@ const queryPerfilColaborador = computed(() =>
 </script>
 
 <template>
-  <LoadingOverlay :show="carregando" />
+  <!-- O overlay é fixo na viewport: no modo captura cobriria a tela real. -->
+  <LoadingOverlay :show="!modoCaptura && carregando" />
   <div ref="captureArea" class="grid gap-3">
     <div class="row toolbar-wrap">
       <PeriodoSelector

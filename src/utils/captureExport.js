@@ -137,13 +137,36 @@ export function slugArquivo(value = '') {
     .replace(/^-+|-+$/g, '');
 }
 
+/**
+ * Converte um canvas em Blob PNG.
+ *
+ * `canvas.toBlob` é assíncrono e sem Promise nativa; embrulhar aqui evita
+ * repetir o callback em cada tela que compartilha imagem.
+ */
+export function canvasParaBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error('Falha ao gerar a imagem'))),
+      'image/png',
+    );
+  });
+}
+
+/**
+ * Captura uma área da tela como PNG.
+ *
+ * Com `retornarBlob` a imagem volta como Blob em vez de virar download — é o
+ * que o compartilhamento automático usa para mandar o painel ao WhatsApp sem
+ * passar pela pasta de downloads do usuário.
+ */
 export async function exportarAreaComoImagem({
   target,
   filename,
   buttonSelector,
   classesParaRemover = [],
+  retornarBlob = false,
 } = {}) {
-  if (!target) return;
+  if (!target) return null;
 
   let tempContainer = null;
 
@@ -192,10 +215,13 @@ export async function exportarAreaComoImagem({
       scrollY: 0,
     });
 
+    if (retornarBlob) return canvasParaBlob(canvas);
+
     const link = document.createElement('a');
     link.download = filename || `captura-${new Date().toISOString().slice(0, 10)}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
+    return null;
   } finally {
     if (tempContainer?.parentNode) tempContainer.parentNode.removeChild(tempContainer);
   }

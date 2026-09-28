@@ -60,9 +60,19 @@ import {
   faUnlock,
   faShareNodes,
   faRotate,
+  faLink,
+  faPlug,
+  faFloppyDisk,
+  faPaperPlane,
 } from "@fortawesome/free-solid-svg-icons";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
 library.add(
+  faWhatsapp,
+  faLink,
+  faPlug,
+  faFloppyDisk,
+  faPaperPlane,
   faChartLine,
   faUpload,
   faTags,

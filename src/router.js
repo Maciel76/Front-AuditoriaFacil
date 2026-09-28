@@ -95,6 +95,12 @@ const routes = [
         component: () => import("@/views/Configuracoes.vue"),
       },
       {
+        path: "whatsapp",
+        name: "whatsapp",
+        component: () => import("@/views/WhatsappConexao.vue"),
+        meta: { roles: ["SUPER_ADMIN", "STORE_ADMIN"] },
+      },
+      {
         path: "admin/lojas",
         name: "admin-lojas",
         component: () => import("@/views/AdminLojas.vue"),

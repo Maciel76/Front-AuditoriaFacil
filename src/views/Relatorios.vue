@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import html2canvas from "html2canvas";
+import { canvasParaBlob } from "@/utils/captureExport";
 import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
@@ -9,6 +10,16 @@ import Loader from "@/components/Loader.vue";
 import LoadingOverlay from "@/components/LoadingOverlay.vue";
 import AppChart from "@/components/AppChart.vue";
 import PeriodoSelector from "@/components/PeriodoSelector.vue";
+
+/**
+ * Em `modoCaptura` a tela roda fora da navegação só para virar imagem do
+ * compartilhamento automático: filtros vêm prontos e nem a rota nem o
+ * localStorage são tocados.
+ */
+const props = defineProps({
+  modoCaptura: { type: Boolean, default: false },
+  capturaFiltros: { type: Object, default: null },
+});
 
 const auth = useAuthStore();
 const route = useRoute();
@@ -87,6 +98,7 @@ function paramsEscopoLoja(extra = {}) {
 }
 
 function persistirLojaSelecionada() {
+  if (props.modoCaptura) return;
   if (!auth.isSuperAdmin) return;
   if (lojaSelecionadaId.value) {
     localStorage.setItem(RELATORIOS_LOJA_STORAGE_KEY, lojaSelecionadaId.value);
@@ -96,6 +108,7 @@ function persistirLojaSelecionada() {
 }
 
 async function sincronizarRotaLoja() {
+  if (props.modoCaptura) return;
   if (!auth.isSuperAdmin) return;
 
   const lojaAtualNaRota =
@@ -217,7 +230,37 @@ async function carregar() {
   }
 }
 
+function aplicarFiltrosDeCaptura() {
+  const filtros = props.capturaFiltros || {};
+  if (filtros.lojaId) lojaSelecionadaId.value = String(filtros.lojaId);
+  tipo.value = filtros.tipo || "";
+  if (filtros.dataInicio && filtros.dataFim) {
+    periodo.value = "custom";
+    dataInicio.value = filtros.dataInicio;
+    dataFim.value = filtros.dataFim;
+  } else if (filtros.periodo) {
+    // O compartilhamento chama de "hoje" o que esta tela chama de "1d".
+    periodo.value = filtros.periodo === "hoje" ? "1d" : filtros.periodo;
+  }
+}
+
 onMounted(async () => {
+  if (props.modoCaptura) {
+    if (auth.isSuperAdmin) {
+      try {
+        const { data } = await api.get("/lojas");
+        lojasDisponiveis.value = (data.items || []).filter(
+          (loja) => loja.ativa !== false,
+        );
+      } catch {
+        /* a captura segue sem o seletor de lojas */
+      }
+    }
+    aplicarFiltrosDeCaptura();
+    await carregar();
+    return;
+  }
+
   tipo.value = tipoSugeridoHoje();
   if (auth.isSuperAdmin) await carregarLojasRelatorios();
   await carregar();
@@ -239,6 +282,9 @@ onBeforeUnmount(() => {
 });
 
 watch([periodo, tipo, dataInicio, dataFim], () => {
+  // Em captura os filtros entram de uma vez antes do primeiro carregamento;
+  // reagir aqui renderizaria a tela duas vezes.
+  if (props.modoCaptura) return;
   if (periodo.value !== "custom" || (dataInicio.value && dataFim.value))
     carregar();
 });
@@ -246,6 +292,7 @@ watch([periodo, tipo, dataInicio, dataFim], () => {
 watch(
   () => route.query.lojaId,
   async (novoValor) => {
+    if (props.modoCaptura) return;
     if (
       !auth.isSuperAdmin ||
       sincronizandoRotaLoja.value ||
@@ -752,11 +799,17 @@ function removerColorMix(texto) {
   return resultado;
 }
 
-async function compartilharCorredor() {
-  if (!corredorGridRef.value || exportandoCorredor.value) return;
-  if (!corredoresOrdenados.value.length) return;
+/**
+ * Gera o canvas da grade de corredores num container fora da tela.
+ *
+ * Fica separado do download porque o mesmo canvas alimenta o compartilhamento
+ * automatico no WhatsApp: o grupo recebe exatamente a imagem que o botao
+ * produz, sem uma segunda versao do layout para manter.
+ */
+async function gerarCanvasCorredor() {
+  if (!corredorGridRef.value) return null;
+  if (!corredoresOrdenados.value.length) return null;
 
-  exportandoCorredor.value = true;
   let tempContainer = null;
 
   try {
@@ -764,15 +817,13 @@ async function compartilharCorredor() {
     const rootStyles = getComputedStyle(document.documentElement);
     const bgColor = rootStyles.getPropertyValue('--bg-0').trim() || '#0b0f1a';
 
-    // Clona a grid (padrão Dashboard)
+    // Clona a grid (padrao Dashboard)
     const cloneGrid = grid.cloneNode(true);
 
     // Aplica grid fixo de 6 colunas
     const larguraCard = 252;
     const gap = 14;
     const padding = 24;
-    const totalCards = corredoresOrdenados.value.length;
-    const linhas = Math.ceil(totalCards / COLUNAS_CAPTURA);
     const alturaCard = 174;
     const larguraGrid = COLUNAS_CAPTURA * larguraCard + (COLUNAS_CAPTURA - 1) * gap;
 
@@ -803,7 +854,7 @@ async function compartilharCorredor() {
       }
     }
 
-    // Container off-screen (padrão Dashboard)
+    // Container off-screen (padrao Dashboard)
     tempContainer = document.createElement('div');
     tempContainer.style.position = 'absolute';
     tempContainer.style.left = '-20000px';
@@ -819,7 +870,7 @@ async function compartilharCorredor() {
 
     await new Promise((resolve) => setTimeout(resolve, 400));
 
-    const canvas = await html2canvas(tempContainer, {
+    return await html2canvas(tempContainer, {
       backgroundColor: bgColor,
       useCORS: true,
       allowTaint: true,
@@ -831,7 +882,7 @@ async function compartilharCorredor() {
       scrollX: 0,
       scrollY: 0,
       onclone: (clonedDoc) => {
-        // ÚNICA modificação: substitui color-mix() por 'transparent'
+        // UNICA modificacao: substitui color-mix() por 'transparent'
         // em todas as folhas de estilo. O resto fica intacto.
         clonedDoc.querySelectorAll('style').forEach((s) => {
           if (s.textContent && s.textContent.includes('color-mix')) {
@@ -840,27 +891,45 @@ async function compartilharCorredor() {
         });
       },
     });
+  } finally {
+    if (tempContainer?.parentNode) tempContainer.parentNode.removeChild(tempContainer);
+  }
+}
 
-    const link = document.createElement('a');
-    const periodoLabel = periodo.value === '1d' ? 'hoje' : periodo.value || 'periodo';
-    link.download = `corredores-${periodoLabel}-${new Date().toISOString().slice(0, 10)}.png`;
-    link.href = canvas.toDataURL('image/png');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+function nomeArquivoRelatorio(prefixo) {
+  const periodoLabel = periodo.value === '1d' ? 'hoje' : periodo.value || 'periodo';
+  return `${prefixo}-${periodoLabel}-${new Date().toISOString().slice(0, 10)}.png`;
+}
+
+function baixarCanvas(canvas, nomeArquivo) {
+  const link = document.createElement('a');
+  link.download = nomeArquivo;
+  link.href = canvas.toDataURL('image/png');
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+async function compartilharCorredor() {
+  if (!corredorGridRef.value || exportandoCorredor.value) return;
+  if (!corredoresOrdenados.value.length) return;
+
+  exportandoCorredor.value = true;
+  try {
+    const canvas = await gerarCanvasCorredor();
+    if (canvas) baixarCanvas(canvas, nomeArquivoRelatorio('corredores'));
   } catch (err) {
     console.error('Falha ao gerar imagem dos corredores:', err);
   } finally {
-    if (tempContainer?.parentNode) tempContainer.parentNode.removeChild(tempContainer);
     exportandoCorredor.value = false;
   }
 }
 
-async function compartilharClasse() {
-  if (!classeTableRef.value || exportandoClasse.value) return;
-  if (!classesOrdenadas.value.length) return;
+/** Gera o canvas da tabela por classe num container fora da tela. */
+async function gerarCanvasClasse() {
+  if (!classeTableRef.value) return null;
+  if (!classesOrdenadas.value.length) return null;
 
-  exportandoClasse.value = true;
   let tempContainer = null;
 
   try {
@@ -868,7 +937,7 @@ async function compartilharClasse() {
     const rootStyles = getComputedStyle(document.documentElement);
     const bgColor = rootStyles.getPropertyValue('--bg-0').trim() || '#0b0f1a';
 
-    // Clona a tabela (padrão Dashboard)
+    // Clona a tabela (padrao Dashboard)
     const cloneTable = table.cloneNode(true);
 
     // Largura fixa para caber todas as colunas
@@ -879,10 +948,10 @@ async function compartilharClasse() {
     cloneTable.style.maxWidth = 'none';
     cloneTable.style.overflow = 'visible';
 
-    // Remove botões "Ver mais" do clone
+    // Remove botoes "Ver mais" do clone
     cloneTable.querySelectorAll('.class-collab-toggle').forEach((btn) => btn.remove());
 
-    // Container off-screen (padrão Dashboard)
+    // Container off-screen (padrao Dashboard)
     tempContainer = document.createElement('div');
     tempContainer.style.position = 'absolute';
     tempContainer.style.left = '-20000px';
@@ -898,7 +967,7 @@ async function compartilharClasse() {
 
     await new Promise((resolve) => setTimeout(resolve, 400));
 
-    const canvas = await html2canvas(tempContainer, {
+    return await html2canvas(tempContainer, {
       backgroundColor: bgColor,
       useCORS: true,
       allowTaint: true,
@@ -917,25 +986,53 @@ async function compartilharClasse() {
         });
       },
     });
+  } finally {
+    if (tempContainer?.parentNode) tempContainer.parentNode.removeChild(tempContainer);
+  }
+}
 
-    const link = document.createElement('a');
-    const periodoLabel = periodo.value === '1d' ? 'hoje' : periodo.value || 'periodo';
-    link.download = `classes-${periodoLabel}-${new Date().toISOString().slice(0, 10)}.png`;
-    link.href = canvas.toDataURL('image/png');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+async function compartilharClasse() {
+  if (!classeTableRef.value || exportandoClasse.value) return;
+  if (!classesOrdenadas.value.length) return;
+
+  exportandoClasse.value = true;
+  try {
+    const canvas = await gerarCanvasClasse();
+    if (canvas) baixarCanvas(canvas, nomeArquivoRelatorio('classes'));
   } catch (err) {
     console.error('Falha ao gerar imagem das classes:', err);
   } finally {
-    if (tempContainer?.parentNode) tempContainer.parentNode.removeChild(tempContainer);
     exportandoClasse.value = false;
   }
 }
+
+// -- API usada pelo compartilhamento automatico --
+async function gerarImagemCorredor() {
+  const canvas = await gerarCanvasCorredor();
+  return canvas ? canvasParaBlob(canvas) : null;
+}
+
+async function gerarImagemClasse() {
+  const canvas = await gerarCanvasClasse();
+  return canvas ? canvasParaBlob(canvas) : null;
+}
+
+const prontoParaCaptura = computed(() => !carregando.value && !refreshing.value);
+const semDados = computed(
+  () => !corredoresOrdenados.value.length && !classesOrdenadas.value.length,
+);
+
+defineExpose({
+  gerarImagemCorredor,
+  gerarImagemClasse,
+  prontoParaCaptura,
+  semDados,
+});
 </script>
 
 <template>
-  <LoadingOverlay :show="carregando || refreshing" />
+  <!-- O overlay é fixo na viewport: no modo captura cobriria a tela real. -->
+  <LoadingOverlay :show="!modoCaptura && (carregando || refreshing)" />
   <div class="grid gap-3">
     <div class="row reports-toolbar">
       <PeriodoSelector

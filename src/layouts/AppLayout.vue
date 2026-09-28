@@ -26,6 +26,13 @@ const navegacao = computed(() => {
     { to: "/configuracoes", label: "Configurações", ico: "gear" },
   ];
   if (auth.podeGerenciar) {
+    base.splice(base.length - 1, 0, {
+      to: "/whatsapp",
+      label: "WhatsApp",
+      ico: ["fab", "whatsapp"],
+    });
+  }
+  if (auth.podeGerenciar) {
     base.splice(3, 0, {
       to: "/rankings/colaboradores",
       label: "Ranking colaboradores",
@@ -68,6 +75,7 @@ const titulo = computed(() => {
     "colaborador-perfil": "Perfil do colaborador",
     relatorios: "Relatórios",
     configuracoes: "Configurações",
+    whatsapp: "WhatsApp e compartilhamento",
     "admin-lojas": "Administração de lojas",
     "admin-conquistas": "Conquistas e gamificação",
   };

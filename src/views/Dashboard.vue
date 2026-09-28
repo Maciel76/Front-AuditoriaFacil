@@ -11,6 +11,19 @@ import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import PeriodoSelector from '@/components/PeriodoSelector.vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import html2canvas from 'html2canvas';
+import { canvasParaBlob } from '@/utils/captureExport';
+
+/**
+ * `modoCaptura` monta esta tela fora do fluxo de navegação, só para virar
+ * imagem (compartilhamento automático pós-upload). Nesse modo ela não mexe na
+ * rota, não grava a loja escolhida e recebe os filtros prontos em
+ * `capturaFiltros` — o que o usuário está vendo na aba não pode ser alterado
+ * por causa de um print que roda no fundo.
+ */
+const props = defineProps({
+  modoCaptura: { type: Boolean, default: false },
+  capturaFiltros: { type: Object, default: null },
+});
 
 const auth = useAuthStore();
 const route = useRoute();
@@ -61,6 +74,7 @@ function rotaAuditoria(auditoriaId) {
 }
 
 function persistirLojaSelecionada() {
+  if (props.modoCaptura) return;
   if (!auth.isSuperAdmin) return;
   if (lojaSelecionadaId.value) {
     localStorage.setItem(DASHBOARD_LOJA_STORAGE_KEY, lojaSelecionadaId.value);
@@ -70,6 +84,7 @@ function persistirLojaSelecionada() {
 }
 
 async function sincronizarRotaLoja() {
+  if (props.modoCaptura) return;
   if (!auth.isSuperAdmin) return;
 
   const lojaAtualNaRota = typeof route.query.lojaId === 'string' ? route.query.lojaId : '';
@@ -159,14 +174,55 @@ async function irParaUltimaData() {
   } catch { /* ignora */ }
 }
 
+/**
+ * Aplica os filtros recebidos em `capturaFiltros` direto nos refs.
+ *
+ * Roda antes do primeiro `carregar()` para a tela nascer já filtrada — uma
+ * troca depois do carregamento dispararia os watchers e renderizaria duas
+ * vezes, com risco de a captura pegar o estado errado.
+ */
+// O compartilhamento fala "hoje/semana/mes"; esta tela fala "1d/7d/30d".
+const PERIODOS_CAPTURA = { hoje: '1d', semana: '7d', mes: '30d' };
+
+function aplicarFiltrosDeCaptura() {
+  const filtros = props.capturaFiltros || {};
+  if (filtros.lojaId) lojaSelecionadaId.value = String(filtros.lojaId);
+  if (filtros.tipo) tipo.value = filtros.tipo;
+  if (filtros.dataInicio && filtros.dataFim) {
+    periodo.value = 'custom';
+    dataInicio.value = filtros.dataInicio;
+    dataFim.value = filtros.dataFim;
+  } else if (filtros.periodo) {
+    periodo.value = PERIODOS_CAPTURA[filtros.periodo] || filtros.periodo;
+  }
+}
+
 onMounted(async () => {
+  if (props.modoCaptura) {
+    if (auth.isSuperAdmin) {
+      try {
+        const { data } = await api.get('/lojas');
+        lojasDisponiveis.value = (data.items || []).filter((loja) => loja.ativa !== false);
+      } catch { /* a captura segue sem o seletor de lojas */ }
+    }
+    aplicarFiltrosDeCaptura();
+    await carregar();
+    return;
+  }
   if (auth.isSuperAdmin) await carregarLojasDashboard();
   await carregar();
 });
-watch(periodo, carregar);
-watch(tipo, carregar);
-watch([dataInicio, dataFim], () => { if (periodo.value === 'custom') carregar(); });
+// No modo captura os filtros entram de uma vez dentro do onMounted, antes do
+// primeiro carregamento; reagir aqui buscaria os dados duas vezes e o print
+// poderia sair com o estado antigo.
+watch(periodo, () => { if (!props.modoCaptura) carregar(); });
+watch(tipo, () => { if (!props.modoCaptura) carregar(); });
+watch([dataInicio, dataFim], () => {
+  if (props.modoCaptura) return;
+  if (periodo.value === 'custom') carregar();
+});
 watch(() => route.query.lojaId, async (novoValor) => {
+  if (props.modoCaptura) return;
   if (!auth.isSuperAdmin || sincronizandoRotaLoja.value || carregandoLojas.value) return;
 
   const lojaDaRota = typeof novoValor === 'string' ? novoValor : '';
@@ -510,10 +566,15 @@ function aplicarTemaAtualNoClone(container) {
   container.style.backgroundRepeat = bodyStyles.backgroundRepeat;
 }
 
-async function compartilhar() {
-  if (!captureArea.value || exportando.value) return;
+/**
+ * Monta o clone fora da tela e devolve o canvas do painel.
+ *
+ * O download e o envio ao WhatsApp partem do mesmo canvas — assim o print que
+ * cai no grupo é exatamente o que o botão de compartilhar produz.
+ */
+async function gerarCanvasCompartilhamento() {
+  if (!captureArea.value) return null;
 
-  exportando.value = true;
   let tempContainer = null;
 
   try {
@@ -552,7 +613,7 @@ async function compartilhar() {
     limparEstadosTransitorios(clonedTarget);
     await esperarCapturaEstavel();
 
-    const canvas = await html2canvas(tempContainer, {
+    return await html2canvas(tempContainer, {
       backgroundColor: rootStyles.getPropertyValue('--bg-0').trim() || '#ffffff',
       useCORS: true,
       allowTaint: true,
@@ -564,6 +625,18 @@ async function compartilhar() {
       scrollX: 0,
       scrollY: 0,
     });
+  } finally {
+    if (tempContainer?.parentNode) tempContainer.parentNode.removeChild(tempContainer);
+  }
+}
+
+async function compartilhar() {
+  if (!captureArea.value || exportando.value) return;
+
+  exportando.value = true;
+  try {
+    const canvas = await gerarCanvasCompartilhamento();
+    if (!canvas) return;
 
     const link = document.createElement('a');
     const periodoLabel = {
@@ -580,10 +653,22 @@ async function compartilhar() {
     link.href = canvas.toDataURL('image/png');
     link.click();
   } finally {
-    if (tempContainer?.parentNode) tempContainer.parentNode.removeChild(tempContainer);
     exportando.value = false;
   }
 }
+
+/** Usada pelo compartilhamento automático: devolve o painel como Blob PNG. */
+async function gerarImagemCompartilhamento() {
+  const canvas = await gerarCanvasCompartilhamento();
+  return canvas ? canvasParaBlob(canvas) : null;
+}
+
+/** O host de captura só dispara o print depois que os dados chegaram. */
+const prontoParaCaptura = computed(
+  () => !carregando.value && !refreshing.value && !!dados.value,
+);
+
+defineExpose({ gerarImagemCompartilhamento, prontoParaCaptura, semDados });
 
 const taxaCentro = computed(() => {
   const d = dados.value;
@@ -596,7 +681,8 @@ const taxaCentro = computed(() => {
 </script>
 
 <template>
-  <LoadingOverlay :show="carregando || refreshing" />
+  <!-- No modo captura o overlay é fixo na viewport e cobriria a tela real do usuário. -->
+  <LoadingOverlay :show="!modoCaptura && (carregando || refreshing)" />
   <div ref="captureArea" class="grid gap-3 dash-capture-area">
     <div class="row">
       <PeriodoSelector
