@@ -397,12 +397,6 @@ function descricaoTipos(item) {
   return `${item.tipos.length} tipos no período`;
 }
 
-function legendaTaxaCorredor(item) {
-  const tipos = Array.isArray(item?.tipos) ? item.tipos.filter(Boolean) : [];
-  const tipoBase = tipos.length === 1 ? tipos[0] : tipo.value || "";
-  return tipoBase === "ETIQUETA" ? "concluído" : "de conformidade";
-}
-
 function classeBadgeProdutoRelatorio(item) {
   if (!item?.foiLido) return "warn";
   if (item?.conforme === true) return "ok";
@@ -593,6 +587,41 @@ function fecharOverlay() {
 
 function tituloDimensao(dimensao) {
   return dimensao === "classe" ? "classe" : "corredor";
+}
+
+const mapaAvatarColaboradores = computed(() => {
+  const mapa = new Map();
+  for (const col of detalheOverlay.value?.colaboradores || []) {
+    if (col?.codigoExterno) mapa.set(`cod:${col.codigoExterno}`, col.avatarUrl || "");
+    if (col?.nome) mapa.set(`nome:${col.nome}`, col.avatarUrl || "");
+  }
+  return mapa;
+});
+
+function avatarDoProduto(produto) {
+  const mapa = mapaAvatarColaboradores.value;
+  return (
+    mapa.get(`cod:${produto?.colaboradorCodigo}`) ??
+    mapa.get(`nome:${produto?.colaboradorNome}`) ??
+    ""
+  );
+}
+
+function taxaColaborador(col) {
+  const lidos = Number(col?.totalLidos || 0);
+  if (!lidos) return 0;
+  return (Number(col?.conformes || 0) / lidos) * 100;
+}
+
+function statusColaborador(col) {
+  return statusRelatorio({ taxaConformidade: taxaColaborador(col) });
+}
+
+function progressoLeitura(item) {
+  const total = Number(item?.totalItens || 0);
+  if (!total) return 0;
+  const lidos = Number(item?.totalLidos || 0);
+  return Math.min(100, Math.max(0, (lidos / total) * 100));
 }
 
 function colaboradoresLimitados(item, limite = 8) {
@@ -1200,13 +1229,6 @@ defineExpose({
                     {{ formatarPercentual(item.taxaConformidade, 2) }}
                   </div>
                 </div>
-
-                <span
-                  class="report-status-pill"
-                  :class="`status-${statusRelatorio(item).key}`"
-                >
-                  {{ statusRelatorio(item).label }}
-                </span>
               </div>
 
               <div class="corridor-progress">
@@ -1219,25 +1241,32 @@ defineExpose({
                 ></span>
               </div>
 
-              <div class="corridor-footnote">
-                {{ formatarPercentual(item.taxaConformidade, 2) }}
-                {{ legendaTaxaCorredor(item) }} ·
-                {{ descricaoTipos(item) }}
-              </div>
+              <div class="corridor-people">
+                <div class="corridor-avatars">
+                  <ColaboradorAvatar
+                    v-for="(col, indice) in colaboradoresLimitados(item, 4)"
+                    :key="`${item.nome}-${col.codigoExterno}-${col.nome}`"
+                    class="corridor-avatar"
+                    :style="{ zIndex: 10 - indice }"
+                    :nome="col.nome"
+                    :avatar-url="col.avatarUrl"
+                    :size="32"
+                    :font-size="12"
+                    :title="col.nome"
+                  />
+                  <span
+                    v-if="restantesColaboradores(item, 4) > 0"
+                    class="corridor-avatar corridor-avatar-more"
+                    :title="`Mais ${restantesColaboradores(item, 4)} colaboradores`"
+                  >
+                    +{{ restantesColaboradores(item, 4) }}
+                  </span>
+                </div>
 
-              <div class="corridor-stats">
-                <span
-                  ><strong>{{ formatarInteiro(item.totalLidos) }}</strong>
-                  lidos</span
-                >
-                <span
-                  ><strong>{{ formatarInteiro(item.totalItens) }}</strong>
-                  itens</span
-                >
-                <span
-                  ><strong>{{ formatarInteiro(item.totalColaboradores || 0) }}</strong>
-                  colaboradores</span
-                >
+                <span class="corridor-count">
+                  <strong>{{ formatarInteiro(item.totalLidos) }}</strong>
+                  /{{ formatarInteiro(item.totalItens) }}
+                </span>
               </div>
 
               <div class="corridor-toggle muted">
@@ -1364,103 +1393,238 @@ defineExpose({
               </div>
 
               <div class="overlay-hero-copy">
-                <span class="badge dim"
-                  >Relatório por
-                  {{ tituloDimensao(detalheOverlay.dimensao) }}</span
-                >
+                <div class="overlay-hero-tags">
+                  <span class="overlay-kicker">
+                    Relatório por
+                    {{ tituloDimensao(detalheOverlay.dimensao) }}
+                  </span>
+                  <span
+                    class="report-status-pill"
+                    :class="`status-${statusRelatorio(detalheOverlay).key}`"
+                  >
+                    {{ statusRelatorio(detalheOverlay).label }}
+                  </span>
+                </div>
                 <h3 class="mt-0 mb-0">{{ detalheOverlay.nome }}</h3>
-                <p class="muted overlay-copy">
+                <p class="overlay-copy">
                   {{ descricaoTipos(detalheOverlay) }} · {{ periodoAtivoLabel }}
                 </p>
               </div>
 
               <div class="overlay-hero-side">
-                <span
-                  class="report-status-pill"
-                  :class="`status-${statusRelatorio(detalheOverlay).key}`"
+                <button
+                  class="overlay-close-btn"
+                  type="button"
+                  aria-label="Fechar detalhes"
+                  @click="fecharOverlay"
                 >
-                  {{ statusRelatorio(detalheOverlay).label }}
-                </span>
+                  <fa icon="xmark" />
+                </button>
                 <strong class="overlay-hero-rate">{{
                   formatarPercentual(detalheOverlay.taxaConformidade, 2)
                 }}</strong>
-                <button
-                  class="btn ghost overlay-close-btn"
-                  @click="fecharOverlay"
-                >
-                  <fa icon="xmark" /> Fechar
-                </button>
+                <span class="overlay-hero-rate-label">de conformidade</span>
+              </div>
+
+              <div class="overlay-hero-progress">
+                <div class="overlay-hero-bar">
+                  <span
+                    :style="{
+                      width: progressoLeitura(detalheOverlay) + '%',
+                    }"
+                  ></span>
+                </div>
+                <div class="overlay-hero-legend">
+                  <span>
+                    <strong>{{
+                      formatarInteiro(detalheOverlay.totalLidos)
+                    }}</strong>
+                    de
+                    {{ formatarInteiro(detalheOverlay.totalItens) }} itens
+                    auditados
+                  </span>
+                  <span>
+                    {{ formatarPercentual(progressoLeitura(detalheOverlay), 1) }}
+                    de cobertura
+                  </span>
+                </div>
               </div>
             </div>
 
             <div class="overlay-metrics-grid">
-              <div class="overlay-metric-card">
-                <span class="overlay-metric-label">{{
-                  detalheOverlay.dimensao === "corredor"
-                    ? "Itens válidos"
-                    : "Total de itens"
-                }}</span>
+              <div class="overlay-metric-card tone-neutral">
+                <span class="overlay-metric-label">
+                  <fa icon="boxes-stacked" />
+                  {{
+                    detalheOverlay.dimensao === "corredor"
+                      ? "Itens válidos"
+                      : "Total de itens"
+                  }}
+                </span>
                 <strong class="overlay-metric-value">{{
                   formatarInteiro(detalheOverlay.totalItens)
                 }}</strong>
               </div>
-              <div class="overlay-metric-card">
-                <span class="overlay-metric-label">{{
-                  detalheOverlay.dimensao === "corredor"
-                    ? "Itens lidos"
-                    : "Itens auditados"
-                }}</span>
+
+              <div class="overlay-metric-card tone-accent">
+                <span class="overlay-metric-label">
+                  <fa icon="clipboard-check" />
+                  {{
+                    detalheOverlay.dimensao === "corredor"
+                      ? "Itens lidos"
+                      : "Itens auditados"
+                  }}
+                </span>
                 <strong class="overlay-metric-value">{{
                   formatarInteiro(detalheOverlay.totalLidos)
                 }}</strong>
               </div>
-              <div class="overlay-metric-card">
-                <span class="overlay-metric-label">Itens corretos</span>
+
+              <div class="overlay-metric-card tone-ok">
+                <span class="overlay-metric-label">
+                  <fa icon="check" />
+                  Itens corretos
+                </span>
                 <strong class="overlay-metric-value">{{
                   formatarInteiro(detalheOverlay.conformes)
                 }}</strong>
               </div>
-              <div class="overlay-metric-card">
-                <span class="overlay-metric-label">Pendentes de leitura</span>
+
+              <div class="overlay-metric-card tone-warn">
+                <span class="overlay-metric-label">
+                  <fa icon="eye-slash" />
+                  Pendentes de leitura
+                </span>
                 <strong class="overlay-metric-value">{{
                   formatarInteiro(detalheOverlay.semLeitura)
                 }}</strong>
               </div>
-              <div class="overlay-metric-card">
-                <span class="overlay-metric-label">Custo de ruptura</span>
+
+              <div class="overlay-metric-card tone-bad">
+                <span class="overlay-metric-label">
+                  <fa icon="arrow-trend-down" />
+                  Custo de ruptura
+                </span>
                 <strong class="overlay-metric-value">{{
                   formatarMoeda(detalheOverlay.custoRuptura)
                 }}</strong>
               </div>
             </div>
 
-            <div class="overlay-section">
-              <div class="overlay-section-head">
-                <strong><fa icon="circle-info" /> Visão operacional</strong>
-              </div>
-              <div class="corridor-meta overlay-meta-grid">
-                <span
-                  >Itens com desvio:
-                  <strong>{{
-                    formatarInteiro(detalheOverlay.naoConformes)
-                  }}</strong></span
-                >
-                <span
-                  >Última auditoria:
-                  <strong>{{
-                    formatarData(detalheOverlay.ultimaAuditoriaEm)
-                  }}</strong></span
-                >
-                <span
-                  >Colaboradores ativos:
-                  <strong>{{
+            <div class="overlay-factline">
+              <span>
+                <fa icon="calendar-check" />
+                Última auditoria
+                <strong>{{
+                  formatarData(detalheOverlay.ultimaAuditoriaEm)
+                }}</strong>
+              </span>
+              <span>
+                <fa icon="users" />
+                Colaboradores ativos
+                <strong>{{
+                  formatarInteiro(
+                    detalheOverlay.totalColaboradores ||
+                      detalheOverlay.colaboradores?.length ||
+                      0,
+                  )
+                }}</strong>
+              </span>
+              <span>
+                <fa icon="calendar" />
+                Período
+                <strong>{{ periodoAtivoLabel }}</strong>
+              </span>
+            </div>
+
+            <div class="overlay-section overlay-collab-section">
+              <div class="overlay-section-head overlay-section-head-between">
+                <strong>
+                  <fa icon="users" />
+                  Colaboradores que leram neste
+                  {{ tituloDimensao(detalheOverlay.dimensao) }}
+                </strong>
+                <span class="overlay-section-count">
+                  {{
                     formatarInteiro(
                       detalheOverlay.totalColaboradores ||
                         detalheOverlay.colaboradores?.length ||
                         0,
                     )
-                  }}</strong></span
+                  }}
+                </span>
+              </div>
+
+              <div
+                v-if="!(detalheOverlay.colaboradores || []).length"
+                class="overlay-empty"
+              >
+                Sem colaboradores com leitura registrada neste período.
+              </div>
+
+              <div v-else class="overlay-collab-grid">
+                <article
+                  v-for="(col, indice) in colaboradoresLimitados(
+                    detalheOverlay,
+                    12,
+                  )"
+                  :key="`${detalheOverlay.nome}-${col.codigoExterno}-${col.nome}`"
+                  class="overlay-collab-card"
+                  :class="`status-${statusColaborador(col).key}`"
                 >
+                  <div class="overlay-collab-head">
+                    <div class="overlay-collab-portrait">
+                      <ColaboradorAvatar
+                        class="overlay-collab-avatar"
+                        :nome="col.nome"
+                        :avatar-url="col.avatarUrl"
+                        :size="46"
+                        :font-size="16"
+                      />
+                      <span v-if="indice < 3" class="overlay-collab-rank">
+                        {{ indice + 1 }}
+                      </span>
+                    </div>
+
+                    <div class="overlay-collab-copy">
+                      <strong :title="col.nome">{{ col.nome }}</strong>
+                      <span class="overlay-collab-code"
+                        >#{{ col.codigoExterno || "-" }}</span
+                      >
+                    </div>
+
+                    <span class="overlay-collab-rate">
+                      {{ formatarPercentual(taxaColaborador(col), 1) }}
+                    </span>
+                  </div>
+
+                  <div class="overlay-collab-bar">
+                    <span
+                      :style="{ width: taxaColaborador(col) + '%' }"
+                    ></span>
+                  </div>
+
+                  <div class="overlay-collab-stats">
+                    <span class="overlay-stat-pill tone-accent">
+                      <strong>{{ formatarInteiro(col.totalLidos) }}</strong>
+                      lidos
+                    </span>
+                    <span class="overlay-stat-pill tone-ok">
+                      <strong>{{ formatarInteiro(col.conformes) }}</strong>
+                      corretos
+                    </span>
+                  </div>
+                </article>
+
+                <span
+                  v-if="restantesColaboradores(detalheOverlay, 12) > 0"
+                  class="overlay-collab-card overlay-collab-more"
+                >
+                  +{{
+                    formatarInteiro(restantesColaboradores(detalheOverlay, 12))
+                  }}
+                  colaboradores
+                </span>
               </div>
             </div>
 
@@ -1556,7 +1720,7 @@ defineExpose({
 
                 <div
                   v-if="!produtosCorredorFiltrados.length"
-                  class="muted overlay-products-empty"
+                  class="overlay-empty overlay-products-empty"
                 >
                   {{ mensagemVaziaProdutosCorredor() }}
                 </div>
@@ -1569,10 +1733,24 @@ defineExpose({
                     :class="classeCardProdutoRelatorio(produto)"
                   >
                     <div class="overlay-product-main">
-                      <strong
-                        >{{ produto.codigo }} · {{ produto.produto }}</strong
-                      >
-                      <div class="muted overlay-product-meta">
+                      <div class="overlay-product-title">
+                        <span class="overlay-product-code">{{
+                          produto.codigo
+                        }}</span>
+                        <strong>{{ produto.produto }}</strong>
+                      </div>
+
+                      <div class="overlay-product-meta">
+                        <span class="overlay-product-person">
+                          <ColaboradorAvatar
+                            class="overlay-product-avatar"
+                            :nome="produto.colaboradorNome"
+                            :avatar-url="avatarDoProduto(produto)"
+                            :size="22"
+                            :font-size="9"
+                          />
+                          {{ produto.colaboradorNome }}
+                        </span>
                         <span>{{ textoDiasSemVendaProduto(produto) }}</span>
                         <span v-if="produto.ultimaVendaEm"
                           >Última venda
@@ -1582,7 +1760,6 @@ defineExpose({
                           produto.classeRaiz
                         }}</span>
                         <span v-if="produto.setor">{{ produto.setor }}</span>
-                        <span>{{ produto.colaboradorNome }}</span>
                       </div>
                     </div>
                     <div class="overlay-product-side">
@@ -1607,72 +1784,6 @@ defineExpose({
               </div>
             </div>
 
-            <div class="overlay-section collab-box">
-              <div class="collab-title">
-                <fa icon="users" />
-                Colaboradores que leram neste
-                {{ tituloDimensao(detalheOverlay.dimensao) }}
-                <span class="muted"
-                  >({{
-                    formatarInteiro(
-                      detalheOverlay.totalColaboradores ||
-                        detalheOverlay.colaboradores?.length ||
-                        0,
-                    )
-                  }})</span
-                >
-              </div>
-              <div
-                v-if="!(detalheOverlay.colaboradores || []).length"
-                class="muted"
-              >
-                Sem colaboradores com leitura registrada neste período.
-              </div>
-              <div v-else class="collab-list overlay-collab-grid">
-                <div
-                  v-for="col in colaboradoresLimitados(detalheOverlay, 18)"
-                  :key="`${detalheOverlay.nome}-${col.codigoExterno}-${col.nome}`"
-                  class="collab-chip overlay-collab-card"
-                >
-                  <div class="overlay-collab-head">
-                    <ColaboradorAvatar
-                      class="overlay-collab-avatar"
-                      :nome="col.nome"
-                      :avatar-url="col.avatarUrl"
-                      :size="48"
-                      :font-size="16"
-                    />
-                    <div class="overlay-collab-copy">
-                      <strong>{{ col.nome }}</strong>
-                      <span class="muted">#{{ col.codigoExterno }}</span>
-                    </div>
-                  </div>
-                  <div class="overlay-collab-stats muted">
-                    <span
-                      ><strong>{{ formatarInteiro(col.totalLidos) }}</strong>
-                      lidos</span
-                    >
-                    <span
-                      ><strong>{{ formatarInteiro(col.naoConformes) }}</strong>
-                      desvios</span
-                    >
-                    <span
-                      ><strong>{{ formatarInteiro(col.conformes) }}</strong>
-                      corretos</span
-                    >
-                  </div>
-                </div>
-                <span
-                  v-if="restantesColaboradores(detalheOverlay, 18) > 0"
-                  class="collab-chip more overlay-collab-card more-card"
-                >
-                  +{{
-                    formatarInteiro(restantesColaboradores(detalheOverlay, 18))
-                  }}
-                  colaboradores
-                </span>
-              </div>
-            </div>
           </div>
         </div>
       </Transition>
@@ -1866,7 +1977,7 @@ defineExpose({
 
 .corridor-head {
   display: grid;
-  grid-template-columns: 54px minmax(0, 1fr) auto;
+  grid-template-columns: 54px minmax(0, 1fr);
   gap: 12px;
   align-items: start;
 }
@@ -1919,23 +2030,54 @@ defineExpose({
   background: var(--report-accent);
 }
 
-.corridor-footnote {
-  color: var(--text-dim);
-  font-size: 13px;
-}
-
-.corridor-stats,
-.corridor-meta {
+.corridor-people {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 13px;
-  color: var(--text-dim);
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.corridor-stats strong,
-.corridor-meta strong {
-  color: var(--text);
+.corridor-avatars {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.corridor-avatars :deep(.corridor-avatar) {
+  border: 2px solid color-mix(in srgb, var(--report-accent) 12%, var(--bg-1));
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+  flex: none;
+}
+
+.corridor-avatars :deep(.corridor-avatar + .corridor-avatar) {
+  margin-left: -11px;
+}
+
+.corridor-avatar-more {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--report-accent);
+  background: color-mix(in srgb, var(--report-accent) 18%, var(--bg-1));
+}
+
+.corridor-count {
+  font-size: 15px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.corridor-count strong {
+  color: var(--report-accent);
+  font-size: 19px;
+  font-weight: 800;
 }
 
 .corridor-toggle {
@@ -1945,51 +2087,6 @@ defineExpose({
   font-size: 12px;
   font-weight: 700;
   width: fit-content;
-}
-
-.collab-box,
-.class-detail-content {
-  display: grid;
-  gap: 10px;
-  padding: 14px;
-  border-radius: 18px;
-  border: 1px solid color-mix(in srgb, var(--report-accent) 22%, var(--border));
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.05),
-    rgba(255, 255, 255, 0.02)
-  );
-}
-
-.collab-title,
-.class-detail-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-size: 13px;
-}
-
-.collab-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 8px;
-}
-
-.collab-chip {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 14px;
-  background: rgba(148, 163, 184, 0.12);
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  min-width: 0;
-  font-size: 12px;
-}
-
-.collab-chip.more {
-  place-content: center;
-  font-weight: 700;
 }
 
 .class-collab-toggle {
@@ -2006,23 +2103,21 @@ defineExpose({
   padding: 20px;
   background:
     radial-gradient(
-      1200px 700px at 8% -10%,
-      rgba(124, 92, 255, 0.22),
-      transparent 58%
+      1100px 680px at 50% -10%,
+      color-mix(in srgb, var(--report-accent) 18%, transparent),
+      transparent 60%
     ),
-    radial-gradient(
-      1000px 640px at 100% 10%,
-      rgba(34, 211, 238, 0.16),
-      transparent 56%
-    ),
-    rgba(4, 8, 22, 0.68);
+    rgba(4, 8, 22, 0.74);
   backdrop-filter: blur(10px);
 }
 
 .global-overlay-panel {
+  --overlay-surface: rgba(255, 255, 255, 0.05);
+  --overlay-surface-strong: rgba(255, 255, 255, 0.09);
+  --overlay-line: rgba(255, 255, 255, 0.12);
   position: relative;
   overflow: hidden;
-  width: min(980px, 96vw);
+  width: min(1020px, 96vw);
   max-height: min(86vh, 860px);
   overflow: auto;
   display: grid;
@@ -2070,6 +2165,7 @@ defineExpose({
 
 .global-overlay-hero,
 .overlay-metrics-grid,
+.overlay-factline,
 .overlay-section {
   position: relative;
   z-index: 1;
@@ -2078,7 +2174,7 @@ defineExpose({
 .global-overlay-hero {
   display: grid;
   grid-template-columns: 74px minmax(0, 1fr) auto;
-  gap: 18px;
+  gap: 16px 18px;
   align-items: start;
 }
 
@@ -2102,36 +2198,124 @@ defineExpose({
 .overlay-hero-copy {
   display: grid;
   gap: 8px;
+  align-content: start;
+}
+
+.overlay-hero-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.overlay-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
 }
 
 .overlay-hero-copy h3 {
-  font-size: clamp(28px, 4vw, 38px);
-  line-height: 1.02;
+  font-size: clamp(26px, 3.6vw, 36px);
+  line-height: 1.04;
   letter-spacing: -0.03em;
 }
 
 .overlay-hero-side {
   display: grid;
-  gap: 10px;
+  gap: 2px;
   justify-items: end;
+  align-content: start;
 }
 
 .overlay-hero-rate {
-  font-size: clamp(28px, 4vw, 42px);
+  font-size: clamp(30px, 4vw, 44px);
   line-height: 1;
   color: var(--report-accent);
+  letter-spacing: -0.02em;
+}
+
+.overlay-hero-rate-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.overlay-close-btn {
+  width: 34px;
+  height: 34px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--overlay-line);
+  background: var(--overlay-surface);
+  color: var(--text-dim);
+  font-size: 15px;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.overlay-close-btn:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--overlay-line));
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.overlay-hero-progress {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+}
+
+.overlay-hero-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--overlay-surface-strong);
+  overflow: hidden;
+}
+
+.overlay-hero-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--report-accent) 62%, white),
+    var(--report-accent)
+  );
+  transition: width 0.3s ease;
+}
+
+.overlay-hero-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.overlay-hero-legend strong {
+  color: var(--text);
 }
 
 .overlay-metrics-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .overlay-metric-card,
 .overlay-section {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
+  background: var(--overlay-surface);
+  border: 1px solid var(--overlay-line);
   border-radius: 18px;
   padding: 14px;
 }
@@ -2139,19 +2323,74 @@ defineExpose({
 .overlay-metric-card {
   display: grid;
   gap: 8px;
+  align-content: start;
+  border-top: 3px solid var(--metric-tone, var(--report-accent));
+}
+
+.overlay-metric-card.tone-neutral {
+  --metric-tone: var(--text-mute);
+}
+
+.overlay-metric-card.tone-accent {
+  --metric-tone: var(--report-accent);
+}
+
+.overlay-metric-card.tone-ok {
+  --metric-tone: var(--success);
+}
+
+.overlay-metric-card.tone-warn {
+  --metric-tone: var(--warning);
+}
+
+.overlay-metric-card.tone-bad {
+  --metric-tone: var(--danger);
 }
 
 .overlay-metric-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: var(--text-dim);
   font-weight: 700;
+  line-height: 1.25;
+}
+
+.overlay-metric-label svg {
+  color: var(--metric-tone, var(--report-accent));
+  font-size: 12px;
+  flex: none;
 }
 
 .overlay-metric-value {
   font-size: 20px;
   line-height: 1.1;
+}
+
+.overlay-factline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  padding: 0 4px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.overlay-factline span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.overlay-factline svg {
+  color: var(--report-accent);
+}
+
+.overlay-factline strong {
+  color: var(--text);
 }
 
 .overlay-section {
@@ -2165,15 +2404,31 @@ defineExpose({
   gap: 8px;
 }
 
+.overlay-section-head svg {
+  color: var(--report-accent);
+}
+
 .overlay-section-head-between {
   justify-content: space-between;
   flex-wrap: wrap;
 }
 
-.overlay-meta-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+.overlay-section-count {
+  min-width: 30px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--report-accent);
+  background: color-mix(in srgb, var(--report-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--report-accent) 30%, transparent);
+}
+
+.overlay-empty {
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--text-dim);
 }
 
 .overlay-products-stack {
@@ -2249,118 +2504,276 @@ defineExpose({
 }
 
 .overlay-product-card {
+  --product-tone: var(--text-mute);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   padding: 12px;
   border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid var(--overlay-line);
+  border-left: 3px solid var(--product-tone);
+  background: var(--overlay-surface-strong);
 }
 
 .overlay-product-card.lido {
-  border-color: color-mix(in srgb, var(--success) 20%, var(--border));
+  --product-tone: var(--success);
 }
 
 .overlay-product-card.nao-lido {
-  border-color: color-mix(in srgb, var(--warning) 30%, var(--border));
+  --product-tone: var(--warning);
 }
 
 .overlay-product-main {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 
-.overlay-product-main strong {
+.overlay-product-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.overlay-product-title strong {
   overflow-wrap: anywhere;
+}
+
+.overlay-product-code {
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  background: var(--overlay-surface);
+  border: 1px solid var(--overlay-line);
 }
 
 .overlay-product-meta {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px 14px;
   font-size: 12px;
+  color: var(--text-dim);
+}
+
+.overlay-product-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.overlay-product-person :deep(.overlay-product-avatar) {
+  border: 1px solid var(--overlay-line);
+}
+
+.overlay-product-side .badge {
+  border: none;
+  background: #64748b;
+  color: #ffffff;
+}
+
+.overlay-product-side .badge.ok {
+  background: #15803d;
+  color: #ffffff;
+}
+
+.overlay-product-side .badge.warn {
+  background: #f59e0b;
+  color: #26200a;
+}
+
+.overlay-product-side .badge.bad {
+  background: #b91c1c;
+  color: #ffffff;
 }
 
 .overlay-product-side {
   display: grid;
   justify-items: end;
+  align-content: start;
   gap: 6px;
 }
 
+.overlay-collab-section {
+  background: color-mix(in srgb, var(--report-accent) 7%, var(--overlay-surface));
+  border-color: color-mix(in srgb, var(--report-accent) 22%, var(--overlay-line));
+}
+
 .overlay-collab-grid {
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  gap: 10px;
 }
 
 .overlay-collab-card {
-  background: rgba(255, 255, 255, 0.05);
+  --collab-tone: var(--report-accent);
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--overlay-surface-strong);
+  border: 1px solid var(--overlay-line);
+  border-left: 3px solid var(--collab-tone);
+  min-width: 0;
+}
+
+.overlay-collab-card.status-excellent {
+  --collab-tone: var(--success);
+}
+
+.overlay-collab-card.status-good {
+  --collab-tone: var(--primary-2);
+}
+
+.overlay-collab-card.status-warn {
+  --collab-tone: var(--warning);
+}
+
+.overlay-collab-card.status-critical {
+  --collab-tone: var(--danger);
 }
 
 .overlay-collab-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
 }
 
-.overlay-collab-avatar {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
+.overlay-collab-portrait {
+  position: relative;
+  flex: none;
+  line-height: 0;
+}
+
+.overlay-collab-portrait :deep(.overlay-collab-avatar) {
+  border: 2px solid color-mix(in srgb, var(--collab-tone) 55%, transparent);
+}
+
+.overlay-collab-rank {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 4px;
+  border-radius: 999px;
   display: grid;
   place-items: center;
-  color: white;
+  font-size: 10px;
   font-weight: 800;
-  font-size: 13px;
-  background: var(--grad-primary);
-  flex-shrink: 0;
+  line-height: 1;
+  color: white;
+  background: var(--collab-tone);
+  border: 2px solid var(--bg-2);
 }
 
 .overlay-collab-copy {
   display: grid;
   gap: 2px;
+  min-width: 0;
+}
+
+.overlay-collab-copy strong {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overlay-collab-code {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-mute);
+}
+
+.overlay-collab-rate {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--collab-tone);
+  white-space: nowrap;
+}
+
+.overlay-collab-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--overlay-surface);
+  overflow: hidden;
+}
+
+.overlay-collab-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--collab-tone);
 }
 
 .overlay-collab-stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 6px;
+}
+
+.overlay-stat-pill {
+  --pill-tone: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--pill-tone) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pill-tone) 26%, transparent);
+}
+
+.overlay-stat-pill strong {
+  color: var(--pill-tone);
   font-size: 12px;
+  font-weight: 800;
 }
 
-.overlay-collab-stats strong {
-  color: var(--text);
+.overlay-stat-pill.tone-accent {
+  --pill-tone: var(--report-accent);
 }
 
-.more-card {
+.overlay-stat-pill.tone-ok {
+  --pill-tone: var(--success);
+}
+
+.overlay-collab-more {
   place-content: center;
   text-align: center;
-}
-
-.global-overlay-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+  border-left-color: var(--overlay-line);
 }
 
 .overlay-copy {
-  margin: 6px 0 0;
+  margin: 0;
   font-size: 13px;
-}
-
-.overlay-close-btn {
-  padding: 7px 12px;
+  color: var(--text-dim);
 }
 
 .report-status-pill {
   width: fit-content;
-  padding: 7px 12px;
+  padding: 6px 12px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.03em;
   text-transform: uppercase;
+  border: 1px solid currentColor;
 }
 
 .report-status-pill.status-excellent {
@@ -2438,12 +2851,30 @@ defineExpose({
   );
 }
 
-:global([data-theme="light"]) .overlay-metric-card,
-:global([data-theme="light"]) .overlay-section,
-:global([data-theme="light"]) .collab-box,
-:global([data-theme="light"]) .overlay-collab-card,
-:global([data-theme="light"]) .overlay-product-card {
-  background: rgba(255, 255, 255, 0.72);
+:global([data-theme="light"]) .global-overlay-panel {
+  --overlay-surface: rgba(255, 255, 255, 0.82);
+  --overlay-surface-strong: rgba(240, 245, 255, 0.92);
+  --overlay-line: rgba(62, 84, 146, 0.16);
+}
+
+:global([data-theme="light"]) .report-status-pill.status-excellent {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+:global([data-theme="light"]) .report-status-pill.status-good {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+:global([data-theme="light"]) .report-status-pill.status-warn {
+  background: rgba(217, 119, 6, 0.14);
+  color: #b45309;
+}
+
+:global([data-theme="light"]) .report-status-pill.status-critical {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
 }
 
 :global([data-theme="light"]) .overlay-products-filter {
@@ -2483,17 +2914,13 @@ defineExpose({
   .report-panorama-grid {
     grid-template-columns: 1fr;
   }
+
+  .overlay-metrics-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
-  .corridor-head {
-    grid-template-columns: 54px minmax(0, 1fr);
-  }
-
-  .report-status-pill {
-    grid-column: 1 / -1;
-  }
-
   .global-overlay-backdrop {
     padding: 10px;
   }
@@ -2512,9 +2939,13 @@ defineExpose({
     justify-items: start;
   }
 
-  .overlay-metrics-grid,
-  .overlay-meta-grid {
+  .overlay-metrics-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .overlay-hero-legend {
+    flex-direction: column;
+    gap: 2px;
   }
 
   .overlay-products-filters {

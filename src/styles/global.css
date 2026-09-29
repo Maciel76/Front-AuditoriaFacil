@@ -138,6 +138,19 @@
   color: #0f7e93;
 }
 
+[data-theme="light"] .badge.ok {
+  background: rgba(22, 163, 74, 0.14);
+  color: #15803d;
+}
+[data-theme="light"] .badge.warn {
+  background: rgba(217, 119, 6, 0.16);
+  color: #b45309;
+}
+[data-theme="light"] .badge.bad {
+  background: rgba(220, 38, 38, 0.13);
+  color: #b91c1c;
+}
+
 [data-theme="light"] .badge.tipo-ETIQUETA {
   background: rgba(109, 92, 255, 0.14);
   color: #5845cc;

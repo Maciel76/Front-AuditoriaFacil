@@ -11,6 +11,7 @@ import {
   AUDITORIAS_LOJA_DESTINO_STORAGE_KEY,
   salvarLojaDestinoAuditorias,
 } from "@/utils/auditoriasContext";
+import { tituloPainel } from "@/utils/whatsappPaineis";
 
 const ui = useUiStore();
 const auth = useAuthStore();
@@ -37,8 +38,12 @@ const ultimoResultado = ref(null);
 // Compartilhamento automatico no WhatsApp: roda depois que a planilha termina
 // de processar e nunca bloqueia a fila de uploads.
 const compartilhamentoRef = ref(null);
-const compartilhandoWhatsapp = ref(false);
-const detalheCompartilhamento = ref("");
+// Ficha do envio: conta as imagens enquanto saem, confirma o que chegou a
+// cada grupo e some sozinha depois. `null` = nenhum envio em andamento.
+const envioWhatsapp = ref(null);
+const MS_ATE_SUMIR = { concluido: 12_000, erro: 20_000 };
+const FASES_FINAIS = new Set(["concluido", "erro"]);
+let timerEnvioWhatsapp = null;
 const progressoUpload = ref(0);
 const etapaUpload = ref("idle");
 const detalheProcessamento = ref("");
@@ -362,42 +367,205 @@ async function acompanharProcessamentoItem(item, jobId) {
  * O envio e um extra do upload: qualquer problema aqui vira aviso na tela, e
  * nunca marca a planilha como falha. Quem decide o que vai (e para onde) e a
  * configuracao da loja em Configuracoes > WhatsApp.
+ *
+ * A ficha na tela acompanha o envio do inicio ao fim: conta as imagens
+ * enquanto elas sao geradas, confirma painel a painel o que chegou aos grupos
+ * e some sozinha depois — nada fica pedindo clique de quem so queria subir a
+ * planilha.
  */
 async function compartilharNoWhatsapp(resultado) {
   if (!compartilhamentoRef.value) return;
 
-  compartilhandoWhatsapp.value = true;
-  detalheCompartilhamento.value = "Preparando imagens";
+  cancelarSumicoEnvio();
+  envioWhatsapp.value = {
+    fase: "gerando",
+    mensagem: "Preparando imagens",
+    prontas: 0,
+    total: 0,
+    grupos: 0,
+    entregues: 0,
+    tentativas: 0,
+    itens: [],
+    erro: "",
+  };
+
   try {
     const retorno = await compartilhamentoRef.value.dispararParaAuditoria({
       lojaId: auth.isSuperAdmin ? lojaDestinoId.value : "",
       auditoria: resultado,
     });
 
-    if (retorno?.ignorado) return;
+    // Desligado, desconectado ou sem grupo nem chega a gerar imagem: a ficha
+    // some sem alarde. "sem-imagem" e outra conversa — as telas rodaram, nada
+    // saiu, e a loja precisa saber que o grupo nao recebeu nada.
+    if (retorno?.ignorado) {
+      if (retorno.motivo === "sem-imagem") {
+        envioWhatsapp.value = {
+          ...envioWhatsapp.value,
+          fase: "erro",
+          mensagem: "",
+          erro: "não havia dados para gerar as imagens; nada foi enviado",
+        };
+        agendarSumicoEnvio(MS_ATE_SUMIR.erro);
+        return;
+      }
+      envioWhatsapp.value = null;
+      return;
+    }
 
     if (retorno?.enviado) {
-      const falhas = retorno.totalFalhas
-        ? ` (${retorno.totalFalhas} nao entregue(s))`
-        : "";
+      const falhas = retorno.totalFalhas || 0;
+      envioWhatsapp.value = {
+        ...envioWhatsapp.value,
+        fase: "concluido",
+        mensagem: "",
+        itens: resumirEnvio(retorno.resultados),
+        entregues: retorno.totalEnviados || 0,
+        tentativas: (retorno.totalEnviados || 0) + falhas,
+        grupos: contarGrupos(retorno.resultados),
+      };
+      agendarSumicoEnvio(MS_ATE_SUMIR.concluido);
       ui.sucesso(
-        `WhatsApp: ${retorno.totalEnviados} imagem(ns) enviada(s) ao grupo${falhas}`,
+        `WhatsApp: ${retorno.totalEnviados} imagem(ns) enviada(s) ao grupo${
+          falhas ? ` (${falhas} nao entregue(s))` : ""
+        }`,
       );
       return;
     }
 
-    ui.erro(
-      `WhatsApp: ${retorno?.erro || "não foi possível compartilhar as imagens"}`,
-    );
+    // O backend manda `motivo` em frase pronta ("WhatsApp desta loja nao
+    // esta conectado"); o texto generico so entra quando nem isso volta.
+    const erro =
+      retorno?.erro ||
+      retorno?.motivo ||
+      "não foi possível compartilhar as imagens";
+    envioWhatsapp.value = {
+      ...envioWhatsapp.value,
+      fase: "erro",
+      mensagem: "",
+      erro,
+    };
+    agendarSumicoEnvio(MS_ATE_SUMIR.erro);
+    ui.erro(`WhatsApp: ${erro}`);
   } finally {
-    compartilhandoWhatsapp.value = false;
-    detalheCompartilhamento.value = "";
+    // Falha fora do previsto nao pode deixar a ficha girando para sempre.
+    if (envioWhatsapp.value && !FASES_FINAIS.has(envioWhatsapp.value.fase)) {
+      envioWhatsapp.value = null;
+    }
   }
 }
 
-function aoProgressoCompartilhamento(mensagem) {
-  detalheCompartilhamento.value = mensagem;
+/**
+ * Junta o retorno do envio (uma linha por painel x grupo) em uma linha por
+ * painel, que e como a loja le a confirmacao: "Dashboard — 2 grupo(s)".
+ */
+function resumirEnvio(resultados = []) {
+  const porPainel = new Map();
+  for (const envio of resultados) {
+    const painel = porPainel.get(envio.painel) || {
+      chave: envio.painel,
+      titulo: tituloPainel(envio.painel),
+      ok: 0,
+      falhas: 0,
+    };
+    if (envio.ok) painel.ok += 1;
+    else painel.falhas += 1;
+    porPainel.set(envio.painel, painel);
+  }
+
+  return [...porPainel.values()].map((painel) => ({
+    ...painel,
+    resumo: painel.falhas
+      ? `${painel.ok} de ${painel.ok + painel.falhas} grupo(s)`
+      : `${painel.ok} grupo(s)`,
+  }));
 }
+
+function contarGrupos(resultados = []) {
+  return new Set(resultados.map((envio) => envio.grupo)).size;
+}
+
+function agendarSumicoEnvio(ms) {
+  cancelarSumicoEnvio();
+  timerEnvioWhatsapp = setTimeout(() => {
+    timerEnvioWhatsapp = null;
+    envioWhatsapp.value = null;
+  }, ms);
+}
+
+function cancelarSumicoEnvio() {
+  if (!timerEnvioWhatsapp) return;
+  clearTimeout(timerEnvioWhatsapp);
+  timerEnvioWhatsapp = null;
+}
+
+function fecharEnvioWhatsapp() {
+  cancelarSumicoEnvio();
+  envioWhatsapp.value = null;
+}
+
+function aoProgressoCompartilhamento(mensagem) {
+  if (!envioWhatsapp.value) return;
+  envioWhatsapp.value = { ...envioWhatsapp.value, mensagem };
+}
+
+/** Contagem que vem do componente de captura (fase, prontas, total, grupos). */
+function aoEstadoCompartilhamento(estado) {
+  if (!envioWhatsapp.value) return;
+  envioWhatsapp.value = { ...envioWhatsapp.value, ...estado };
+}
+
+const envioProgresso = computed(() => {
+  const envio = envioWhatsapp.value;
+  if (!envio?.total) return 0;
+  const feitas = envio.fase === "gerando" ? envio.prontas : envio.total;
+  return Math.round((Math.min(feitas, envio.total) / envio.total) * 100);
+});
+
+const envioTitulo = computed(() => {
+  const envio = envioWhatsapp.value;
+  if (!envio) return "";
+  if (envio.fase === "erro") return "WhatsApp: envio não concluído";
+  if (envio.fase === "concluido") {
+    return envio.entregues < envio.tentativas
+      ? "Enviado com pendências"
+      : "Imagens enviadas ao WhatsApp";
+  }
+  if (envio.fase === "enviando") return "Enviando as imagens ao WhatsApp";
+  return "Gerando as imagens para o WhatsApp";
+});
+
+const envioTexto = computed(() => {
+  const envio = envioWhatsapp.value;
+  if (!envio) return "";
+  if (envio.fase === "erro") return envio.erro;
+  if (envio.fase === "concluido") {
+    const onde = envio.grupos ? ` em ${envio.grupos} grupo(s)` : "";
+    return `${envio.entregues} de ${envio.tentativas} envio(s) confirmado(s)${onde}`;
+  }
+  if (envio.fase === "enviando") {
+    const onde = envio.grupos ? ` para ${envio.grupos} grupo(s)` : "";
+    return `${envio.total} imagem(ns)${onde} — aguarde a confirmação`;
+  }
+  const detalhe = envio.mensagem ? ` · ${envio.mensagem}` : "";
+  return envio.total
+    ? `${envio.prontas} de ${envio.total} imagem(ns) prontas${detalhe}`
+    : envio.mensagem;
+});
+
+/** Contador do canto: imagens prontas durante o envio, entregas no fim. */
+const envioContador = computed(() => {
+  const envio = envioWhatsapp.value;
+  if (!envio) return { texto: "", klass: "dim" };
+  if (envio.fase === "erro") return { texto: "Falhou", klass: "bad" };
+  if (envio.fase === "concluido") {
+    return {
+      texto: `${envio.entregues}/${envio.tentativas}`,
+      klass: envio.entregues < envio.tentativas ? "warn" : "ok",
+    };
+  }
+  return { texto: `${envio.prontas}/${envio.total || "?"}`, klass: "info" };
+});
 
 function iniciarSimulacaoProcessamento() {
   pararSimulacaoProcessamento();
@@ -635,6 +803,7 @@ const badgeStatusUpload = computed(() => {
 onBeforeUnmount(() => {
   componenteAtivo = false;
   pararSimulacaoProcessamento();
+  cancelarSumicoEnvio();
 });
 </script>
 
@@ -645,14 +814,64 @@ onBeforeUnmount(() => {
       v-if="auth.podeGerenciar"
       ref="compartilhamentoRef"
       @progresso="aoProgressoCompartilhamento"
+      @estado="aoEstadoCompartilhamento"
     />
 
-    <div v-if="compartilhandoWhatsapp" class="card row" style="gap: 10px; align-items: center">
-      <Loader />
-      <span class="muted">
-        Compartilhando no WhatsApp… {{ detalheCompartilhamento }}
-      </span>
-    </div>
+    <!-- Acompanhamento do envio ao WhatsApp: contagem, confirmacao e sumico -->
+    <Transition name="wa-envio">
+      <div
+        v-if="envioWhatsapp"
+        class="card wa-envio"
+        :class="'wa-' + envioWhatsapp.fase"
+      >
+        <div class="wa-envio-topo">
+          <span class="wa-envio-icone">
+            <fa v-if="envioWhatsapp.fase === 'concluido'" icon="check" />
+            <fa
+              v-else-if="envioWhatsapp.fase === 'erro'"
+              icon="triangle-exclamation"
+            />
+            <fa v-else icon="spinner" spin />
+          </span>
+
+          <div class="wa-envio-copy">
+            <strong>{{ envioTitulo }}</strong>
+            <span class="muted">{{ envioTexto }}</span>
+          </div>
+
+          <span class="badge" :class="envioContador.klass">
+            {{ envioContador.texto }}
+          </span>
+
+          <button
+            class="btn ghost wa-envio-fechar"
+            title="Fechar aviso"
+            @click.prevent="fecharEnvioWhatsapp"
+          >
+            <fa icon="xmark" />
+          </button>
+        </div>
+
+        <div
+          v-if="envioWhatsapp.fase !== 'erro'"
+          class="wa-envio-barra"
+          aria-hidden="true"
+        >
+          <span :style="{ width: envioProgresso + '%' }"></span>
+        </div>
+
+        <ul v-if="envioWhatsapp.itens.length" class="wa-envio-lista">
+          <li v-for="item in envioWhatsapp.itens" :key="item.chave">
+            <fa
+              :icon="item.falhas ? 'triangle-exclamation' : 'check'"
+              :class="item.falhas ? 'wa-icone-alerta' : 'wa-icone-ok'"
+            />
+            <span class="wa-envio-painel">{{ item.titulo }}</span>
+            <span class="muted">{{ item.resumo }}</span>
+          </li>
+        </ul>
+      </div>
+    </Transition>
 
     <div
       v-if="auth.podeGerenciar"
@@ -2330,5 +2549,140 @@ onBeforeUnmount(() => {
   .upload-topbar {
     align-items: stretch;
   }
+}
+
+/* ── Ficha do envio ao WhatsApp (contagem → confirmação → some) ── */
+.wa-envio {
+  display: grid;
+  gap: 10px;
+  border-color: rgba(37, 211, 102, 0.28);
+  background:
+    linear-gradient(145deg, rgba(37, 211, 102, 0.1), rgba(34, 211, 238, 0.05)),
+    var(--surface);
+}
+
+.wa-envio.wa-erro {
+  border-color: rgba(239, 68, 68, 0.38);
+  background:
+    linear-gradient(145deg, rgba(239, 68, 68, 0.1), transparent),
+    var(--surface);
+}
+
+.wa-envio-topo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.wa-envio-icone {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(37, 211, 102, 0.16);
+  color: #25d366;
+}
+
+.wa-envio.wa-erro .wa-envio-icone {
+  background: rgba(239, 68, 68, 0.16);
+  color: #f87171;
+}
+
+.wa-envio-copy {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.wa-envio-copy strong {
+  font-size: 14px;
+}
+
+.wa-envio-copy span {
+  font-size: 12.5px;
+}
+
+.wa-envio-fechar {
+  padding: 6px 10px;
+  border-color: transparent;
+  color: var(--text-dim);
+}
+
+.wa-envio-barra {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(127, 140, 190, 0.18);
+  overflow: hidden;
+}
+
+.wa-envio-barra > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #25d366, var(--accent));
+  transition: width 0.35s ease;
+}
+
+/* Na hora do envio a barra ja esta cheia: o pulso mostra que ainda corre. */
+.wa-envio.wa-enviando .wa-envio-barra > span {
+  animation: waPulsoBarra 1.3s ease-in-out infinite;
+}
+
+@keyframes waPulsoBarra {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.wa-envio-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.wa-envio-lista li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(127, 140, 190, 0.1);
+  font-size: 12.5px;
+}
+
+.wa-icone-ok {
+  color: #25d366;
+}
+
+.wa-icone-alerta {
+  color: var(--warning);
+}
+
+.wa-envio-painel {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.wa-envio-enter-active,
+.wa-envio-leave-active {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.wa-envio-enter-from,
+.wa-envio-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 </style>

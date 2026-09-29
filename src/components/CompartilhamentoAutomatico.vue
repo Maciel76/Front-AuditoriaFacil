@@ -28,7 +28,12 @@ const painelAtivo = ref(null);
 const filtros = ref(null);
 const viewRef = shallowRef(null);
 
-const emit = defineEmits(["progresso"]);
+/**
+ * `progresso` leva a frase curta que a tela mostra; `estado` leva a contagem
+ * das imagens — quantas já ficaram prontas, de quantas, e para quantos grupos
+ * vão — para quem quiser mostrar o andamento em número.
+ */
+const emit = defineEmits(["progresso", "estado"]);
 
 /**
  * Dois quadros de renderização, ou 400ms, o que vier primeiro.
@@ -93,6 +98,15 @@ function desmontarPainel() {
 async function capturarPaineis(filtrosCaptura, chaves) {
   const capturas = [];
 
+  // A contagem é reemitida a cada painel que sai do palco: quem enviou a
+  // planilha vê "2 de 4 imagens" em vez de um spinner sem fim.
+  const relatarContagem = () =>
+    emit("estado", {
+      fase: "gerando",
+      prontas: capturas.length,
+      total: chaves.length,
+    });
+
   const precisaRelatorios =
     chaves.includes("relatorio-corredor") ||
     chaves.includes("relatorio-classe");
@@ -110,6 +124,7 @@ async function capturarPaineis(filtrosCaptura, chaves) {
       }
       desmontarPainel();
       await nextTick();
+      relatarContagem();
     }
 
     if (chaves.includes("ranking")) {
@@ -123,6 +138,7 @@ async function capturarPaineis(filtrosCaptura, chaves) {
       }
       desmontarPainel();
       await nextTick();
+      relatarContagem();
     }
 
     if (precisaRelatorios) {
@@ -141,6 +157,7 @@ async function capturarPaineis(filtrosCaptura, chaves) {
       }
       desmontarPainel();
       await nextTick();
+      relatarContagem();
     }
   } finally {
     desmontarPainel();
@@ -192,6 +209,12 @@ async function dispararParaAuditoria({
     if (!chaves.length) return { ignorado: true, motivo: "sem-painel" };
 
     if (teste) emit("progresso", "Montando as telas");
+    emit("estado", {
+      fase: "gerando",
+      prontas: 0,
+      total: chaves.length,
+      grupos: config.grupos.length,
+    });
 
     // O reenvio refaz a MESMA auditoria, então traz o recorte daquele envio
     // em vez do que estiver configurado agora.
@@ -224,6 +247,12 @@ async function dispararParaAuditoria({
     }
 
     emit("progresso", "Enviando para o WhatsApp");
+    emit("estado", {
+      fase: "enviando",
+      prontas: capturas.length,
+      total: capturas.length,
+      paineis: capturas.map((captura) => captura.chave),
+    });
 
     const fd = new FormData();
     for (const captura of capturas) {

@@ -1,38 +1,49 @@
 <script setup>
-import Cropper from 'cropperjs';
-import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue';
-import { useRoute, RouterLink } from 'vue-router';
-import api from '@/services/api';
-import { useAuthStore } from '@/stores/auth';
-import { useUiStore } from '@/stores/ui';
-import ColaboradorAvatar from '@/components/ColaboradorAvatar.vue';
-import Loader from '@/components/Loader.vue';
-import AppChart from '@/components/AppChart.vue';
-import PeriodoSelector from '@/components/PeriodoSelector.vue';
+/**
+ * Perfil do colaborador no painel administrativo.
+ *
+ * A pagina mostra o MESMO perfil que o colaborador ve de si no portal: quem
+ * desenha tudo — cabecalho, ranking geral, resultados por tipo, conquistas com
+ * tiers e historico de leituras — e o componente PerfilPublicoColaborador, sem
+ * copia nenhuma aqui. O que existe so para o administrador (editar o cadastro
+ * e trocar a foto) mora em janelas, para nao disputar espaco com o perfil.
+ */
+import Cropper from "cropperjs";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { RouterLink, useRoute } from "vue-router";
+import api from "@/services/api";
+import { useAuthStore } from "@/stores/auth";
+import { useUiStore } from "@/stores/ui";
+import PerfilPublicoColaborador from "@/components/PerfilPublicoColaborador.vue";
 
 const auth = useAuthStore();
 const ui = useUiStore();
 const route = useRoute();
-const periodo = ref('1d');
-const dataInicio = ref('');
-const dataFim = ref('');
-const tipo = ref('');
+
+// O perfil do portal e sempre historico: e desse recorte que saem o nivel, as
+// conquistas e a posicao no ranking geral.
+const PERIODO_PERFIL = "tudo";
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+
 const carregando = ref(true);
-const erro = ref('');
-const salvandoPerfil = ref(false);
-const enviandoAvatar = ref(false);
+const erro = ref("");
 const dados = ref(null);
-const formulario = ref({ nome: '', codigoExterno: '', cargo: '', setor: '' });
+
+const edicaoAberta = ref(false);
+const salvandoPerfil = ref(false);
+const formulario = ref({ nome: "", codigoExterno: "", cargo: "", setor: "" });
+
 const avatarInput = ref(null);
-const cropperImage = ref('');
+const enviandoAvatar = ref(false);
 const cropperAberto = ref(false);
+const cropperImage = ref("");
+const cropperNomeArquivo = ref("");
 const cropperImageRef = ref(null);
 const cropperStageRef = ref(null);
-const cropperNomeArquivo = ref('');
+
+const conquistaSelecionada = ref(null);
 
 let cropper;
-
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 const CROP_TEMPLATE = `
   <cropper-canvas background>
@@ -68,15 +79,17 @@ const escopoLojaParams = computed(() =>
 
 const rotaVoltar = computed(() =>
   route.query.lojaId
-    ? { path: '/colaboradores', query: { lojaId: route.query.lojaId } }
-    : { path: '/colaboradores' },
+    ? { path: "/colaboradores", query: { lojaId: route.query.lojaId } }
+    : { path: "/colaboradores" },
 );
+
+const colaborador = computed(() => dados.value?.colaborador || null);
 
 const lojaIdEdicao = computed(() => {
   if (route.query.lojaId) return String(route.query.lojaId);
-  const loja = dados.value?.colaborador?.loja;
-  if (!loja) return '';
-  if (typeof loja === 'string') return loja;
+  const loja = colaborador.value?.loja;
+  if (!loja) return "";
+  if (typeof loja === "string") return loja;
   return loja._id ? String(loja._id) : String(loja);
 });
 
@@ -87,149 +100,60 @@ const paramsEscopoEdicao = computed(() => {
   return {};
 });
 
-const podeEditar = computed(() => auth.podeGerenciar && !!dados.value?.colaborador?._id);
-const tiposAuditoria = ['ETIQUETA', 'PRESENCA', 'RUPTURA'];
-const labelsTipo = { ETIQUETA: 'Etiqueta', PRESENCA: 'Presença', RUPTURA: 'Ruptura' };
+const podeEditar = computed(
+  () => auth.podeGerenciar && !!colaborador.value?._id,
+);
 
-function formatarPercentual(valor = 0, casas = 1) {
-  return `${Number(valor || 0).toLocaleString('pt-BR', {
-    minimumFractionDigits: casas,
-    maximumFractionDigits: casas,
-  })}%`;
+function formatNum(valor) {
+  return Number(valor || 0).toLocaleString("pt-BR");
 }
 
-function preencherFormulario(colaborador) {
+function preencherFormulario(colab) {
   formulario.value = {
-    nome: colaborador?.nome || '',
-    codigoExterno: colaborador?.codigoExterno || '',
-    cargo: colaborador?.cargo || '',
-    setor: colaborador?.setor || '',
+    nome: colab?.nome || "",
+    codigoExterno: colab?.codigoExterno || "",
+    cargo: colab?.cargo || "",
+    setor: colab?.setor || "",
   };
 }
 
 async function carregar() {
   carregando.value = true;
-  erro.value = '';
+  erro.value = "";
   try {
-    const params = {
-      ...escopoLojaParams.value,
-      periodo: periodo.value,
-      tipo: tipo.value || undefined,
-    };
-    if (periodo.value === 'custom' && dataInicio.value && dataFim.value) {
-      params.dataInicio = dataInicio.value;
-      params.dataFim = dataFim.value;
-    }
-    const { data } = await api.get(`/metricas/colaboradores/${route.params.id}/perfil`, { params });
+    const { data } = await api.get(
+      `/metricas/colaboradores/${route.params.id}/perfil`,
+      { params: { ...escopoLojaParams.value, periodo: PERIODO_PERFIL } },
+    );
     dados.value = data;
     preencherFormulario(data.colaborador);
   } catch (error) {
     dados.value = null;
-    erro.value = error?.response?.data?.error || 'Não foi possível carregar o perfil do colaborador.';
-  } finally { carregando.value = false; }
+    erro.value =
+      error?.response?.data?.error ||
+      "Não foi possível carregar o perfil do colaborador.";
+  } finally {
+    carregando.value = false;
+  }
 }
 
 onMounted(carregar);
 onBeforeUnmount(() => destruirCropper());
 
-watch([periodo, tipo, dataInicio, dataFim], () => {
-  if (periodo.value !== 'custom' || (dataInicio.value && dataFim.value)) carregar();
-});
+/* ── Cadastro ── */
 
-const corPorTipo = { ETIQUETA: '#7c5cff', PRESENCA: '#22d3ee', RUPTURA: '#f59e0b' };
+function abrirEdicao() {
+  if (!podeEditar.value) return;
+  preencherFormulario(colaborador.value);
+  edicaoAberta.value = true;
+}
 
-const serieFiltrada = computed(() => {
-  const serie = dados.value?.serie || [];
-  return tipo.value ? serie.filter((item) => item._id.tipo === tipo.value) : serie;
-});
-
-const tiposDaSerie = computed(() => {
-  if (tipo.value) return serieFiltrada.value.length ? [tipo.value] : [];
-  return tiposAuditoria.filter((tipoAtual) =>
-    serieFiltrada.value.some((item) => item._id.tipo === tipoAtual && Number(item.totalLidos || 0) > 0),
-  );
-});
-
-const serieComoColunas = computed(() => (serieFiltrada.value.length || 0) <= 12);
-
-const temDadosSerie = computed(() =>
-  serieFiltrada.value.some((item) => Number(item.totalLidos || 0) > 0),
-);
-
-const mensagemSemSerie = computed(() => {
-  const tipoLabel = tipo.value ? labelsTipo[tipo.value] || tipo.value : 'auditorias';
-  return `Sem dados de ${tipoLabel} no período selecionado.`;
-});
-
-const tiposResumo = computed(() => {
-  const mapa = new Map((dados.value?.porTipo || []).map((item) => [item._id, item]));
-  const tipos = tipo.value ? [tipo.value] : tiposAuditoria;
-
-  return tipos.map((tipoAtual) => ({
-    _id: tipoAtual,
-    totalLidos: 0,
-    totalConformes: 0,
-    totalNaoConformes: 0,
-    pontuacao: 0,
-    ...(mapa.get(tipoAtual) || {}),
-  }));
-});
-
-const serieChart = computed(() => {
-  if (!dados.value) return { labels: [], datasets: [] };
-  const dias = [...new Set(serieFiltrada.value.map((x) => x._id.dia))].sort();
-  return {
-    labels: dias.map((d) => d.slice(5)),
-    datasets: tiposDaSerie.value.map((t) => {
-      const mapa = new Map();
-      serieFiltrada.value.filter((x) => x._id.tipo === t).forEach((x) => mapa.set(x._id.dia, x.totalLidos));
-
-      if (serieComoColunas.value) {
-        return {
-          label: labelsTipo[t] || t,
-          data: dias.map((d) => mapa.get(d) ?? 0),
-          backgroundColor: corPorTipo[t],
-          borderColor: corPorTipo[t],
-          borderRadius: 12,
-          borderSkipped: false,
-          maxBarThickness: 36,
-        };
-      }
-
-      return {
-        label: labelsTipo[t] || t,
-        data: dias.map((d) => mapa.get(d) ?? null),
-        borderColor: corPorTipo[t],
-        tension: 0.35,
-        spanGaps: true,
-        fill: true,
-        pointRadius: 3,
-        borderWidth: 2,
-      };
-    }),
-  };
-});
-
-const serieChartOptions = computed(() => ({
-  plugins: {
-    tooltip: {
-      callbacks: {
-        label: (context) => `${context.dataset.label}: ${Number(context.raw ?? context.parsed?.y ?? 0).toLocaleString('pt-BR')} itens`,
-      },
-    },
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
-      ticks: {
-        precision: 0,
-      },
-    },
-  },
-}));
+function fecharEdicao() {
+  edicaoAberta.value = false;
+}
 
 async function salvarPerfil() {
-  if (!dados.value?.colaborador?._id) return;
+  if (!colaborador.value?._id) return;
   salvandoPerfil.value = true;
   try {
     const payload = {
@@ -239,19 +163,24 @@ async function salvarPerfil() {
       setor: formulario.value.setor.trim() || undefined,
     };
 
-    const { data } = await api.put(`/colaboradores/${dados.value.colaborador._id}`, payload, {
-      params: paramsEscopoEdicao.value,
-    });
+    const { data } = await api.put(
+      `/colaboradores/${colaborador.value._id}`,
+      payload,
+      { params: paramsEscopoEdicao.value },
+    );
 
     dados.value.colaborador = { ...dados.value.colaborador, ...data };
     preencherFormulario(dados.value.colaborador);
-    ui.sucesso('Colaborador atualizado');
+    edicaoAberta.value = false;
+    ui.sucesso("Colaborador atualizado");
   } catch (error) {
-    ui.erro(error?.response?.data?.error || 'Falha ao atualizar colaborador');
+    ui.erro(error?.response?.data?.error || "Falha ao atualizar colaborador");
   } finally {
     salvandoPerfil.value = false;
   }
 }
+
+/* ── Foto ── */
 
 function abrirAvatar() {
   if (!podeEditar.value) return;
@@ -265,7 +194,7 @@ function destruirCropper() {
   }
   if (cropperImage.value) {
     URL.revokeObjectURL(cropperImage.value);
-    cropperImage.value = '';
+    cropperImage.value = "";
   }
 }
 
@@ -296,7 +225,7 @@ async function iniciarCropper() {
 
 function fecharCropper() {
   cropperAberto.value = false;
-  cropperNomeArquivo.value = '';
+  cropperNomeArquivo.value = "";
   destruirCropper();
 }
 
@@ -308,16 +237,16 @@ function resetarCropper() {
 
 async function enviarAvatar(event) {
   const arquivo = event.target?.files?.[0];
-  if (event?.target) event.target.value = '';
-  if (!arquivo || !dados.value?.colaborador?._id) return;
+  if (event?.target) event.target.value = "";
+  if (!arquivo || !colaborador.value?._id) return;
 
-  if (!arquivo.type.startsWith('image/')) {
-    ui.erro('Selecione apenas um arquivo de imagem.');
+  if (!arquivo.type.startsWith("image/")) {
+    ui.erro("Selecione apenas um arquivo de imagem.");
     return;
   }
 
   if (arquivo.size > MAX_AVATAR_BYTES) {
-    ui.erro('A foto deve ter no máximo 5 MB.');
+    ui.erro("A foto deve ter no máximo 5 MB.");
     return;
   }
 
@@ -328,179 +257,214 @@ async function enviarAvatar(event) {
 }
 
 async function confirmarCropAvatar() {
-  if (!dados.value?.colaborador?._id || !cropper) return;
+  if (!colaborador.value?._id || !cropper) return;
   enviandoAvatar.value = true;
 
   try {
     const selection = cropper.getCropperSelection();
-    if (!selection) throw new Error('Área de corte indisponível');
+    if (!selection) throw new Error("Área de corte indisponível");
 
     const canvas = await selection.$toCanvas({
       width: 720,
       height: 720,
       beforeDraw(context, targetCanvas) {
         context.imageSmoothingEnabled = true;
-        context.imageSmoothingQuality = 'high';
-        context.fillStyle = '#ffffff';
+        context.imageSmoothingQuality = "high";
+        context.fillStyle = "#ffffff";
         context.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
       },
     });
 
     const blob = await new Promise((resolve, reject) => {
       canvas.toBlob(
-        (arquivo) => {
-          if (arquivo) {
-            resolve(arquivo);
+        (arquivoFinal) => {
+          if (arquivoFinal) {
+            resolve(arquivoFinal);
             return;
           }
-          reject(new Error('Não foi possível gerar a imagem final'));
+          reject(new Error("Não foi possível gerar a imagem final"));
         },
-        'image/jpeg',
+        "image/jpeg",
         0.92,
       );
     });
 
-    if (!blob) throw new Error('Não foi possível processar a imagem');
+    if (!blob) throw new Error("Não foi possível processar a imagem");
 
     const fd = new FormData();
-    fd.append('avatar', blob, `colaborador-${dados.value.colaborador._id}.jpg`);
+    fd.append("avatar", blob, `colaborador-${colaborador.value._id}.jpg`);
 
-    const { data } = await api.post(`/colaboradores/${dados.value.colaborador._id}/avatar`, fd, {
-      params: paramsEscopoEdicao.value,
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const { data } = await api.post(
+      `/colaboradores/${colaborador.value._id}/avatar`,
+      fd,
+      {
+        params: paramsEscopoEdicao.value,
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
 
     dados.value.colaborador.avatarUrl = data.avatarUrl;
     fecharCropper();
-    ui.sucesso('Foto atualizada com sucesso');
+    ui.sucesso("Foto atualizada com sucesso");
   } catch (error) {
-    ui.erro(error?.response?.data?.error || error?.message || 'Erro ao atualizar a foto');
+    ui.erro(
+      error?.response?.data?.error ||
+        error?.message ||
+        "Erro ao atualizar a foto",
+    );
   } finally {
     enviandoAvatar.value = false;
   }
 }
+
+/* ── Conquistas ── */
+
+/**
+ * O card de conquista do perfil e clicavel; a janela mostra a escada de tiers.
+ * A conquista chega ja enriquecida pelo componente (tier atual, cor, imagem),
+ * daqui so sai a data de cada desbloqueio.
+ */
+function abrirConquista(conquista) {
+  conquistaSelecionada.value = conquista;
+}
+
+function fecharConquista() {
+  conquistaSelecionada.value = null;
+}
+
+function dataDesbloqueioTier(conquista, nivel) {
+  const item = (conquista.historicoDesbloqueios || []).find(
+    (historico) => historico.nivel === nivel,
+  );
+  if (!item?.desbloqueadoEm) return "";
+  return new Date(item.desbloqueadoEm).toLocaleDateString("pt-BR");
+}
+
+const conquistaDetalhe = computed(() => {
+  const conquista = conquistaSelecionada.value;
+  if (!conquista) return null;
+
+  return {
+    ...conquista,
+    tiers: (conquista.tiers || []).map((tier) => ({
+      ...tier,
+      dataDesbloqueio: dataDesbloqueioTier(conquista, tier.nivel),
+    })),
+  };
+});
 </script>
 
 <template>
-  <Loader v-if="carregando" />
-  <div v-else-if="erro" class="empty">
-    {{ erro }}
-  </div>
-  <div v-else-if="dados" class="grid gap-3">
-    <RouterLink :to="rotaVoltar" class="btn ghost" style="width: fit-content;"><fa icon="chevron-right" style="transform: rotate(180deg);" /> Voltar</RouterLink>
+  <div class="perfil-admin">
+    <div class="perfil-admin-barra">
+      <RouterLink :to="rotaVoltar" class="btn ghost">
+        <fa icon="chevron-right" class="perfil-admin-voltar" /> Voltar
+      </RouterLink>
 
-    <div class="card glow row colaborador-hero-card" style="padding: 24px;">
-      <div class="colaborador-hero-avatar-wrap">
-        <button
-          v-if="podeEditar"
-          type="button"
-          class="colaborador-hero-avatar-button"
-          @click="abrirAvatar"
-        >
-          <ColaboradorAvatar class="colaborador-hero-avatar" :nome="dados.colaborador.nome" :avatar-url="dados.colaborador.avatarUrl" :size="96" :font-size="30" />
-          <span class="colaborador-hero-avatar-overlay"><fa icon="camera" /></span>
+      <span class="spacer" />
+
+      <template v-if="podeEditar">
+        <button class="btn ghost" @click="abrirAvatar">
+          <fa icon="camera" /> Trocar foto
         </button>
-        <ColaboradorAvatar v-else class="colaborador-hero-avatar" :nome="dados.colaborador.nome" :avatar-url="dados.colaborador.avatarUrl" :size="96" :font-size="30" />
-        <input
-          ref="avatarInput"
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
-          hidden
-          @change="enviarAvatar"
-        />
-        <div v-if="podeEditar" class="muted colaborador-hero-avatar-hint">Clique para trocar a foto</div>
-      </div>
-
-      <div style="flex:1">
-        <h2 class="mt-0 mb-0">{{ dados.colaborador.nome }}</h2>
-        <div class="muted">#{{ dados.colaborador.codigoExterno }} · {{ dados.colaborador.cargo || 'Colaborador' }}</div>
-        <div class="row mt-2" style="gap:6px; flex-wrap:wrap;">
-          <span v-for="c in dados.colaborador.conquistas" :key="c.codigo" class="badge info"><fa icon="award" /> {{ c.nome }}</span>
-        </div>
-      </div>
-      <div style="text-align: right;">
-        <div style="font-size: 32px; font-weight: 800;">{{ Math.round(dados.colaborador.pontuacao) }}</div>
-        <div class="muted">pontos · Nível {{ dados.colaborador.nivel }}</div>
-      </div>
-    </div>
-
-    <div v-if="podeEditar" class="card glow">
-      <div class="row mb-2">
-        <div>
-          <h3 class="mt-0 mb-0">Editar colaborador</h3>
-          <p class="muted" style="margin: 6px 0 0; font-size: 13px;">Atualize os dados cadastrais e a foto do colaborador neste mesmo perfil.</p>
-        </div>
-      </div>
-
-      <div class="form-grid">
-        <div class="field"><label>Nome</label><input v-model="formulario.nome" required /></div>
-        <div class="field"><label>Código (matrícula)</label><input v-model="formulario.codigoExterno" required /></div>
-        <div class="field"><label>Cargo</label><input v-model="formulario.cargo" /></div>
-        <div class="field"><label>Setor</label><input v-model="formulario.setor" /></div>
-      </div>
-
-      <div class="row mt-2">
-        <button class="btn ghost" @click="preencherFormulario(dados.colaborador)">Reverter</button>
-        <span class="spacer" />
-        <button class="btn primary" :disabled="salvandoPerfil" @click="salvarPerfil">
-          <fa :icon="salvandoPerfil ? 'spinner' : 'floppy-disk'" :spin="salvandoPerfil" />
-          {{ salvandoPerfil ? 'Salvando...' : 'Salvar alterações' }}
+        <button class="btn ghost" @click="abrirEdicao">
+          <fa icon="pen-to-square" /> Editar dados
         </button>
-      </div>
+      </template>
     </div>
 
-    <div class="row colaborador-filtros">
-      <PeriodoSelector
-        v-model="periodo"
-        v-model:dataInicio="dataInicio"
-        v-model:dataFim="dataFim"
-        :loading="carregando"
-      />
+    <PerfilPublicoColaborador
+      :carregando="carregando"
+      :erro="erro"
+      :perfil="dados"
+      :ranking-geral="dados?.rankingGeral || null"
+      @select-conquista="abrirConquista"
+    />
 
-      <select v-model="tipo" class="btn ghost colaborador-tipo-select">
-        <option value="">Todos os tipos</option>
-        <option value="ETIQUETA">Etiqueta</option>
-        <option value="PRESENCA">Presença</option>
-        <option value="RUPTURA">Ruptura</option>
-      </select>
-    </div>
+    <input
+      ref="avatarInput"
+      type="file"
+      accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+      hidden
+      @change="enviarAvatar"
+    />
 
-    <div class="kpi-grid">
-      <div v-for="t in tiposResumo" :key="t._id" class="kpi" :class="Number(t.totalLidos || 0) === 0 ? 'dim-card' : ''">
-        <div class="ico" :style="{ background: corPorTipo[t._id] }"><fa icon="clipboard-check" /></div>
-        <div class="label">{{ labelsTipo[t._id] || t._id }}</div>
-        <div class="value">{{ Number(t.totalLidos || 0).toLocaleString('pt-BR') }}</div>
-        <div class="muted" style="font-size: 12px; margin-top: 4px;">
-          <template v-if="t._id === 'RUPTURA' && Number(t.baseContinuidade || 0) > 0">
-            {{ Number(t.concluidosContinuidade || 0).toLocaleString('pt-BR') }} de
-            {{ Number(t.baseContinuidade || 0).toLocaleString('pt-BR') }} concluídos ·
-            {{ formatarPercentual(t.taxaConformidade || 0) }}
-          </template>
-          <template v-else>
-            {{ Number(t.totalConformes || 0).toLocaleString('pt-BR') }} conformes · {{ Math.round(t.pontuacao || 0).toLocaleString('pt-BR') }} pts
-          </template>
+    <!-- ── Cadastro do colaborador ── -->
+    <Transition name="perfil-modal">
+      <div
+        v-if="edicaoAberta"
+        class="perfil-modal-backdrop"
+        @click.self="fecharEdicao"
+      >
+        <div class="perfil-modal-dialog">
+          <div class="row perfil-modal-head mb-2">
+            <div>
+              <h3 class="mt-0 mb-0">Editar colaborador</h3>
+              <p class="muted perfil-modal-copy">
+                Nome, matrícula, cargo e setor deste colaborador.
+              </p>
+            </div>
+            <button class="btn ghost" @click="fecharEdicao">
+              <fa icon="xmark" /> Fechar
+            </button>
+          </div>
+
+          <div class="form-grid">
+            <div class="field">
+              <label>Nome</label>
+              <input v-model="formulario.nome" required />
+            </div>
+            <div class="field">
+              <label>Código (matrícula)</label>
+              <input v-model="formulario.codigoExterno" required />
+            </div>
+            <div class="field">
+              <label>Cargo</label>
+              <input v-model="formulario.cargo" />
+            </div>
+            <div class="field">
+              <label>Setor</label>
+              <input v-model="formulario.setor" />
+            </div>
+          </div>
+
+          <div class="row perfil-modal-footer">
+            <button class="btn ghost" @click="preencherFormulario(colaborador)">
+              Reverter
+            </button>
+            <span class="spacer" />
+            <button class="btn ghost" @click="fecharEdicao">Cancelar</button>
+            <button
+              class="btn primary"
+              :disabled="salvandoPerfil"
+              @click="salvarPerfil"
+            >
+              <fa
+                :icon="salvandoPerfil ? 'spinner' : 'floppy-disk'"
+                :spin="salvandoPerfil"
+              />
+              {{ salvandoPerfil ? "Salvando..." : "Salvar alterações" }}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
 
-    <div class="card">
-      <div class="row mb-2">
-        <h3 class="mt-0 mb-0">Itens lidos por dia</h3>
-        <span class="spacer" /><fa :icon="serieComoColunas ? 'chart-bar' : 'chart-line'" class="muted" />
-      </div>
-      <AppChart v-if="temDadosSerie" :type="serieComoColunas ? 'bar' : 'line'" :data="serieChart" :height="320" :options="serieChartOptions" />
-      <div v-else class="empty colaborador-chart-empty">
-        {{ mensagemSemSerie }}
-      </div>
-    </div>
-
-    <Transition name="crop-modal">
-      <div v-if="cropperAberto" class="crop-backdrop" @click.self="fecharCropper">
-        <div class="crop-dialog">
-          <div class="row config-crop-head mb-2">
+    <!-- ── Corte da foto ── -->
+    <Transition name="perfil-modal">
+      <div
+        v-if="cropperAberto"
+        class="perfil-modal-backdrop"
+        @click.self="fecharCropper"
+      >
+        <div class="perfil-modal-dialog crop-dialog">
+          <div class="row perfil-modal-head mb-2">
             <div>
               <h3 class="mt-0 mb-0">Ajustar foto do colaborador</h3>
-              <p class="muted crop-copy">Use o círculo como guia principal do enquadramento para manter o avatar padronizado.</p>
+              <p class="muted perfil-modal-copy">
+                Use o círculo como guia principal do enquadramento para manter o
+                avatar padronizado.
+              </p>
             </div>
             <button class="btn ghost" @click="fecharCropper">
               <fa icon="xmark" /> Fechar
@@ -516,17 +480,119 @@ async function confirmarCropAvatar() {
             />
           </div>
 
-          <p class="muted crop-tip">Arraste a foto até centralizar o rosto dentro do círculo antes de salvar.</p>
+          <p class="muted perfil-modal-copy">
+            Arraste a foto até centralizar o rosto dentro do círculo antes de
+            salvar.
+          </p>
 
-          <div class="row crop-footer">
-            <button class="btn ghost" @click="resetarCropper">Reiniciar corte</button>
+          <div class="row perfil-modal-footer">
+            <button class="btn ghost" @click="resetarCropper">
+              Reiniciar corte
+            </button>
             <span class="spacer" />
             <button class="btn ghost" @click="fecharCropper">Cancelar</button>
-            <button class="btn primary" :disabled="enviandoAvatar" @click="confirmarCropAvatar">
-              <fa :icon="enviandoAvatar ? 'spinner' : 'check'" :spin="enviandoAvatar" />
-              {{ enviandoAvatar ? 'Salvando foto...' : 'Salvar foto' }}
+            <button
+              class="btn primary"
+              :disabled="enviandoAvatar"
+              @click="confirmarCropAvatar"
+            >
+              <fa
+                :icon="enviandoAvatar ? 'spinner' : 'check'"
+                :spin="enviandoAvatar"
+              />
+              {{ enviandoAvatar ? "Salvando foto..." : "Salvar foto" }}
             </button>
           </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- ── Escada de tiers da conquista ── -->
+    <Transition name="perfil-modal">
+      <div
+        v-if="conquistaDetalhe"
+        class="perfil-modal-backdrop"
+        @click.self="fecharConquista"
+      >
+        <div class="perfil-modal-dialog conq-dialog">
+          <div class="conq-topo">
+            <span
+              class="conq-selo"
+              :style="{ '--tier-cor': conquistaDetalhe.tierColor || '#7c5cff' }"
+            >
+              <img
+                v-if="conquistaDetalhe.imagemIcone"
+                :src="conquistaDetalhe.imagemIcone"
+                :alt="conquistaDetalhe.nome"
+                draggable="false"
+              />
+              <span v-else>{{ conquistaDetalhe.icone || "🏅" }}</span>
+            </span>
+
+            <div class="conq-topo-copy">
+              <span v-if="conquistaDetalhe.tierLabel" class="badge info">
+                {{ conquistaDetalhe.tierLabel }}
+              </span>
+              <h3 class="mt-0 mb-0">{{ conquistaDetalhe.nome }}</h3>
+              <p class="muted perfil-modal-copy">
+                {{ conquistaDetalhe.descricao || "Sem descrição detalhada." }}
+              </p>
+            </div>
+
+            <button class="btn ghost" @click="fecharConquista">
+              <fa icon="xmark" />
+            </button>
+          </div>
+
+          <div v-if="conquistaDetalhe.proximoTier" class="conq-progresso">
+            <div class="row conq-progresso-topo">
+              <span class="muted">
+                Próximo tier:
+                <strong>{{ conquistaDetalhe.proximoTier.label }}</strong>
+              </span>
+              <span class="spacer" />
+              <span class="muted">
+                {{ formatNum(conquistaDetalhe.progresso) }} /
+                {{ formatNum(conquistaDetalhe.proximoTier.meta) }}
+              </span>
+            </div>
+            <div class="progress">
+              <span :style="{ width: conquistaDetalhe.progressoPct + '%' }" />
+            </div>
+          </div>
+
+          <div class="row conq-contagem">
+            <fa icon="trophy" class="muted" />
+            <span class="muted">
+              {{ formatNum(conquistaDetalhe.totalTiersDesbloqueados) }} de
+              {{ formatNum(conquistaDetalhe.totalTiers) }} tiers desbloqueados
+            </span>
+          </div>
+
+          <ul class="conq-tiers">
+            <li
+              v-for="tier in conquistaDetalhe.tiers"
+              :key="tier.nivel"
+              :class="{ ativo: tier.desbloqueado }"
+              :style="{ '--tier-cor': tier.cor || '#7c5cff' }"
+            >
+              <span class="conq-tier-selo">
+                <fa :icon="tier.desbloqueado ? 'check' : 'lock'" />
+              </span>
+              <span class="conq-tier-copy">
+                <strong>{{ tier.label }}</strong>
+                <small class="muted">
+                  {{ tier.titulo || `Meta de ${formatNum(tier.meta)}` }}
+                </small>
+              </span>
+              <span class="conq-tier-status muted">
+                <template v-if="tier.desbloqueado">
+                  {{ tier.dataDesbloqueio || "Desbloqueado" }}
+                </template>
+                <template v-else>Meta {{ formatNum(tier.meta) }}</template>
+              </span>
+            </li>
+          </ul>
         </div>
       </div>
     </Transition>
@@ -534,82 +600,30 @@ async function confirmarCropAvatar() {
 </template>
 
 <style scoped>
-.colaborador-hero-card {
-  align-items: flex-start;
-  gap: 24px;
-  flex-wrap: wrap;
+.perfil-admin {
+  display: grid;
+  gap: 14px;
+  /* Mesma coluna do portal (880px). O perfil foi desenhado para telefone:
+     esticado na largura inteira do painel, os cards ficam ocos e o cabeçalho
+     se espalha. */
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
 }
 
-.colaborador-filtros {
-  gap: 12px;
+.perfil-admin-barra {
+  display: flex;
   align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-.colaborador-tipo-select {
-  min-height: 38px;
-  padding: 8px 14px;
+.perfil-admin-voltar {
+  transform: rotate(180deg);
 }
 
-.colaborador-chart-empty {
-  min-height: 320px;
-  display: grid;
-  place-items: center;
-}
-
-.colaborador-hero-avatar-wrap {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-}
-
-.colaborador-hero-avatar-button {
-  position: relative;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  border-radius: 999px;
-}
-
-.colaborador-hero-avatar {
-  box-shadow: 0 10px 28px rgba(124, 92, 255, 0.28);
-  border: 4px solid rgba(255, 255, 255, 0.14);
-}
-
-.colaborador-hero-avatar-overlay {
-  position: absolute;
-  inset: 0;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  background: rgba(7, 10, 18, 0.42);
-  color: #fff;
-  font-size: 20px;
-  opacity: 0;
-  transition: opacity 0.16s ease, transform 0.16s ease;
-}
-
-.colaborador-hero-avatar-button:hover .colaborador-hero-avatar-overlay,
-.colaborador-hero-avatar-button:focus-visible .colaborador-hero-avatar-overlay {
-  opacity: 1;
-}
-
-.colaborador-hero-avatar-button:hover,
-.colaborador-hero-avatar-button:focus-visible {
-  transform: translateY(-1px);
-}
-
-.colaborador-hero-avatar-hint {
-  font-size: 12px;
-}
-
-.config-crop-head {
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
-.crop-backdrop {
+/* ── Janelas: cadastro, foto e conquista ── */
+.perfil-modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(6, 10, 18, 0.72);
@@ -618,10 +632,11 @@ async function confirmarCropAvatar() {
   place-items: center;
   padding: 20px;
   z-index: 60;
+  overflow-y: auto;
 }
 
-.crop-dialog {
-  width: min(100%, 860px);
+.perfil-modal-dialog {
+  width: min(100%, 640px);
   background: var(--bg-2);
   border: 1px solid var(--border-strong);
   border-radius: 24px;
@@ -629,9 +644,27 @@ async function confirmarCropAvatar() {
   box-shadow: var(--shadow-lg);
 }
 
-.crop-copy {
+.crop-dialog {
+  width: min(100%, 860px);
+}
+
+.conq-dialog {
+  width: min(100%, 560px);
+}
+
+.perfil-modal-head {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.perfil-modal-copy {
   margin: 6px 0 0;
   font-size: 13px;
+}
+
+.perfil-modal-footer {
+  margin-top: 18px;
+  align-items: center;
 }
 
 .crop-stage {
@@ -649,11 +682,6 @@ async function confirmarCropAvatar() {
 .crop-image {
   display: block;
   max-width: 100%;
-}
-
-.crop-tip {
-  margin: 12px 0 0;
-  font-size: 13px;
 }
 
 :global(.crop-stage cropper-canvas) {
@@ -688,37 +716,130 @@ async function confirmarCropAvatar() {
   background: rgba(255, 255, 255, 0.22);
 }
 
-.crop-footer {
-  margin-top: 18px;
+/* ── Conquista ── */
+.conq-topo {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: start;
+}
+
+.conq-selo {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  border-radius: 18px;
+  border: 1px solid var(--tier-cor);
+  background: color-mix(in srgb, var(--tier-cor) 16%, transparent);
+  overflow: hidden;
+}
+
+.conq-selo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.conq-topo-copy {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.conq-progresso {
+  margin-top: 16px;
+  display: grid;
+  gap: 6px;
+}
+
+.conq-progresso-topo {
   align-items: center;
+  font-size: 12.5px;
 }
 
-.crop-modal-enter-active,
-.crop-modal-leave-active {
-  transition:
-    opacity 0.22s ease,
-    transform 0.22s ease;
+.conq-contagem {
+  margin-top: 14px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
 }
 
-.crop-modal-enter-from,
-.crop-modal-leave-to {
+.conq-tiers {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.conq-tiers li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  opacity: 0.6;
+}
+
+.conq-tiers li.ativo {
+  opacity: 1;
+  border-color: var(--tier-cor);
+  background: color-mix(in srgb, var(--tier-cor) 12%, transparent);
+}
+
+.conq-tier-selo {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tier-cor) 22%, transparent);
+  color: var(--tier-cor);
+  font-size: 12px;
+}
+
+.conq-tier-copy {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.conq-tier-copy strong {
+  font-size: 13.5px;
+}
+
+.conq-tier-copy small {
+  font-size: 12px;
+}
+
+.conq-tier-status {
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.perfil-modal-enter-active,
+.perfil-modal-leave-active {
+  transition: opacity 0.22s ease;
+}
+
+.perfil-modal-enter-from,
+.perfil-modal-leave-to {
   opacity: 0;
 }
 
-:global([data-theme="light"]) .crop-dialog {
+:global([data-theme="light"]) .perfil-modal-dialog {
   background: rgba(255, 255, 255, 0.98);
 }
 
 @media (max-width: 720px) {
-  .colaborador-filtros {
-    align-items: stretch;
-  }
-
-  .colaborador-tipo-select {
-    width: 100%;
-  }
-
-  .crop-dialog {
+  .perfil-modal-dialog {
     padding: 18px;
   }
 
@@ -728,6 +849,15 @@ async function confirmarCropAvatar() {
 
   :global(.crop-stage cropper-canvas) {
     min-height: 320px;
+  }
+
+  .conq-topo {
+    grid-template-columns: auto 1fr;
+  }
+
+  .conq-topo > button {
+    grid-column: 2;
+    justify-self: end;
   }
 }
 </style>
