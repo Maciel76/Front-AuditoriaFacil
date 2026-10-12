@@ -3,7 +3,10 @@ import { computed } from "vue";
 import AppChart from "@/components/AppChart.vue";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
 import Loader from "@/components/Loader.vue";
+import MascoteGato from "@/components/MascoteGato.vue";
 import { resolverUrlMidia } from "@/utils/media";
+import { nivelConquistaNoPerfil } from "@/utils/conquistasPerfil";
+import { estiloFundoPerfil } from "@/utils/fundosPerfil";
 
 const props = defineProps({
   carregando: { type: Boolean, default: false },
@@ -76,26 +79,39 @@ const serie = computed(() => props.perfil?.serie || []);
 const conquistasDesbloqueadas = computed(() =>
   (props.perfil?.conquistas || [])
     .filter((conquista) => conquista.desbloqueada)
-    .map((conquista) => {
-      const tierSlug = normalizarTier(conquista.tierAtual);
-      const tierAtual = tierInfo[tierSlug] || tierInfo.comum;
-
-      return {
-        ...conquista,
-        tierSlug,
-        tierLabel: conquista.tierAtualLabel || tierAtual.label,
-        tierColor: conquista.tierAtualCor || tierAtual.cor,
-        imagemIcone: resolverUrlMidia(
-          conquista.tierAtualImagem ||
-            (Array.isArray(conquista.tiers)
-              ? conquista.tiers.find(
-                  (t) => String(t.nivel).toLowerCase() === tierSlug,
-                )?.imagemUrl || ""
-              : ""),
-        ),
-      };
-    }),
+    .map((conquista) => apresentarConquista(conquista)),
 );
+
+function apresentarConquista(conquista, nivel = conquista.tierAtual) {
+  const tierSlug = normalizarTier(nivel);
+  const tierAtual = tierInfo[tierSlug] || tierInfo.comum;
+  const usaTierAtual = tierSlug === conquista.tierAtual;
+
+  return {
+    ...conquista,
+    tierSlug,
+    tierLabel: (usaTierAtual && conquista.tierAtualLabel) || tierAtual.label,
+    tierColor: (usaTierAtual && conquista.tierAtualCor) || tierAtual.cor,
+    imagemIcone: resolverUrlMidia(
+      (usaTierAtual ? conquista.tierAtualImagem : "") ||
+        (Array.isArray(conquista.tiers)
+          ? conquista.tiers.find(
+              (t) => String(t.nivel).toLowerCase() === tierSlug,
+            )?.imagemUrl || ""
+          : ""),
+    ),
+  };
+}
+
+const conquistasExibidas = computed(() => {
+  const codigos = colaborador.value?.conquistasExibidas;
+  return conquistasDesbloqueadas.value
+    .filter((conquista) => !Array.isArray(codigos) || codigos.includes(conquista.codigo))
+    .map((conquista) => apresentarConquista(
+      conquista,
+      nivelConquistaNoPerfil(conquista, colaborador.value?.tiersConquistasExibidas),
+    ));
+});
 
 const resumoTipos = computed(() => {
   const mapa = new Map(porTipo.value.map((item) => [item._id, item]));
@@ -240,7 +256,7 @@ function selecionarConquista(conquista) {
 
 <template>
   <section class="perfil-publico-page">
-    <header v-if="colaborador" class="perfil-publico-hero">
+    <header v-if="colaborador" class="perfil-publico-hero" :style="estiloFundoPerfil(colaborador.fundoPerfil)">
       <div class="perfil-publico-hero-main">
         <span class="perfil-publico-tag">
           <fa icon="users" /> Perfil da equipe
@@ -257,9 +273,29 @@ function selecionarConquista(conquista) {
 
           <div class="perfil-publico-hero-identidade">
             <strong>{{ colaborador.nome }}</strong>
+            <span v-if="colaborador.tituloPerfil" class="perfil-publico-titulo" :style="{ color: colaborador.tituloPerfil.cor }"><fa :icon="colaborador.tituloPerfil.icone" /> {{ colaborador.tituloPerfil.nome }}</span>
             <small class="muted">{{
               colaborador.cargo || "Equipe da loja"
             }}</small>
+          </div>
+        </div>
+
+        <div v-if="conquistasExibidas.length" class="perfil-publico-miniaturas">
+          <span class="muted">Conquistas no perfil</span>
+          <div class="perfil-publico-miniaturas-lista">
+            <button
+              v-for="conquista in conquistasExibidas"
+              :key="conquista.codigo"
+              type="button"
+              class="perfil-publico-miniatura"
+              :style="{ '--conquista-cor': conquista.tierColor }"
+              :title="`${conquista.nome} • ${conquista.tierLabel}`"
+              :aria-label="`Ver conquista ${conquista.nome} • ${conquista.tierLabel}`"
+              @click="emit('select-conquista', conquista)"
+            >
+              <img v-if="conquista.imagemIcone" :src="conquista.imagemIcone" :alt="conquista.nome" width="64" height="64" loading="lazy" />
+              <span v-else aria-hidden="true">{{ conquista.icone || '🏅' }}</span>
+            </button>
           </div>
         </div>
 
@@ -280,6 +316,7 @@ function selecionarConquista(conquista) {
           </article>
         </div>
       </div>
+        <MascoteGato v-if="colaborador.mascotePerfil?.codigo === 'mascote-gato'" />
     </header>
     <section
       v-if="rankingPos !== null"
@@ -368,7 +405,7 @@ function selecionarConquista(conquista) {
               >{{ formatPct(item.taxaConformidade) }} de conformidade</small
             >
             <span class="perfil-publico-tipo-xp">
-              <fa icon="bolt" /> {{ formatNum(item.pontuacao) }} XP
+              <fa icon="coins" /> {{ formatNum(item.pontuacao) }} moedas ganhas
             </span>
           </article>
         </div>
@@ -492,6 +529,45 @@ function selecionarConquista(conquista) {
   box-shadow: 0 18px 34px rgba(15, 23, 42, 0.1);
 }
 
+.perfil-publico-miniaturas {
+  display: grid;
+  gap: 8px;
+  font-size: 11px;
+}
+.perfil-publico-miniaturas-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.perfil-publico-miniatura {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 72px;
+  flex: 0 0 64px;
+  padding: 4px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 28px;
+}
+.perfil-publico-miniatura img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
+.perfil-publico-miniatura:hover,
+.perfil-publico-miniatura:focus-visible {
+  background: transparent;
+  filter: drop-shadow(0 0 5px var(--conquista-cor));
+}
+.perfil-publico-miniatura:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 4px;
+}
 .perfil-publico-hero-main {
   display: grid;
   gap: 14px;
@@ -508,6 +584,7 @@ function selecionarConquista(conquista) {
 .perfil-publico-hero-identidade {
   min-width: 0;
 }
+.perfil-publico-titulo { display: flex; align-items: center; gap: 6px; margin: 6px 0; font-size: 12px; font-weight: 700; }
 
 .perfil-publico-hero-copy strong {
   display: block;

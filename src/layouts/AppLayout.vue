@@ -26,6 +26,7 @@ const navegacao = computed(() => {
     { to: "/configuracoes", label: "Configurações", ico: "gear" },
   ];
   if (auth.podeGerenciar) {
+    base.splice(base.length - 1, 0, { to: "/automacao", label: "Automação", ico: "bolt" });
     base.splice(base.length - 1, 0, {
       to: "/whatsapp",
       label: "WhatsApp",
@@ -76,6 +77,7 @@ const titulo = computed(() => {
     relatorios: "Relatórios",
     configuracoes: "Configurações",
     whatsapp: "WhatsApp e compartilhamento",
+    automacao: "Automação e agente local",
     "admin-lojas": "Administração de lojas",
     "admin-conquistas": "Conquistas e gamificação",
   };
