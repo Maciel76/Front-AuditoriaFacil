@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { estiloFundoPerfil } from "@/utils/fundosPerfil";
+import FundoAnimado from "@/components/FundoAnimado.vue";
 import MascoteGato from "@/components/MascoteGato.vue";
 
 const props = defineProps({
@@ -85,7 +86,8 @@ onMounted(carregar);
       <button class="btn ghost small" :disabled="!!emAcao || carregando" @click="usarItem(null, true)">Remover título</button>
     </section>
 
-    <section v-if="carteira.fundoPerfil" class="card loja-equipado" :style="estiloFundoPerfil(carteira.fundoPerfil)">
+    <section v-if="carteira.fundoPerfil" class="card loja-equipado fundo-personalizado" :style="estiloFundoPerfil(carteira.fundoPerfil)">
+      <FundoAnimado :fundo="carteira.fundoPerfil" />
       <div>
         <small class="muted">FUNDO ATUAL</small>
         <strong>{{ carteira.fundoPerfil.nome }}</strong>
@@ -110,17 +112,23 @@ onMounted(carregar);
     </nav>
     <section v-if="catalogo.length" class="loja-catalogo" aria-label="Itens de personalização">
       <article v-for="item in itensVisiveis" :key="item.codigo" class="card loja-produto" :style="{ '--item-cor': item.cor }">
-        <div class="loja-previa" :class="{ 'loja-previa-fundo': item.categoria === 'fundo' }" :style="item.categoria === 'fundo' ? estiloFundoPerfil(item) : {}">
-          <small v-if="item.categoria === 'fundo'" class="muted">PRÉVIA DO FUNDO</small>
-          <MascoteGato v-if="item.codigo === 'mascote-gato'" previa class="loja-mascote" />
-          <span v-else class="loja-produto-icone"><fa :icon="item.icone" /></span>
-          <strong>{{ item.nome }}</strong>
-          <span v-if="emUso(item)" class="badge ok">Em uso</span>
-          <span v-else-if="possui(item.codigo)" class="badge info">Na sua coleção</span>
+        <div class="loja-previa fundo-personalizado" :class="{ 'loja-previa-fundo': item.categoria === 'fundo' }" :style="item.categoria === 'fundo' ? estiloFundoPerfil(item) : {}">
+          <FundoAnimado v-if="item.categoria === 'fundo'" :fundo="item" />
+          <MascoteGato v-if="item.categoria === 'mascote'" :key="item.codigo" :codigo="item.codigo" previa class="loja-mascote" />
+          <span v-else-if="item.categoria !== 'fundo'" class="loja-produto-icone"><fa :icon="item.icone" /></span>
+          <template v-if="item.categoria !== 'fundo'">
+            <strong>{{ item.nome }}</strong>
+            <span v-if="emUso(item)" class="badge ok">Em uso</span>
+            <span v-else-if="possui(item.codigo)" class="badge info">Na sua coleção</span>
+          </template>
         </div>
         <div class="loja-produto-info">
           <small class="muted">{{ item.tipo }}</small>
           <h3>{{ item.nome }}</h3>
+          <template v-if="item.categoria === 'fundo'">
+            <span v-if="emUso(item)" class="badge ok">Em uso</span>
+            <span v-else-if="possui(item.codigo)" class="badge info">Na sua coleção</span>
+          </template>
           <p class="muted">{{ item.descricao }}</p>
           <span class="loja-preco"><fa icon="coins" /> {{ formatar(item.preco) }} moedas</span>
           <button
@@ -134,6 +142,7 @@ onMounted(carregar);
         </div>
       </article>
     </section>
+    <small class="muted"><a href="/licenses/mascotes-lottie.txt" target="_blank" rel="noopener noreferrer">Créditos e licença dos novos mascotes</a></small>
   </main>
 </template>
 

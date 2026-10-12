@@ -7,6 +7,7 @@ import MascoteGato from "@/components/MascoteGato.vue";
 import { resolverUrlMidia } from "@/utils/media";
 import { nivelConquistaNoPerfil } from "@/utils/conquistasPerfil";
 import { estiloFundoPerfil } from "@/utils/fundosPerfil";
+import FundoAnimado from "@/components/FundoAnimado.vue";
 
 const props = defineProps({
   carregando: { type: Boolean, default: false },
@@ -107,6 +108,7 @@ const conquistasExibidas = computed(() => {
   const codigos = colaborador.value?.conquistasExibidas;
   return conquistasDesbloqueadas.value
     .filter((conquista) => !Array.isArray(codigos) || codigos.includes(conquista.codigo))
+    .slice(0, 5)
     .map((conquista) => apresentarConquista(
       conquista,
       nivelConquistaNoPerfil(conquista, colaborador.value?.tiersConquistasExibidas),
@@ -256,14 +258,21 @@ function selecionarConquista(conquista) {
 
 <template>
   <section class="perfil-publico-page">
-    <header v-if="colaborador" class="perfil-publico-hero" :style="estiloFundoPerfil(colaborador.fundoPerfil)">
+    <header v-if="colaborador" class="perfil-publico-hero fundo-personalizado" :style="estiloFundoPerfil(colaborador.fundoPerfil)">
+      <FundoAnimado :fundo="colaborador.fundoPerfil" />
       <div class="perfil-publico-hero-main">
         <span class="perfil-publico-tag">
           <fa icon="users" /> Perfil da equipe
         </span>
 
         <div class="perfil-publico-hero-copy">
+          <MascoteGato v-if="colaborador.mascotePerfil" :key="`${colaborador._id}-${colaborador.mascotePerfil.codigo}`" :codigo="colaborador.mascotePerfil.codigo" class="perfil-publico-mascote">
+            <template #fallback>
+              <ColaboradorAvatar class="perfil-publico-avatar" :nome="colaborador.nome" :avatar-url="colaborador.avatarUrl" :size="80" :font-size="26" />
+            </template>
+          </MascoteGato>
           <ColaboradorAvatar
+            v-else
             class="perfil-publico-avatar"
             :nome="colaborador.nome"
             :avatar-url="colaborador.avatarUrl"
@@ -316,7 +325,6 @@ function selecionarConquista(conquista) {
           </article>
         </div>
       </div>
-        <MascoteGato v-if="colaborador.mascotePerfil?.codigo === 'mascote-gato'" />
     </header>
     <section
       v-if="rankingPos !== null"
@@ -596,6 +604,12 @@ function selecionarConquista(conquista) {
 
 .perfil-publico-avatar {
   flex: 0 0 auto;
+}
+.perfil-publico-mascote {
+  --mascote-escala: 1.2;
+  width: 112px;
+  height: 100px;
+  margin: 0;
 }
 
 .perfil-publico-hero-stats {

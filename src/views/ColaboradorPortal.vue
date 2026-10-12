@@ -25,6 +25,7 @@ import { useRoute, useRouter } from "vue-router";
 import api from "@/services/api";
 import { nivelConquistaNoPerfil } from "@/utils/conquistasPerfil";
 import { estiloFundoPerfil } from "@/utils/fundosPerfil";
+import FundoAnimado from "@/components/FundoAnimado.vue";
 import {
   precarregarImagem,
   precarregarImagens,
@@ -1178,6 +1179,7 @@ const conquistasPerfil = computed(() => {
   const selecionadas = perfil.value?.conquistasExibidas;
   return conquistasDisponiveisPerfil.value
     .filter((item) => !Array.isArray(selecionadas) || selecionadas.includes(item.codigo))
+    .slice(0, 5)
     .map((item) => ({
       ...item,
       tierExibido: nivelConquistaNoPerfil(item, perfil.value?.tiersConquistasExibidas),
@@ -1185,7 +1187,7 @@ const conquistasPerfil = computed(() => {
 });
 
 function escolherConquistasPerfil() {
-  abaAtiva.value = "inicio";
+  abaAtiva.value = "conquistas";
   selecaoConquistasPerfil.value = conquistasPerfil.value.map((item) => item.codigo);
   selecaoTiersPerfil.value = Object.fromEntries(
     conquistasDisponiveisPerfil.value.map((item) => [
@@ -1203,6 +1205,10 @@ function escolherConquistasPerfil() {
 
 async function salvarConquistasPerfil() {
   if (salvandoConquistasPerfil.value) return;
+  if (selecaoConquistasPerfil.value.length > 5) {
+    erroConquistasPerfil.value = "Escolha no máximo 5 conquistas para o perfil.";
+    return;
+  }
   salvandoConquistasPerfil.value = true;
   erroConquistasPerfil.value = "";
   try {
@@ -1735,9 +1741,17 @@ onBeforeUnmount(() => {
 
       <!-- ABA INÍCIO -->
       <main v-else-if="abaAtiva === 'inicio'" class="app-content">
-        <section class="card glow nivel-card" :style="estiloFundoPerfil(perfil.fundoPerfil)">
+        <section class="card glow nivel-card fundo-personalizado" :style="estiloFundoPerfil(perfil.fundoPerfil)">
+          <FundoAnimado :fundo="perfil.fundoPerfil" />
           <div class="nivel-card-head">
-            <MascoteGato v-if="perfil.mascotePerfil?.codigo === 'mascote-gato'" class="nivel-mascote" />
+            <MascoteGato v-if="perfil.mascotePerfil" :key="perfil.mascotePerfil.codigo" :codigo="perfil.mascotePerfil.codigo" class="nivel-mascote">
+              <template #fallback>
+                <div class="nivel-emblema">
+                  <div class="nivel-num">{{ nivel }}</div>
+                  <small>Nível</small>
+                </div>
+              </template>
+            </MascoteGato>
             <div v-else class="nivel-emblema">
               <div class="nivel-num">{{ nivel }}</div>
               <small>Nível</small>
@@ -1748,7 +1762,7 @@ onBeforeUnmount(() => {
               <div class="muted nome-sub">
                 <fa icon="id-badge" /> {{ perfil.codigoExterno }}
                 <span v-if="perfil.cargo"> · {{ perfil.cargo }}</span>
-                <span v-if="perfil.mascotePerfil?.codigo === 'mascote-gato'"> · Nível {{ nivel }}</span>
+                <span v-if="perfil.mascotePerfil"> · Nível {{ nivel }}</span>
               </div>
               <div class="xp-row">
                 <span class="xp-pts">{{ formatNum(perfil.pontuacao) }} XP</span>
@@ -1762,66 +1776,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <div class="perfil-conquistas">
-            <div class="perfil-conquistas-titulo">
-              <span>Minhas conquistas <span class="muted">{{ conquistasPerfil.length }}</span></span>
-              <button
-                v-if="!editandoConquistasPerfil"
-                type="button"
-                class="btn ghost perfil-conquistas-escolher"
-                :disabled="!conquistasDisponiveisPerfil.length"
-                @click="escolherConquistasPerfil"
-              >Escolher conquistas</button>
-            </div>
-            <form
-              v-if="editandoConquistasPerfil"
-              class="perfil-conquistas-editor"
-              @submit.prevent="salvarConquistasPerfil"
-            >
-              <p class="muted">Marque as conquistas e escolha o tier desbloqueado que deseja exibir no perfil.</p>
-              <fieldset :disabled="salvandoConquistasPerfil">
-                <legend class="sr-only">Conquistas para exibir no perfil</legend>
-                <div
-                  v-for="conquista in conquistasDisponiveisPerfil"
-                  :key="conquista.codigo"
-                  class="perfil-conquista-opcao"
-                  :class="{ selecionada: selecaoConquistasPerfil.includes(conquista.codigo) }"
-                >
-                  <label class="perfil-conquista-identidade">
-                    <input v-model="selecaoConquistasPerfil" type="checkbox" :value="conquista.codigo" />
-                    <img
-                      v-if="imagemConquistaPorTier(conquista, selecaoTiersPerfil[conquista.codigo])"
-                      :src="imagemConquistaPorTier(conquista, selecaoTiersPerfil[conquista.codigo])"
-                      alt=""
-                      width="48"
-                      height="56"
-                    />
-                    <span v-else class="perfil-conquista-emoji" aria-hidden="true">{{ iconeConquista(conquista) }}</span>
-                    <strong class="perfil-conquista-opcao-nome">{{ conquista.nome }}</strong>
-                  </label>
-                  <label class="perfil-conquista-tier">
-                    <span class="muted">Tier para exibir</span>
-                    <select
-                      v-model="selecaoTiersPerfil[conquista.codigo]"
-                      :aria-label="'Tier de ' + conquista.nome"
-                      :disabled="!selecaoConquistasPerfil.includes(conquista.codigo)"
-                    >
-                      <option
-                        v-for="tier in conquista.tiers.filter((item) => item.desbloqueado)"
-                        :key="tier.nivel"
-                        :value="tier.nivel"
-                      >{{ tier.label }}{{ tier.titulo ? ' · ' + tier.titulo : '' }}</option>
-                    </select>
-                  </label>
-                </div>
-              </fieldset>
-              <p class="muted">Selecionadas: {{ selecaoConquistasPerfil.length }}. Desmarque todas para ocultar as miniaturas.</p>
-              <p v-if="erroConquistasPerfil" class="badge bad" role="alert">{{ erroConquistasPerfil }}</p>
-              <div class="perfil-conquistas-acoes">
-                <button type="button" class="btn ghost" :disabled="salvandoConquistasPerfil" @click="editandoConquistasPerfil = false">Cancelar</button>
-                <button type="submit" class="btn primary" :disabled="salvandoConquistasPerfil">{{ salvandoConquistasPerfil ? 'Salvando…' : 'Salvar conquistas' }}</button>
-              </div>
-            </form>
-            <div v-else-if="conquistasPerfil.length" class="perfil-conquistas-lista" aria-label="Conquistas desbloqueadas">
+            <div v-if="conquistasPerfil.length" class="perfil-conquistas-lista" aria-label="Conquistas desbloqueadas">
               <button
                 v-for="conquista in conquistasPerfil"
                 :key="conquista.codigo"
@@ -1845,9 +1800,9 @@ onBeforeUnmount(() => {
               </button>
             </div>
             <p v-else class="muted perfil-conquistas-vazio">
-              {{ conquistasDisponiveisPerfil.length ? 'Escolha as conquistas que deseja mostrar aqui.' : 'Suas conquistas aparecerão aqui quando forem desbloqueadas.' }}
+              {{ conquistasDisponiveisPerfil.length ? 'Escolha suas miniaturas na aba Conquistas.' : 'Suas conquistas aparecerão aqui quando forem desbloqueadas.' }}
             </p>
-            <p v-if="sucessoConquistasPerfil" class="badge ok" role="status">{{ sucessoConquistasPerfil }}</p>
+
           </div>
           <div class="nivel-stats">
             <div>
@@ -1985,13 +1940,14 @@ onBeforeUnmount(() => {
             <a
               v-for="colega in colegasEquipe"
               :key="colega._id"
-              class="colega-card"
+              class="colega-card fundo-personalizado"
               :class="rankColegaClass(colega._id)"
-              :style="{ background: estiloFundoPerfil(colega.euMesmo ? perfil.fundoPerfil : colega.fundoPerfil).background }"
+              :style="estiloFundoPerfil(colega.euMesmo ? perfil.fundoPerfil : colega.fundoPerfil)"
               :href="urlPerfilPublicoColega(colega._id)"
               :title="colega.nome"
               @click="abrirPerfilPublicoColega(colega._id, $event)"
             >
+              <FundoAnimado :fundo="colega.euMesmo ? perfil.fundoPerfil : colega.fundoPerfil" />
               <!-- Varredura de brilho (top 3) -->
               <div
                 v-if="rankColega(colega._id)"
@@ -2020,7 +1976,18 @@ onBeforeUnmount(() => {
               </div>
 
               <div class="colega-main">
+                <MascoteGato
+                  v-if="(colega.euMesmo ? perfil.mascotePerfil : colega.mascotePerfil)?.codigo"
+                  :key="(colega.euMesmo ? perfil.mascotePerfil : colega.mascotePerfil).codigo"
+                  :codigo="(colega.euMesmo ? perfil.mascotePerfil : colega.mascotePerfil).codigo"
+                  class="colega-mascote"
+                >
+                  <template #fallback>
+                    <ColaboradorAvatar :nome="colega.nome" :avatar-url="colega.avatarUrl" :size="54" :font-size="18" />
+                  </template>
+                </MascoteGato>
                 <ColaboradorAvatar
+                  v-else
                   :nome="colega.nome"
                   :avatar-url="colega.avatarUrl"
                   :size="54"
@@ -2047,6 +2014,68 @@ onBeforeUnmount(() => {
 
       <!-- ABA CONQUISTAS -->
       <main v-else-if="abaAtiva === 'conquistas'" class="app-content">
+        <section class="card">
+            <div class="perfil-conquistas-titulo">
+              <span>Conquistas no perfil <span class="muted">{{ conquistasPerfil.length }}</span></span>
+              <button
+                v-if="!editandoConquistasPerfil"
+                type="button"
+                class="btn ghost perfil-conquistas-escolher"
+                :disabled="!conquistasDisponiveisPerfil.length"
+                @click="escolherConquistasPerfil"
+              >Escolher conquistas</button>
+            </div>
+            <form
+              v-if="editandoConquistasPerfil"
+              class="perfil-conquistas-editor"
+              @submit.prevent="salvarConquistasPerfil"
+            >
+              <p class="muted">Escolha até 5 conquistas e o tier desbloqueado que deseja exibir no perfil.</p>
+              <fieldset :disabled="salvandoConquistasPerfil">
+                <legend class="sr-only">Conquistas para exibir no perfil</legend>
+                <div
+                  v-for="conquista in conquistasDisponiveisPerfil"
+                  :key="conquista.codigo"
+                  class="perfil-conquista-opcao"
+                  :class="{ selecionada: selecaoConquistasPerfil.includes(conquista.codigo) }"
+                >
+                  <label class="perfil-conquista-identidade">
+                    <input v-model="selecaoConquistasPerfil" type="checkbox" :value="conquista.codigo" :disabled="selecaoConquistasPerfil.length >= 5 && !selecaoConquistasPerfil.includes(conquista.codigo)" />
+                    <img
+                      v-if="imagemConquistaPorTier(conquista, selecaoTiersPerfil[conquista.codigo])"
+                      :src="imagemConquistaPorTier(conquista, selecaoTiersPerfil[conquista.codigo])"
+                      alt=""
+                      width="48"
+                      height="56"
+                    />
+                    <span v-else class="perfil-conquista-emoji" aria-hidden="true">{{ iconeConquista(conquista) }}</span>
+                    <strong class="perfil-conquista-opcao-nome">{{ conquista.nome }}</strong>
+                  </label>
+                  <label class="perfil-conquista-tier">
+                    <span class="muted">Tier para exibir</span>
+                    <select
+                      v-model="selecaoTiersPerfil[conquista.codigo]"
+                      :aria-label="'Tier de ' + conquista.nome"
+                      :disabled="!selecaoConquistasPerfil.includes(conquista.codigo)"
+                    >
+                      <option
+                        v-for="tier in conquista.tiers.filter((item) => item.desbloqueado)"
+                        :key="tier.nivel"
+                        :value="tier.nivel"
+                      >{{ tier.label }}{{ tier.titulo ? ' · ' + tier.titulo : '' }}</option>
+                    </select>
+                  </label>
+                </div>
+              </fieldset>
+              <p class="muted">Selecionadas: {{ selecaoConquistasPerfil.length }}/5. Desmarque uma para escolher outra, ou todas para ocultar as miniaturas.</p>
+              <p v-if="erroConquistasPerfil" class="badge bad" role="alert">{{ erroConquistasPerfil }}</p>
+              <div class="perfil-conquistas-acoes">
+                <button type="button" class="btn ghost" :disabled="salvandoConquistasPerfil" @click="editandoConquistasPerfil = false">Cancelar</button>
+                <button type="submit" class="btn primary" :disabled="salvandoConquistasPerfil">{{ salvandoConquistasPerfil ? 'Salvando…' : 'Salvar conquistas' }}</button>
+              </div>
+            </form>
+            <p v-if="sucessoConquistasPerfil" class="badge ok" role="status">{{ sucessoConquistasPerfil }}</p>
+        </section>
         <section class="card conquistas-summary">
           <div class="conq-summary-num">
             <fa icon="trophy" class="conq-summary-ico" />
@@ -2264,11 +2293,7 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
-        <section class="card">
-          <h3 class="section-title"><fa icon="trophy" /> Conquistas no perfil</h3>
-          <p class="muted">Escolha quais miniaturas os colegas verão no seu perfil.</p>
-          <button class="btn ghost" :disabled="!conquistasDisponiveisPerfil.length" @click="escolherConquistasPerfil">Escolher conquistas</button>
-        </section>
+
 
         <section class="card">
           <h3 class="section-title"><fa icon="sun" /> Tema do portal</h3>
@@ -3530,9 +3555,17 @@ onBeforeUnmount(() => {
   box-shadow: 0 12px 28px rgba(124, 92, 255, 0.38);
 }
 .nivel-mascote {
+  --mascote-escala: 1.2;
   flex-shrink: 0;
-  width: 80px;
-  height: 80px;
+  width: 112px;
+  height: 100px;
+  margin: 0;
+}
+.colega-mascote {
+  --mascote-escala: 1.2;
+  flex: 0 0 64px;
+  width: 64px;
+  height: 54px;
   margin: 0;
 }
 .nivel-num {
@@ -3770,22 +3803,25 @@ onBeforeUnmount(() => {
 
 .kpis-tipos {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(6px, 2vw, 10px);
 }
 .kpi-tipo {
-  padding: 14px;
+  min-width: 0;
+  padding: clamp(8px, 2.5vw, 14px);
   border-top: 3px solid;
   display: grid;
   gap: 4px;
 }
 .kpi-valor {
-  font-size: 22px;
+  font-size: clamp(18px, 4.5vw, 22px);
   font-weight: 800;
   line-height: 1;
 }
 .kpi-foot {
   display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
   justify-content: space-between;
   font-size: 11px;
   color: var(--text-dim);
@@ -3795,6 +3831,11 @@ onBeforeUnmount(() => {
   display: inline-flex;
   gap: 4px;
   align-items: center;
+}
+.kpi-tipo > .badge {
+  min-width: 0;
+  padding-inline: clamp(5px, 1.5vw, 10px);
+  font-size: clamp(9px, 2.3vw, 11px);
 }
 
 .destaque-conquistas {

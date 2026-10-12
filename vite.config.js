@@ -12,5 +12,12 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    strictPort: true,
+    watch: {
+      // Detecta alterações mesmo quando o sistema não emite eventos de arquivos.
+      usePolling: true,
+      interval: 300,
+      ignored: ['**/Supermemoria/**'],
+    },
   },
 });

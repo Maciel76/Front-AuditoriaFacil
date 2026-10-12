@@ -52,6 +52,12 @@ cp .env.example .env   # VITE_API_BASE=http://localhost:4000/api
 npm run dev            # http://localhost:5173
 ```
 
+Durante o desenvolvimento, mantenha `npm run dev` aberto e acesse
+`http://localhost:5173`. O Vite verifica alterações a cada 300 ms e atualiza
+o navegador automaticamente. A porta fica fixa: se estiver ocupada, encerre
+o servidor antigo antes de iniciar outro. `npm run preview` serve o build pronto.
+Ao mudar `vite.config.js`, reinicie `npm run dev` uma vez para aplicar a configuração.
+
 ### Build de produção
 ```bash
 cd frontend && npm run build   # gera dist/

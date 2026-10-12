@@ -58,6 +58,12 @@ const navegacao = computed(() => {
       ico: "trophy",
       sup: true,
     });
+    base.push({
+      to: "/admin/loja-portal",
+      label: "Loja do portal",
+      ico: "store",
+      sup: true,
+    });
   }
   return base;
 });
@@ -80,6 +86,7 @@ const titulo = computed(() => {
     automacao: "Automação e agente local",
     "admin-lojas": "Administração de lojas",
     "admin-conquistas": "Conquistas e gamificação",
+    "admin-loja-portal": "Loja do portal",
   };
   return m[route.name] || "Flashrub";
 });
