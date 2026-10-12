@@ -46,7 +46,7 @@ function alternar(mostrar) {
     return;
   }
   if (mostrar) animacao.goToAndPlay(0, true);
-  if (!props.previa) temporizador = setTimeout(() => alternar(!mostrar), mostrar ? 5000 : 10000);
+  if (!props.previa) temporizador = setTimeout(() => alternar(!mostrar), mostrar ? 7000 : 10000);
 }
 
 function retomar() {

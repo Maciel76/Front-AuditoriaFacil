@@ -7,9 +7,14 @@
 | `mascote-fogo.json` | Foguinho | `Fire.json` |
 | `mascote-gato-chorando.json` | Gatinho Chorão | `Cat Crying emojiSticker animation.json` |
 
-Adicionados em 12/10/2026 a partir dos arquivos locais fornecidos pelo usuário,
-sem alterações nas animações. Ambos são carregados sob demanda e usam o mesmo
+Adicionados em 12/10/2026 a partir dos arquivos locais fornecidos pelo usuário.
+Ambos são carregados sob demanda e usam o mesmo
 ciclo de exibição dos demais mascotes.
+
+No Foguinho, os slots `red` e `yellow` foram normalizados para o formato de
+propriedade de gradiente esperado pelo Lottie Web. O export original continha
+um nível extra (`p.k`), que fazia o player exibir os gradientes em preto.
+Os valores das cores, os movimentos e os tempos originais foram preservados.
 
 ## Animações do LottieFiles
 
@@ -29,7 +34,7 @@ o personagem. Essa adaptação mantém a mesma licença. Não dependem de imagen
 
 Cada animação é carregada sob demanda pelo componente `MascoteGato.vue`.
 Os mascotes aparecem em prévia contínua na loja; no perfil, seguem o ciclo
-existente de 5 segundos visíveis e 10 segundos de descanso. A preferência
+existente de 7 segundos visíveis e 10 segundos de descanso. A preferência
 por movimento reduzido e a pausa ao ocultar a aba continuam respeitadas.
 
 Esta licença se aplica aos quatro arquivos listados. Os mascotes anteriores
