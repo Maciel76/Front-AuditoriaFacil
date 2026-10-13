@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { estiloFundoPerfil } from "@/utils/fundosPerfil";
+import MolduraPerfil from "@/components/MolduraPerfil.vue";
 import FundoAnimado from "@/components/FundoAnimado.vue";
 import MascoteGato from "@/components/MascoteGato.vue";
 
@@ -18,7 +19,7 @@ const categoria = ref("todos");
 const itensVisiveis = computed(() => catalogo.value.filter((item) =>
   categoria.value === "todos" || (item.categoria || "titulo") === categoria.value,
 ));
-const nomeCategoria = (item) => ({ fundo: "fundo", mascote: "mascote", titulo: "título" }[item.categoria] || "título");
+const nomeCategoria = (item) => ({ fundo: "fundo", mascote: "mascote", titulo: "título", moldura: "moldura" }[item.categoria] || "título");
 const emUso = (item) => props.carteira[`${item.categoria || "titulo"}PerfilCodigo`] === item.codigo;
 const saldo = computed(() => Number(props.carteira.saldoMoedas || 0));
 const possui = (codigo) => props.carteira.itensComprados?.includes(codigo);
@@ -51,7 +52,7 @@ async function usarItem(item, remover = false, tipo = "titulo") {
       : await props.api.patch(`/colaboradores/portal/me/loja/${categoriaItem}`, { codigo: remover ? "" : item.codigo });
     emit("atualizar", data);
     sucesso.value = remover
-      ? categoriaItem === "fundo" ? "Fundo padrão aplicado. Seus fundos continuam na coleção." : categoriaItem === "mascote" ? "Mascote removido do perfil. Ele continua na sua coleção." : "Título removido do perfil. Ele continua na sua coleção."
+      ? categoriaItem === "moldura" ? "Moldura removida do perfil. Ela continua na sua coleção." : categoriaItem === "fundo" ? "Fundo padrão aplicado. Seus fundos continuam na coleção." : categoriaItem === "mascote" ? "Mascote removido do perfil. Ele continua na sua coleção." : "Título removido do perfil. Ele continua na sua coleção."
       : comprar ? `${item.nome} comprado e aplicado ao seu perfil!` : `${item.nome} aplicado ao seu perfil.`;
   } catch (e) {
     erro.value = e.response?.data?.error || "Não foi possível concluir. Tente novamente.";
@@ -69,13 +70,18 @@ onMounted(carregar);
       <div>
         <span class="loja-sobre"><fa icon="store" /> LOJA DO PORTAL</span>
         <h2>Seu esforço vira recompensa</h2>
-        <p class="muted">Use suas moedas para personalizar o perfil.</p>
+        <p class="muted">Use suas moedas para personalizar o perfil. Títulos são liberados pela sua maior conquista: você pode comprar desse tier e dos inferiores.</p>
       </div>
       <div class="loja-carteira" aria-label="Saldo disponível">
         <fa icon="coins" />
         <div><strong>{{ formatar(saldo) }}</strong><small>moedas disponíveis</small></div>
       </div>
       <p class="loja-regra muted">Cada ponto acumulado vale 1 moeda. Ganhe com auditorias e conquistas. As compras preservam seu nível e XP.</p>
+    </section>
+
+    <section v-if="carteira.molduraPerfil" class="card loja-equipado">
+      <div><small class="muted">MOLDURA ATUAL</small><strong>{{ carteira.molduraPerfil.nome }}</strong></div>
+      <button class="btn ghost small" :disabled="!!emAcao || carregando" @click="usarItem(null, true, 'moldura')">Remover moldura</button>
     </section>
 
     <section v-if="carteira.tituloPerfil" class="card loja-equipado">
@@ -108,11 +114,12 @@ onMounted(carregar);
     <p v-if="carregando" class="muted" role="status"><fa icon="spinner" spin /> Carregando loja…</p>
 
     <nav v-if="catalogo.length" class="loja-filtros" aria-label="Categorias da loja">
-      <button v-for="filtro in [{codigo:'todos',nome:'Todos'},{codigo:'mascote',nome:'Mascotes'},{codigo:'fundo',nome:'Fundos'},{codigo:'titulo',nome:'Títulos'}]" :key="filtro.codigo" class="btn ghost" :class="{ 'filtro-ativo': categoria === filtro.codigo }" :aria-pressed="categoria === filtro.codigo" @click="categoria = filtro.codigo">{{ filtro.nome }}</button>
+      <button v-for="filtro in [{codigo:'todos',nome:'Todos'},{codigo:'mascote',nome:'Mascotes'},{codigo:'fundo',nome:'Fundos'},{codigo:'titulo',nome:'Títulos'},{codigo:'moldura',nome:'Molduras'}]" :key="filtro.codigo" class="btn ghost" :class="{ 'filtro-ativo': categoria === filtro.codigo }" :aria-pressed="categoria === filtro.codigo" @click="categoria = filtro.codigo">{{ filtro.nome }}</button>
     </nav>
     <section v-if="catalogo.length" class="loja-catalogo" aria-label="Itens de personalização">
       <article v-for="item in itensVisiveis" :key="item.codigo" class="card loja-produto" :style="{ '--item-cor': item.cor }">
         <div class="loja-previa fundo-personalizado" :class="{ 'loja-previa-fundo': item.categoria === 'fundo' }" :style="item.categoria === 'fundo' ? estiloFundoPerfil(item) : {}">
+          <MolduraPerfil v-if="item.categoria === 'moldura'" :moldura="item" />
           <FundoAnimado v-if="item.categoria === 'fundo'" :fundo="item" />
           <MascoteGato v-if="item.categoria === 'mascote'" :key="item.codigo" :codigo="item.codigo" previa class="loja-mascote" />
           <span v-else-if="item.categoria !== 'fundo'" class="loja-produto-icone"><fa :icon="item.icone" /></span>
@@ -123,21 +130,22 @@ onMounted(carregar);
           </template>
         </div>
         <div class="loja-produto-info">
-          <small class="muted">{{ item.tipo }}</small>
+          <small v-if="item.categoria !== 'moldura'" :style="{ color: item.cor }">{{ item.tipo }}{{ item.tierLabel ? " · " + item.tierLabel : "" }}</small>
+          <p v-if="item.desbloqueado === false && !possui(item.codigo)" class="muted"><fa icon="lock" /> Desbloqueie uma conquista {{ item.tierLabel }} ou superior.</p>
           <h3>{{ item.nome }}</h3>
           <template v-if="item.categoria === 'fundo'">
             <span v-if="emUso(item)" class="badge ok">Em uso</span>
             <span v-else-if="possui(item.codigo)" class="badge info">Na sua coleção</span>
           </template>
-          <p class="muted">{{ item.descricao }}</p>
+          <p v-if="item.categoria !== 'moldura'" class="muted">{{ item.descricao }}</p>
           <span class="loja-preco"><fa icon="coins" /> {{ formatar(item.preco) }} moedas</span>
           <button
             class="btn primary full-w"
-            :disabled="carregando || !!emAcao || emUso(item) || (!possui(item.codigo) && saldo < item.preco)"
+            :disabled="carregando || !!emAcao || emUso(item) || (!possui(item.codigo) && (item.desbloqueado === false || saldo < item.preco))"
             :aria-label="possui(item.codigo) ? 'Usar ' + nomeCategoria(item) + ' ' + item.nome : 'Comprar ' + item.nome + ' por ' + formatar(item.preco) + ' moedas'"
             @click="usarItem(item)"
           >
-            {{ emAcao === item.codigo ? 'Aguarde…' : emUso(item) ? 'Em uso' : possui(item.codigo) ? 'Usar ' + nomeCategoria(item) : saldo < item.preco ? 'Moedas insuficientes' : 'Comprar por ' + formatar(item.preco) }}
+            {{ emAcao === item.codigo ? 'Aguarde…' : emUso(item) ? 'Em uso' : possui(item.codigo) ? 'Usar ' + nomeCategoria(item) : item.desbloqueado === false ? 'Bloqueado por conquista' : saldo < item.preco ? 'Moedas insuficientes' : 'Comprar por ' + formatar(item.preco) }}
           </button>
         </div>
       </article>
@@ -167,7 +175,7 @@ onMounted(carregar);
 .loja-previa-fundo strong { color: var(--text); }
 .loja-previa-fundo small { font-size: 10px; letter-spacing: 1px; }
 .loja-produto { overflow: hidden; padding: 0; display: flex; flex-direction: column; }
-.loja-previa { display: grid; justify-items: center; align-content: center; gap: 12px; min-height: 180px; padding: 22px 12px; color: var(--item-cor); background: color-mix(in srgb, var(--item-cor) 12%, transparent); }
+.loja-previa { position: relative; display: grid; justify-items: center; align-content: center; gap: 12px; min-height: 180px; padding: 22px 12px; color: var(--item-cor); background: color-mix(in srgb, var(--item-cor) 12%, transparent); }
 .loja-produto-icone { display: grid; place-items: center; width: 68px; height: 68px; border-radius: 50%; border: 1px solid var(--item-cor); background: var(--surface); font-size: 30px; }
 .loja-produto-info { display: grid; gap: 10px; padding: 18px; flex: 1; }
 .loja-produto-info h3, .loja-produto-info p { margin: 0; }

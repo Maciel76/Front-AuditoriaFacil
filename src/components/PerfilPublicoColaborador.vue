@@ -7,6 +7,7 @@ import MascoteGato from "@/components/MascoteGato.vue";
 import { resolverUrlMidia } from "@/utils/media";
 import { nivelConquistaNoPerfil } from "@/utils/conquistasPerfil";
 import { estiloFundoPerfil } from "@/utils/fundosPerfil";
+import MolduraPerfil from "@/components/MolduraPerfil.vue";
 import FundoAnimado from "@/components/FundoAnimado.vue";
 
 const props = defineProps({
@@ -258,11 +259,12 @@ function selecionarConquista(conquista) {
 
 <template>
   <section class="perfil-publico-page">
-    <header v-if="colaborador" class="perfil-publico-hero fundo-personalizado" :style="estiloFundoPerfil(colaborador.fundoPerfil)">
+    <header v-if="colaborador" class="perfil-publico-hero fundo-personalizado" :class="{ 'com-moldura': colaborador.molduraPerfil }" :style="estiloFundoPerfil(colaborador.fundoPerfil)">
+      <MolduraPerfil :moldura="colaborador.molduraPerfil" />
       <FundoAnimado :fundo="colaborador.fundoPerfil" />
       <div class="perfil-publico-hero-main">
         <span class="perfil-publico-tag">
-          <fa icon="users" /> Perfil da equipe
+          <fa icon="store" /> {{ colaborador.lojaNome || "Loja" }}
         </span>
 
         <div class="perfil-publico-hero-copy">
@@ -283,9 +285,6 @@ function selecionarConquista(conquista) {
           <div class="perfil-publico-hero-identidade">
             <strong>{{ colaborador.nome }}</strong>
             <span v-if="colaborador.tituloPerfil" class="perfil-publico-titulo" :style="{ color: colaborador.tituloPerfil.cor }"><fa :icon="colaborador.tituloPerfil.icone" /> {{ colaborador.tituloPerfil.nome }}</span>
-            <small class="muted">{{
-              colaborador.cargo || "Equipe da loja"
-            }}</small>
           </div>
         </div>
 
@@ -409,12 +408,6 @@ function selecionarConquista(conquista) {
           >
             <span class="perfil-publico-tipo-label">{{ item.label }}</span>
             <strong>{{ formatNum(item.totalLidos) }} itens</strong>
-            <small class="muted"
-              >{{ formatPct(item.taxaConformidade) }} de conformidade</small
-            >
-            <span class="perfil-publico-tipo-xp">
-              <fa icon="coins" /> {{ formatNum(item.pontuacao) }} moedas ganhas
-            </span>
           </article>
         </div>
       </section>
@@ -495,6 +488,8 @@ function selecionarConquista(conquista) {
 </template>
 
 <style scoped>
+.perfil-publico-hero.com-moldura { position: relative; padding: clamp(38px, 6vw, 52px); border: 0; }
+
 .perfil-publico-page {
   display: grid;
   gap: 16px;
@@ -742,14 +737,6 @@ function selecionarConquista(conquista) {
   color: var(--tipo-cor);
 }
 
-.perfil-publico-tipo-xp {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #f59e0b;
-}
-
 .perfil-publico-conquistas {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -818,17 +805,17 @@ function selecionarConquista(conquista) {
 }
 .perfil-publico-conquista-media.has-image {
   background: transparent;
+  overflow: visible;
 }
 .perfil-publico-conquista-media-img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
   max-width: 100%;
   max-height: 100%;
-  border-radius: 22px;
 }
 .perfil-publico-conquista-media-emoji {
   font-size: 36px;
@@ -861,7 +848,7 @@ function selecionarConquista(conquista) {
 .perfil-publico-conquista-icon-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 

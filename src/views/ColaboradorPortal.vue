@@ -37,6 +37,7 @@ import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
 import InstallPWA from "@/components/InstallPWA.vue";
 import PerfilPublicoColaborador from "@/components/PerfilPublicoColaborador.vue";
 import StoreAvatar from "@/components/StoreAvatar.vue";
+import MolduraPerfil from "@/components/MolduraPerfil.vue";
 import LojaPortal from "@/components/LojaPortal.vue";
 import MascoteGato from "@/components/MascoteGato.vue";
 
@@ -772,6 +773,7 @@ async function carregarColegas() {
         totalAuditorias: perfil.value.totalAuditorias,
         totalItensLidos: perfil.value.totalItensLidos,
         taxaConformidade: perfil.value.taxaConformidade,
+        tituloPerfil: perfil.value.tituloPerfil,
         euMesmo: true,
       });
     }
@@ -1089,7 +1091,7 @@ const saldoMoedas = computed(() => Number(perfil.value?.saldoMoedas ?? Math.max(
 
 function atualizarCarteira(data) {
   if (!perfil.value) return;
-  for (const campo of ["saldoMoedas", "moedasGastas", "itensComprados", "tituloPerfilCodigo", "tituloPerfil", "fundoPerfilCodigo", "fundoPerfil", "mascotePerfilCodigo", "mascotePerfil"]) {
+  for (const campo of ["saldoMoedas", "moedasGastas", "itensComprados", "tituloPerfilCodigo", "tituloPerfil", "fundoPerfilCodigo", "fundoPerfil", "mascotePerfilCodigo", "mascotePerfil", "molduraPerfilCodigo", "molduraPerfil"]) {
     perfil.value[campo] = data[campo];
   }
 }
@@ -1741,7 +1743,8 @@ onBeforeUnmount(() => {
 
       <!-- ABA INÍCIO -->
       <main v-else-if="abaAtiva === 'inicio'" class="app-content">
-        <section class="card glow nivel-card fundo-personalizado" :style="estiloFundoPerfil(perfil.fundoPerfil)">
+        <section class="card glow nivel-card fundo-personalizado" :class="{ 'com-moldura': perfil.molduraPerfil }" :style="estiloFundoPerfil(perfil.fundoPerfil)">
+          <MolduraPerfil :moldura="perfil.molduraPerfil" />
           <FundoAnimado :fundo="perfil.fundoPerfil" />
           <div class="nivel-card-head">
             <MascoteGato v-if="perfil.mascotePerfil" :key="perfil.mascotePerfil.codigo" :codigo="perfil.mascotePerfil.codigo" class="nivel-mascote">
@@ -1849,17 +1852,6 @@ onBeforeUnmount(() => {
             <span class="badge" :class="'tipo-' + t._id">{{ t._id }}</span>
             <div class="kpi-valor">{{ formatNum(t.totalLidos) }}</div>
             <small class="muted">itens lidos</small>
-            <div class="kpi-foot">
-              <span
-                ><fa icon="shield-halved" />
-                {{
-                  t.totalLidos
-                    ? ((t.totalConformes / t.totalLidos) * 100).toFixed(1)
-                    : 0
-                }}%
-              </span>
-              <span title="Moedas ganhas"><fa icon="coins" /> {{ formatNum(t.pontuacao) }}</span>
-            </div>
           </div>
         </section>
 
@@ -1914,8 +1906,7 @@ onBeforeUnmount(() => {
                 <fa icon="users" /> Colegas da equipe
               </h3>
               <p class="muted colegas-help">
-                Abra o perfil público do seu time para acompanhar fotos,
-                conquistas e resultados.
+                Veja os perfis da equipe.
               </p>
             </div>
             <span v-if="colegasEquipe.length" class="colega-count">
@@ -1995,12 +1986,11 @@ onBeforeUnmount(() => {
                 />
                 <div class="colega-body">
                   <strong>{{ nomeColegaLista(colega.nome) }}</strong>
-                  <small
-                    :class="colega.euMesmo ? 'colega-eu-label' : 'muted'"
-                    >{{
-                      colega.euMesmo ? "Você" : colega.cargo || "Equipe da loja"
-                    }}</small
-                  >
+                  <small v-if="colega.euMesmo" class="colega-eu-label">Você</small>
+                  <small class="muted">{{ perfil?.loja?.nome || lojaSelecionada?.nome || "Loja" }}</small>
+                  <small v-if="colega.tituloPerfil" class="colega-titulo" :style="{ color: colega.tituloPerfil.cor }">
+                    <fa :icon="colega.tituloPerfil.icone" /> {{ colega.tituloPerfil.nome }}
+                  </small>
                 </div>
               </div>
               <div class="colega-link">
@@ -2600,9 +2590,6 @@ onBeforeUnmount(() => {
                         :style="{ background: tier.cor }"
                       />
                       <strong>{{ tier.label }}</strong>
-                      <span v-if="tier.titulo" class="muted">
-                        · {{ tier.titulo }}
-                      </span>
                     </div>
                     <span
                       class="badge conq-status-badge"
@@ -2732,9 +2719,6 @@ onBeforeUnmount(() => {
                         :style="{ background: item.cor }"
                       />
                       <strong>{{ item.label }}</strong>
-                      <span v-if="item.titulo" class="muted">
-                        · {{ item.titulo }}
-                      </span>
                     </div>
                   </div>
                   <span class="badge conq-status-badge unlocked">
@@ -2851,6 +2835,8 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.nivel-card.com-moldura { position: relative; padding: clamp(38px, 6vw, 52px); border: 0; }
+
 .portal-shell {
   min-height: 100vh;
   background:
@@ -3817,20 +3803,6 @@ onBeforeUnmount(() => {
   font-size: clamp(18px, 4.5vw, 22px);
   font-weight: 800;
   line-height: 1;
-}
-.kpi-foot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 8px;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--text-dim);
-  margin-top: 6px;
-}
-.kpi-foot span {
-  display: inline-flex;
-  gap: 4px;
-  align-items: center;
 }
 .kpi-tipo > .badge {
   min-width: 0;

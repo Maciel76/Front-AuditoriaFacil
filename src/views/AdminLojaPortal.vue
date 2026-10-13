@@ -4,6 +4,7 @@ import api from "@/services/api";
 import Loader from "@/components/Loader.vue";
 import MascoteGato from "@/components/MascoteGato.vue";
 import { estiloFundoPerfil } from "@/utils/fundosPerfil";
+import MolduraPerfil from "@/components/MolduraPerfil.vue";
 import FundoAnimado from "@/components/FundoAnimado.vue";
 import AdminMoedasPortal from "@/components/AdminMoedasPortal.vue";
 
@@ -17,6 +18,7 @@ const categorias = [
   { codigo: "todos", nome: "Todos" },
   { codigo: "mascote", nome: "Mascotes" },
   { codigo: "fundo", nome: "Fundos" },
+  { codigo: "moldura", nome: "Molduras" },
   { codigo: "titulo", nome: "Títulos" },
 ];
 const visiveis = computed(() => catalogo.value.filter((item) => categoria.value === "todos" || item.categoria === categoria.value));
@@ -90,6 +92,7 @@ onMounted(carregar);
       <section class="catalogo" aria-label="Preços do catálogo">
         <article v-for="item in visiveis" :key="item.codigo" class="card produto">
           <div class="previa fundo-personalizado" :style="item.categoria === 'fundo' ? estiloFundoPerfil(item) : { color: item.cor, background: `color-mix(in srgb, ${item.cor} 12%, transparent)` }">
+            <MolduraPerfil v-if="item.categoria === 'moldura'" :moldura="item" />
             <FundoAnimado v-if="item.categoria === 'fundo'" :fundo="item" />
             <MascoteGato v-if="item.categoria === 'mascote'" :key="item.codigo" :codigo="item.codigo" previa />
             <fa v-else :icon="item.icone" class="icone" />
