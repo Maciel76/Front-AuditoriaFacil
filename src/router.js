@@ -85,6 +85,11 @@ const routes = [
         component: () => import("@/views/ColaboradorPerfil.vue"),
       },
       {
+        path: "relatorios/desempenho/:colaboradorId?",
+        name: "desempenho-colaboradores",
+        component: () => import("@/views/DesempenhoColaboradores.vue"),
+      },
+      {
         path: "relatorios",
         name: "relatorios",
         component: () => import("@/views/Relatorios.vue"),
@@ -132,6 +137,11 @@ const routes = [
 export const router = createRouter({
   history: createWebHistory(),
   routes,
+  scrollBehavior(to, from, savedPosition) {
+    if (to.path !== from.path && [to.name, from.name].includes("desempenho-colaboradores")) {
+      return savedPosition || { top: 0 };
+    }
+  },
 });
 
 router.beforeEach((to) => {

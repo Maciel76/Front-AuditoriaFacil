@@ -34,7 +34,7 @@ o personagem. Essa adaptação mantém a mesma licença. Não dependem de imagen
 
 Cada animação é carregada sob demanda pelo componente `MascoteGato.vue`.
 Os mascotes aparecem em prévia contínua na loja; no perfil, seguem o ciclo
-existente de 7 segundos visíveis e 10 segundos de descanso. A preferência
+existente de 7 segundos visíveis e 3 segundos de descanso. A preferência
 por movimento reduzido e a pausa ao ocultar a aba continuam respeitadas.
 
 Esta licença se aplica aos quatro arquivos listados. Os mascotes anteriores

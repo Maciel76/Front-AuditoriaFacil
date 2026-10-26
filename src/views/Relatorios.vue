@@ -29,10 +29,19 @@ const route = useRoute();
 const router = useRouter();
 const RELATORIOS_LOJA_STORAGE_KEY = "na_relatorios_superadmin_loja";
 
-const periodo = ref("1d");
-const dataInicio = ref("");
-const dataFim = ref("");
-const tipo = ref("");
+const periodo = ref(
+  ["1d", "semana", "mes", "ano", "tudo", "custom"].includes(route.query.periodo)
+    ? route.query.periodo : "1d",
+);
+const dataInicio = ref(
+  typeof route.query.dataInicio === "string" ? route.query.dataInicio : "",
+);
+const dataFim = ref(
+  typeof route.query.dataFim === "string" ? route.query.dataFim : "",
+);
+const tipo = ref(
+  ["ETIQUETA", "PRESENCA", "RUPTURA"].includes(route.query.tipo) ? route.query.tipo : "",
+);
 const lojasDisponiveis = ref([]);
 const lojaSelecionadaId = ref("");
 const carregandoLojas = ref(false);
@@ -264,7 +273,7 @@ onMounted(async () => {
     return;
   }
 
-  tipo.value = tipoSugeridoHoje();
+  if (!route.query.periodo && !route.query.tipo) tipo.value = tipoSugeridoHoje();
   if (auth.isSuperAdmin) await carregarLojasRelatorios();
   await carregar();
 });
@@ -1109,6 +1118,13 @@ defineExpose({
       <span v-if="auth.isSuperAdmin && erroLojas" class="badge bad">{{
         erroLojas
       }}</span>
+      <RouterLink
+        v-if="!modoCaptura"
+        class="btn reports-performance-button"
+        :to="{ name: 'desempenho-colaboradores', query: montarParamsRelatoriosAtivos() }"
+      >
+        <fa icon="chart-line" /> Desempenho dos colaboradores
+      </RouterLink>
     </div>
 
     <Loader v-if="carregando" />
@@ -1798,6 +1814,7 @@ defineExpose({
   gap: 12px;
   flex-wrap: wrap;
 }
+.reports-performance-button { margin-left: auto; }
 
 .reports-content {
   display: grid;

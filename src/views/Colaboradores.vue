@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from "vue";
 import api from "@/services/api";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
+import SorteioColaboradores from "@/components/SorteioColaboradores.vue";
 import Loader from "@/components/Loader.vue";
 import LoadingOverlay from "@/components/LoadingOverlay.vue";
 import { useUiStore } from "@/stores/ui";
@@ -18,6 +19,7 @@ const items = ref([]);
 const carregando = ref(true);
 const q = ref("");
 const novo = ref(null);
+const sorteioAberto = ref(false);
 const filtroStatus = ref("active");
 const lojasDisponiveis = ref([]);
 const lojaSelecionadaId = ref("");
@@ -342,6 +344,14 @@ function rankTrophy(id) {
       <span class="spacer" />
       <button
         v-if="auth.podeGerenciar"
+        class="btn sorteio-btn"
+        :disabled="carregandoLojas"
+        @click="sorteioAberto = true"
+      >
+        <span aria-hidden="true">✦</span> Sorteio
+      </button>
+      <button
+        v-if="auth.podeGerenciar"
         class="btn primary"
         :disabled="!podeCriarColaborador"
         @click="abrirNovo"
@@ -515,9 +525,22 @@ function rankTrophy(id) {
       </div>
     </section>
   </div>
+  <SorteioColaboradores
+    v-if="sorteioAberto"
+    :key="lojaSelecionadaId"
+    :loja-id="auth.isSuperAdmin ? lojaSelecionadaId : ''"
+    :loja-nome="lojaSelecionada?.nome || (auth.isSuperAdmin ? 'Todas as lojas' : '')"
+    @close="sorteioAberto = false"
+  />
 </template>
 
 <style scoped>
+.sorteio-btn {
+  color: #f9d782;
+  border: 1px solid rgba(235, 183, 67, .5);
+  background: linear-gradient(120deg, rgba(180, 120, 22, .2), rgba(124, 92, 255, .16));
+}
+.sorteio-btn span { font-size: 20px; }
 /*
  * A listagem usa o mesmo cartao de "Colegas da equipe" do portal do
  * colaborador: mesmo grid, mesmo destaque de top 3 e mesmo rodape de "Abrir

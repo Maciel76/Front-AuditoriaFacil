@@ -81,6 +81,7 @@ const titulo = computed(() => {
     colaboradores: "Colaboradores",
     "colaborador-perfil": "Perfil do colaborador",
     relatorios: "Relatórios",
+    "desempenho-colaboradores": "Desempenho",
     configuracoes: "Configurações",
     whatsapp: "WhatsApp e compartilhamento",
     automacao: "Automação e agente local",
@@ -181,6 +182,7 @@ onBeforeUnmount(() => {
           :key="n.to"
           :to="n.to"
           class="nav-item"
+          :class="{ active: n.to === '/relatorios' && route.name === 'desempenho-colaboradores' }"
           active-class="active"
           @click="ui.fecharSidebar()"
         >
