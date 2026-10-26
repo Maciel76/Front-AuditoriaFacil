@@ -23,6 +23,20 @@ const data = (d) => new Date(d).toLocaleDateString("pt-BR", { timeZone: "UTC" })
 const normalizar = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const hoje = () => new Date().toLocaleDateString("en-CA");
 const textoQuery = (key) => typeof route.query[key] === "string" ? route.query[key] : "";
+const opcoesOrdenacao = [
+  { id: "meta", label: "Maior % na meta", coluna: "Na meta", campo: "percentualMeta", percentual: true, descricao: "Percentual de resultados verdes, do maior para o menor." },
+  { id: "verdes", label: "Mais verdes", coluna: "Verdes", campo: "verde", descricao: "Quantidade de resultados verdes, do maior para o menor." },
+  { id: "amarelos", label: "Mais amarelos", coluna: "Amarelos", campo: "amarelo", descricao: "Quantidade de resultados amarelos, do maior para o menor." },
+  { id: "vermelhos", label: "Mais vermelhos", coluna: "Vermelhos", campo: "vermelho", descricao: "Quantidade de resultados vermelhos, do maior para o menor." },
+  { id: "media", label: "Maior média", coluna: "Média dos corredores", campo: "taxa", percentual: true, descricao: "Média ponderada dos corredores, da maior para a menor." },
+  { id: "participacoes", label: "Mais participações", coluna: "Participações", campo: "totalParticipacoes", descricao: "Total de participações em corredores nas auditorias, do maior para o menor." },
+];
+const ordenacao = computed({
+  get: () => opcoesOrdenacao.some((o) => o.id === textoQuery("ordenacao")) ? textoQuery("ordenacao") : "meta",
+  set: (valor) => router.replace({ query: { ...params.value, ...(valor !== "meta" ? { ordenacao: valor } : {}) } }),
+});
+const ordemAtiva = computed(() => opcoesOrdenacao.find((o) => o.id === ordenacao.value));
+const queryNavegacao = computed(() => ({ ...params.value, ...(ordenacao.value !== "meta" ? { ordenacao: ordenacao.value } : {}) }));
 function lerFiltros() {
   const periodo = textoQuery("periodo");
   return {
@@ -42,7 +56,7 @@ const params = computed(() => ({
 }));
 watch(() => route.query, () => Object.assign(filtros, lerFiltros()));
 watch(() => JSON.stringify(params.value), () => {
-  router.replace({ query: params.value });
+  router.replace({ query: queryNavegacao.value });
 });
 
 const dados = ref({ items: [], meta: 98, limiteAmarelo: 80 });
@@ -55,13 +69,24 @@ const busca = ref("");
 const faixa = ref("");
 const perfilId = computed(() => String(route.params.colaboradorId || ""));
 const selecionado = computed(() => dados.value.items.find((p) => p.id === perfilId.value));
-const linkRanking = computed(() => ({ name: "desempenho-colaboradores", query: params.value }));
-const linkPerfil = (p) => ({ name: "desempenho-colaboradores", params: { colaboradorId: p.id }, query: params.value });
+const linkRanking = computed(() => ({ name: "desempenho-colaboradores", query: queryNavegacao.value }));
+const linkPerfil = (p) => ({ name: "desempenho-colaboradores", params: { colaboradorId: p.id }, query: queryNavegacao.value });
 const linkRelatorios = computed(() => ({ name: "relatorios", query: params.value }));
 const escopoLabel = computed(() => auth.isSuperAdmin
   ? lojas.value.find((l) => l._id === filtros.lojaId)?.nome || (filtros.lojaId ? "Loja selecionada" : "Todas as lojas")
   : auth.loja?.nome || "Sua loja");
-const lista = computed(() => dados.value.items.filter((p) =>
+const valorOrdenacao = (p) => Number(p[ordemAtiva.value.campo] ?? -1);
+const rankingOrdenado = computed(() => [...dados.value.items].sort((a, b) =>
+  valorOrdenacao(b) - valorOrdenacao(a)
+  || (b.percentualMeta ?? -1) - (a.percentualMeta ?? -1)
+  || (b.taxa ?? -1) - (a.taxa ?? -1)
+  || (b.totalLidos || 0) - (a.totalLidos || 0)
+  || a.nome.localeCompare(b.nome, "pt-BR"),
+).map((p, i) => ({ ...p, posicao: i + 1 })));
+const posicaoPerfil = computed(() => rankingOrdenado.value.find((p) => p.id === perfilId.value)?.posicao);
+const pontuacaoExibida = (p) => ordemAtiva.value.percentual ? pct(p[ordemAtiva.value.campo]) : numero(p[ordemAtiva.value.campo]);
+const premiarPrimeiro = computed(() => ["meta", "verdes", "media"].includes(ordenacao.value));
+const lista = computed(() => rankingOrdenado.value.filter((p) =>
   normalizar(`${p.nome} ${p.codigoExterno} ${p.lojaNome}`).includes(normalizar(busca.value)) && (!faixa.value || p[faixa.value] > 0)));
 const historico = computed(() => (selecionado.value?.historico || []).filter((h) =>
   (!faixa.value || h.faixa === faixa.value) && normalizar(`${h.local} ${tipos[h.tipo]}`).includes(normalizar(busca.value))));
@@ -161,7 +186,7 @@ onBeforeUnmount(() => { requisicao++; controlador?.abort(); });
       <section v-if="selecionado" class="performance-profile" aria-label="Resumo do colaborador">
         <div class="profile-identity">
           <div class="profile-avatar"><ColaboradorAvatar :nome="selecionado.nome" :avatar-url="selecionado.avatarUrl" :size="80" :font-size="28" /></div>
-          <div><span class="profile-position"><fa icon="ranking-star" /> {{ selecionado.posicao }}º no ranking do período</span><h2>{{ selecionado.nome }}</h2><p>{{ selecionado.lojaNome }} <span>·</span> Matrícula {{ selecionado.codigoExterno || 'não informada' }}</p><p v-if="selecionado.cargo || selecionado.setor">{{ [selecionado.cargo, selecionado.setor].filter(Boolean).join(' · ') }}</p></div>
+          <div><span class="profile-position"><fa icon="ranking-star" /> {{ posicaoPerfil }}º no ranking · {{ ordemAtiva.label }}</span><h2>{{ selecionado.nome }}</h2><p>{{ selecionado.lojaNome }} <span>·</span> Matrícula {{ selecionado.codigoExterno || 'não informada' }}</p><p v-if="selecionado.cargo || selecionado.setor">{{ [selecionado.cargo, selecionado.setor].filter(Boolean).join(' · ') }}</p></div>
         </div>
         <div class="profile-metrics">
           <div class="profile-primary-metric"><strong>{{ pct(selecionado.percentualMeta) }}</strong><span>dos resultados na meta</span></div>
@@ -186,6 +211,10 @@ onBeforeUnmount(() => { requisicao++; controlador?.abort(); });
       <div :class="['performance-workspace', { 'profile-workspace': selecionado }]">
         <section class="performance-results" :aria-labelledby="selecionado ? 'history-title' : 'ranking-title'">
           <header class="results-heading"><div><h2 :id="selecionado ? 'history-title' : 'ranking-title'">{{ selecionado ? 'Histórico por corredor' : 'Ranking de colaboradores' }}</h2><p>{{ selecionado ? 'O resultado do corredor, com a participação individual em cada auditoria.' : 'Quem mais entrega corredores dentro da meta no período.' }}</p></div><span class="results-count">{{ numero(selecionado ? historico.length : lista.length) }} {{ selecionado ? 'resultados' : 'colaboradores' }}</span></header>
+          <div v-if="!selecionado" class="ranking-sort" role="group" aria-label="Ordenar ranking">
+            <span class="ranking-sort-label">Ordenar por</span>
+            <button v-for="opcao in opcoesOrdenacao" :key="opcao.id" type="button" :aria-pressed="ordenacao === opcao.id" :class="{ active: ordenacao === opcao.id }" @click="ordenacao = opcao.id">{{ opcao.label }}</button>
+          </div>
           <div class="results-controls">
             <label class="performance-search"><fa icon="magnifying-glass" /><span class="sr-only">{{ selecionado ? 'Buscar corredor ou tipo' : 'Buscar colaborador, matrícula ou loja' }}</span><input v-model="busca" type="search" :placeholder="selecionado ? 'Buscar corredor ou tipo de auditoria' : 'Buscar nome, matrícula ou loja'" /></label>
             <label class="performance-color-filter"><span class="sr-only">Filtrar resultados por cor</span><select v-model="faixa"><option value="">Todas as cores</option><option v-for="cor in cores" :key="cor.id" :value="cor.id">{{ cor.label }}</option><option value="sem-base">Sem referência</option></select></label>
@@ -194,13 +223,13 @@ onBeforeUnmount(() => { requisicao++; controlador?.abort(); });
           <template v-if="!selecionado">
             <div v-if="!lista.length" class="performance-empty"><fa icon="users" /><h3>{{ dados.items.length ? 'Nenhum colaborador encontrado' : 'Sem participações para exibir' }}</h3><p>{{ dados.items.length ? 'Tente outro nome ou escolha uma cor diferente.' : 'Escolha outro período, loja ou tipo de auditoria para consultar os resultados.' }}</p><button v-if="busca || faixa" class="btn ghost" @click="limparBusca">Limpar busca e cor</button></div>
             <div v-else class="ranking-list">
-              <div class="ranking-columns" aria-hidden="true"><span>Colaborador</span><span>Resultados por cor</span><span>Na meta</span><span></span></div>
+              <div class="ranking-columns" aria-hidden="true"><span>Colaborador</span><span>Resultados por cor</span><span>{{ ordemAtiva.coluna }}</span><span></span></div>
               <RouterLink v-for="p in lista" :key="p.id" :to="linkPerfil(p)" class="ranking-row" :aria-label="`Ver perfil de ${p.nome}`">
-                <div class="ranking-person"><span :class="['ranking-position', { first: p.posicao === 1 }]"><fa v-if="p.posicao === 1" icon="trophy" /><template v-else>{{ p.posicao }}º</template></span><ColaboradorAvatar :nome="p.nome" :avatar-url="p.avatarUrl" :size="42" :font-size="14" /><div class="ranking-name"><strong>{{ p.nome }}</strong><span>{{ p.lojaNome }} · {{ p.codigoExterno || 'Sem matrícula' }}</span><small>{{ p.totalCorredores }} corredores <span>·</span> {{ p.totalAuditorias }} auditorias</small></div></div>
+                <div class="ranking-person"><span :class="['ranking-position', { first: p.posicao === 1 && premiarPrimeiro }]"><fa v-if="p.posicao === 1 && premiarPrimeiro" icon="trophy" /><template v-else>{{ p.posicao }}º</template></span><ColaboradorAvatar :nome="p.nome" :avatar-url="p.avatarUrl" :size="42" :font-size="14" /><div class="ranking-name"><strong>{{ p.nome }}</strong><span>{{ p.lojaNome }} · {{ p.codigoExterno || 'Sem matrícula' }}</span><small>{{ p.totalCorredores }} corredores <span>·</span> {{ p.totalAuditorias }} auditorias</small></div></div>
                 <div class="ranking-distribution"><div class="ranking-bar"><span v-for="cor in [...cores, { id: 'sem-base' }]" :key="cor.id" :class="cor.id" :style="{ width: largura(p[cor.id], p.totalParticipacoes) }"></span></div><div class="ranking-color-counts"><span v-for="cor in cores" :key="cor.id" :class="cor.id" :title="`${p[cor.id]} ${cor.label.toLowerCase()}`"><i class="status-dot"></i>{{ p[cor.id] }}<span class="sr-only"> {{ cor.label }}</span></span><small v-if="p['sem-base']">{{ p['sem-base'] }} sem ref.</small></div></div>
-                <div class="ranking-score"><strong>{{ pct(p.percentualMeta) }}</strong><span>{{ p.verde }}/{{ p.avaliados }} na meta</span></div><span class="ranking-open" aria-hidden="true"><fa icon="chevron-right" /></span>
+                <div class="ranking-score"><strong>{{ pontuacaoExibida(p) }}</strong><span>{{ ordenacao === 'meta' ? `${p.verde}/${p.avaliados} na meta` : `${pct(p.percentualMeta)} na meta` }}</span></div><span class="ranking-open" aria-hidden="true"><fa icon="chevron-right" /></span>
               </RouterLink>
-              <footer class="ranking-footnote"><fa icon="circle-info" /><span>Posição por percentual de resultados verdes. Desempate pela média ponderada dos corredores e pelo volume lido.</span></footer>
+              <footer class="ranking-footnote"><fa icon="circle-info" /><span>{{ ordemAtiva.descricao }} Desempate pelo percentual na meta, média ponderada e volume lido.</span></footer>
             </div>
           </template>
           <template v-else>
@@ -292,6 +321,11 @@ onBeforeUnmount(() => { requisicao++; controlador?.abort(); });
 .results-heading h2 { font-size: 19px; letter-spacing: -.03em; }
 .results-heading p { margin-top: 7px; color: var(--text-dim); font-size: 12px; line-height: 1.6; }
 .results-count { flex-shrink: 0; border: 1px solid var(--p-line); background: var(--surface); padding: 5px 9px; border-radius: 5px; color: var(--text-dim); font-size: 11px; }
+.ranking-sort { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 18px 24px 0; }
+.ranking-sort-label { color: var(--text-dim); font-size: 11px; margin-right: 5px; }
+.ranking-sort button { border: 1px solid var(--border-strong); border-radius: 6px; padding: 7px 10px; background: transparent; color: var(--text-dim); font-size: 11px; }
+.ranking-sort button:hover { color: var(--text); background: var(--surface-strong); }
+.ranking-sort button.active { color: var(--primary); border-color: var(--primary); background: var(--surface-strong); font-weight: 600; }
 .results-controls { display: flex; gap: 12px; padding: 20px 24px; }
 .performance-search { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); padding: 0 12px; }
 .performance-search > svg { font-size: 13px; color: var(--text-dim); }
@@ -444,6 +478,8 @@ onBeforeUnmount(() => { requisicao++; controlador?.abort(); });
   .results-heading p { font-size: 11px; }
   .results-count { font-size: 9px; padding: 4px 6px; }
   .results-controls { flex-wrap: wrap; padding: 16px; gap: 9px; }
+  .ranking-sort { padding: 16px 16px 0; gap: 6px; }
+  .ranking-sort-label { flex-basis: 100%; margin-bottom: 2px; }
   .performance-search { flex-basis: 100%; }
   .performance-color-filter { width: 100%; }
   .performance-color-filter select { width: 100%; max-width: none; font-size: 12px; }

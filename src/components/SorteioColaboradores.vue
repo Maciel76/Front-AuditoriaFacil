@@ -4,8 +4,18 @@ import api from '@/services/api';
 import ColaboradorAvatar from '@/components/ColaboradorAvatar.vue';
 import SorteioParticulas from '@/components/SorteioParticulas.vue';
 import { precarregarImagem } from '@/utils/media';
+import { useAuthStore } from '@/stores/auth';
 
-const props = defineProps({ lojaId: { type: String, default: '' }, lojaNome: { type: String, default: '' } });
+const props = defineProps({
+  lojaId: { type: String, default: '' },
+  lojaNome: { type: String, default: '' },
+  lojas: { type: Array, default: () => [] },
+});
+const auth = useAuthStore();
+const lojaSorteioId = ref(props.lojaId);
+const nomeLojaSorteio = computed(() => auth.isSuperAdmin
+  ? (props.lojas.find(loja => loja._id === lojaSorteioId.value)?.nome || (lojaSorteioId.value === props.lojaId ? props.lojaNome : '') || 'Todas as lojas')
+  : props.lojaNome);
 const emit = defineEmits(['close']);
 const dialog = ref(null);
 const colaboradores = ref([]);
@@ -20,7 +30,7 @@ const rotacao = ref(0);
 const indiceAtual = ref(0);
 const suspense = ref(false);
 const movimentoReduzido = ref(false);
-const controller = new AbortController();
+let controller;
 let frame = 0;
 let revelacaoTimer;
 let focoAnterior;
@@ -57,6 +67,10 @@ const particulas = Array.from({ length: 84 }, (_, i) => ({
 }));
 
 async function carregar() {
+  controller?.abort();
+  const requisicao = new AbortController();
+  controller = requisicao;
+  const lojaId = auth.isSuperAdmin ? lojaSorteioId.value : props.lojaId;
   carregando.value = true;
   erro.value = '';
   try {
@@ -65,9 +79,10 @@ async function carregar() {
     let total = Infinity;
     while (lista.length < total) {
       const { data } = await api.get('/colaboradores', {
-        params: { status: 'active', limit: 200, page, ...(props.lojaId ? { lojaId: props.lojaId } : {}) },
-        signal: controller.signal,
+        params: { status: 'active', limit: 200, page, ...(lojaId ? { lojaId } : {}) },
+        signal: requisicao.signal,
       });
+      if (requisicao.signal.aborted) return;
       lista.push(...(data.items || []));
       total = data.total ?? lista.length;
       if (!data.items?.length) break;
@@ -76,10 +91,16 @@ async function carregar() {
     colaboradores.value = [...new Map(lista.filter(c => c.ativo !== false).map(c => [c._id, c])).values()]
       .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   } catch {
-    if (!controller.signal.aborted) erro.value = 'Não foi possível carregar os participantes. Tente novamente.';
+    if (!requisicao.signal.aborted) erro.value = 'Não foi possível carregar os participantes. Tente novamente.';
   } finally {
-    carregando.value = false;
+    if (controller === requisicao) carregando.value = false;
   }
+}
+function trocarLojaSorteio() {
+  selecionados.value = new Set();
+  colaboradores.value = [];
+  busca.value = '';
+  carregar();
 }
 function marcar(id) {
   const proxima = new Set(selecionados.value);
@@ -104,7 +125,7 @@ async function focarAcao() {
   dialog.value?.querySelector('[data-focus]')?.focus();
 }
 function sortear() {
-  if (selecionados.value.size < 2 || fase.value !== 'selecao') return;
+  if (selecionados.value.size < 2 || fase.value !== 'selecao' || carregando.value || erro.value) return;
   participantes.value = colaboradores.value.filter(c => selecionados.value.has(c._id)).map(c => ({ ...c }));
   participantes.value.forEach(c => { if (c.avatarUrl) void precarregarImagem(c.avatarUrl); });
   const indice = indiceAleatorio(participantes.value.length);
@@ -147,7 +168,7 @@ function fechar() { emit('close'); }
 function teclado(event) {
   if (event.key === 'Escape') { event.preventDefault(); fechar(); }
   if (event.key !== 'Tab') return;
-  const alvos = [...dialog.value.querySelectorAll('button:not(:disabled), input:not(:disabled), [tabindex="0"]')];
+  const alvos = [...dialog.value.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]')];
   const primeiro = alvos[0];
   const ultimo = alvos.at(-1);
   if (event.shiftKey && (document.activeElement === primeiro || document.activeElement === dialog.value)) {
@@ -169,7 +190,7 @@ onMounted(() => {
   carregar();
 });
 onBeforeUnmount(() => {
-  controller.abort();
+  controller?.abort();
   cancelAnimationFrame(frame);
   clearTimeout(revelacaoTimer);
   document.removeEventListener('keydown', teclado);
@@ -190,11 +211,19 @@ onBeforeUnmount(() => {
             <span class="sorteio-emblema" aria-hidden="true">✦</span>
             <div><h2 id="sorteio-titulo">Uma equipe. Um grande momento.</h2>
               <p>Escolha quem participa e deixe a sorte fazer o espetáculo.</p>
-              <span v-if="lojaNome" class="sorteio-escopo">{{ lojaNome }}</span>
+              <span v-if="nomeLojaSorteio" class="sorteio-escopo">{{ nomeLojaSorteio }}</span>
             </div>
           </header>
           <div class="sorteio-selecao">
             <div class="sorteio-lista-area">
+              <label v-if="auth.isSuperAdmin" class="sorteio-filtro-loja">
+                <span>Loja dos participantes</span>
+                <select v-model="lojaSorteioId" @change="trocarLojaSorteio">
+                  <option value="">Todas as lojas</option>
+                  <option v-for="loja in lojas" :key="loja._id" :value="loja._id">{{ loja.nome }}</option>
+                </select>
+                <small>Ao trocar de loja, a seleção de participantes é limpa.</small>
+              </label>
               <label class="sorteio-busca"><span aria-hidden="true">⌕</span><input v-model="busca" placeholder="Buscar nome, matrícula ou setor" aria-label="Buscar participantes" /></label>
               <div class="sorteio-lista-acoes">
                 <label><input type="checkbox" :checked="todosVisiveis" :disabled="!visiveis.length || carregando" @change="marcarVisiveis" /> {{ busca.trim() ? 'Selecionar resultados' : 'Selecionar todos' }}</label>
@@ -290,6 +319,9 @@ onBeforeUnmount(() => {
 .sorteio-escopo { display: inline-block; margin-top: 12px; font-size: 12px; color: #e8cc94; border: 1px solid #e8cc9430; border-radius: 30px; padding: 4px 10px; }
 .sorteio-selecao { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(230px, 1fr); border-top: 1px solid #ffffff10; border-bottom: 1px solid #ffffff10; }
 .sorteio-lista-area { min-width: 0; padding: 24px; }
+.sorteio-filtro-loja { display: grid; gap: 8px; margin-bottom: 18px; color: #dfd2ef; font-size: 13px; }
+.sorteio-filtro-loja select { width: 100%; min-width: 0; padding: 12px; border: 1px solid #e5bd6540; border-radius: 12px; background: #0c0914; color: #fff1d4; font: inherit; cursor: pointer; }
+.sorteio-filtro-loja small { color: #b6abc8; font-size: 11px; }
 .sorteio-busca { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid #ffffff26; background: #0c0914; border-radius: 12px; }
 .sorteio-busca > span { font-size: 24px; color: #c9b4e5; }
 .sorteio-busca input { min-width: 0; width: 100%; background: transparent; border: 0; color: #fff; padding: 2px; font-size: 13px; }

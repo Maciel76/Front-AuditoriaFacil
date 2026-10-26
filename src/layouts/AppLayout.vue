@@ -309,7 +309,7 @@ onBeforeUnmount(() => {
 
       <main class="content">
         <RouterView v-slot="{ Component, route: r }">
-          <component :is="Component" :key="r.fullPath" />
+          <component :is="Component" :key="r.name === 'desempenho-colaboradores' ? r.name : r.fullPath" />
         </RouterView>
       </main>
     </div>

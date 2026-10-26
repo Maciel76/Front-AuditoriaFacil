@@ -529,6 +529,7 @@ function rankTrophy(id) {
     v-if="sorteioAberto"
     :key="lojaSelecionadaId"
     :loja-id="auth.isSuperAdmin ? lojaSelecionadaId : ''"
+    :lojas="lojasDisponiveis"
     :loja-nome="lojaSelecionada?.nome || (auth.isSuperAdmin ? 'Todas as lojas' : '')"
     @close="sorteioAberto = false"
   />
