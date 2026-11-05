@@ -15,6 +15,7 @@ const navegacao = computed(() => {
   const base = [
     { to: "/dashboard", label: "Dashboard", ico: "gauge" },
     { to: "/lojas", label: "Lojas", ico: "store" },
+    { to: "/dispositivos", label: "Dispositivos", ico: "mobile-screen-button" },
     { to: "/auditorias", label: "Auditorias", ico: "clipboard-check" },
     {
       to: "/auditorias/calendario",
@@ -34,12 +35,12 @@ const navegacao = computed(() => {
     });
   }
   if (auth.podeGerenciar) {
-    base.splice(3, 0, {
+    base.splice(4, 0, {
       to: "/rankings/colaboradores",
       label: "Ranking colaboradores",
       ico: "users",
     });
-    base.splice(4, 0, {
+    base.splice(5, 0, {
       to: "/rankings/lojas",
       label: "Ranking lojas",
       ico: "ranking-star",
@@ -72,6 +73,7 @@ const titulo = computed(() => {
   const m = {
     dashboard: "Visão geral",
     lojas: "Lojas",
+    dispositivos: "Dispositivos",
     "loja-perfil": "Perfil da loja",
     auditorias: "Auditorias",
     "auditorias-calendario": "Calendário de auditorias",
@@ -252,7 +254,7 @@ onBeforeUnmount(() => {
       aria-label="Fechar menu lateral"
     ></button>
 
-    <div class="main">
+    <div class="main" :class="{ 'devices-layout': route.name === 'dispositivos' }">
       <header class="topbar">
         <div class="row">
           <button

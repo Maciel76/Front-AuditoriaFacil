@@ -1,0 +1,71 @@
+/* Four alpha-shaped light/flame layers, then embers, then the original photo. */
+.conq-photo {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  isolation: isolate;
+  overflow: visible;
+}
+.conq-photo-filter {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.conq-photo .conq-photo-fire {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+}
+.conq-photo .conq-photo-source {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  min-height: 0;
+}
+.conq-photo-embers {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+.conq-photo-spark {
+  position: absolute;
+  width: max(1px, calc(var(--spark-size) * var(--photo-fire-scale)));
+  height: max(1px, calc(var(--spark-size) * var(--photo-fire-scale) * 1.7));
+  border-radius: 50%;
+  color: var(--photo-fire-color);
+  background: color-mix(in srgb, currentColor 45%, #fff4e2);
+  box-shadow: 0 0 4px currentColor;
+  opacity: 0;
+}
+.conq-photo:not(.conq-motion-active) .conq-photo-spark {
+  visibility: hidden;
+}
+.conq-photo--expanded {
+  width: fit-content;
+  height: auto;
+  max-width: 100%;
+}
+.conq-photo.conq-photo--expanded > .conq-photo-fire {
+  /* No photo shadow on the flame layer: only the SVG creates the backdrop. */
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .conq-photo .conq-photo-fire,
+  .conq-photo .conq-photo-embers { display: none; }
+  .conq-photo--lit .conq-photo-source {
+    filter: drop-shadow(0 0 7px var(--photo-fire-color));
+  }
+}

@@ -8,6 +8,7 @@ import { library } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import {
   faChartLine,
+  faMobileScreenButton,
   faUpload,
   faTags,
   faBoxesStacked,
@@ -70,6 +71,7 @@ import {
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
 library.add(
+  faMobileScreenButton,
   faUpRightAndDownLeftFromCenter,
   faWhatsapp,
   faLink,

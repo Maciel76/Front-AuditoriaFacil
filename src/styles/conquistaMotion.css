@@ -1,0 +1,202 @@
+/* Anime.js owns movement; CSS defines each achievement's material. Decorative
+   layers stay below the content and never intercept clicks or keyboard focus. */
+.conq-motion-surface {
+  position: relative;
+  isolation: isolate;
+}
+/* Keep the overlay's images, text, progress and close button above the effects. */
+.conq-motion-surface.conq-modal-spotlight,
+.conq-motion-surface.conq-req-item,
+.conq-motion-surface.conq-history-item {
+  --req-tier-cor: var(--tier-cor);
+}
+.conq-motion-surface.conq-modal-spotlight > :not(.conq-fx),
+.conq-motion-surface.conq-req-item > :not(.conq-fx),
+.conq-motion-surface.conq-history-item > :not(.conq-fx) {
+  position: relative;
+  z-index: 1;
+}
+.conq-motion-surface.conq-modal-spotlight {
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--tier-cor) 24%, var(--border));
+  background: color-mix(in srgb, var(--tier-cor) 4%, transparent);
+}
+.conq-modal-spotlight .conq-fx-aura {
+  width: 360px;
+  height: 240px;
+  top: calc(50% - 120px);
+}
+.conq-card:not(.locked) {
+  isolation: isolate;
+  border-color: color-mix(in srgb, var(--tier-cor) 38%, var(--border-strong));
+}
+.conq-card:not(.locked)::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--tier-cor) 22%, transparent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%);
+}
+.conq-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  color: var(--tier-cor);
+}
+.conq-fx > span { position: absolute; pointer-events: none; }
+.conq-fx-aura {
+  width: 230px;
+  height: 160px;
+  left: -65px;
+  top: calc(50% - 80px);
+  opacity: 0.22;
+  background: radial-gradient(ellipse, currentColor, transparent 68%);
+}
+.conq-fx-sheen {
+  inset: -65% auto -65% 0;
+  width: 26%;
+  transform: translateX(-180%) skewX(-22deg);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, currentColor 28%, transparent) 35%, rgb(255 255 255 / 48%) 50%, transparent);
+  opacity: 0;
+}
+.conq-fx-orbit {
+  display: none;
+  width: 200px;
+  height: 200px;
+  left: -60px;
+  top: calc(50% - 100px);
+  border-radius: 50%;
+  opacity: 0.45;
+}
+.conq-fx-facets { display: none; inset: 0; }
+.conq-fx-flash {
+  inset: -35%;
+  background: radial-gradient(ellipse at 20% 50%, currentColor, transparent 65%);
+  opacity: 0;
+}
+.conq-fx-particle {
+  width: var(--particle-size);
+  height: var(--particle-size);
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 7px currentColor;
+  opacity: 0;
+}
+.conq-motion-surface:not(.conq-motion-active) .conq-fx-sheen,
+.conq-motion-surface:not(.conq-motion-active) .conq-fx-particle,
+.conq-motion-surface:not(.conq-motion-active) .conq-fx-flash { visibility: hidden; }
+
+/* Brushed silver and a blue scanning line. */
+.conq-motion-surface.tier-comum .conq-fx-aura { opacity: 0.1; }
+.conq-motion-surface.tier-raro .conq-fx-sheen {
+  width: 18%;
+  background: linear-gradient(90deg, transparent 35%, rgb(59 130 246 / 24%) 47%, rgb(147 197 253 / 85%) 50%, transparent 65%);
+}
+.conq-motion-surface.tier-raro .conq-fx-facets {
+  display: block;
+  background: repeating-linear-gradient(0deg, transparent 0 8px, rgb(59 130 246 / 4%) 8px 9px);
+  mask-image: linear-gradient(90deg, #000, transparent 75%);
+}
+
+/* Arcane rings and fine violet stars. */
+.conq-motion-surface.tier-epico .conq-fx-orbit {
+  display: block;
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  background: conic-gradient(from 45deg, transparent 68%, currentColor 76%, transparent 83%);
+  mask-image: radial-gradient(circle, transparent 53%, #000 54% 56%, transparent 57% 63%, #000 64% 66%, transparent 67%);
+}
+.conq-motion-surface.tier-epico .conq-fx-particle {
+  border-radius: 0;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  width: 9px;
+  height: 9px;
+}
+
+/* Warm gold with drifting embers. */
+.conq-motion-surface.tier-lendario .conq-fx-aura {
+  background: radial-gradient(ellipse, #f59e0b, #fb923c44 35%, transparent 68%);
+}
+.conq-motion-surface.tier-lendario .conq-fx-facets {
+  display: block;
+  background: linear-gradient(118deg, transparent 40%, #fbbf2412 40% 41%, transparent 41% 65%, #fbbf2410 65% 66%, transparent 66%);
+}
+.conq-motion-surface.tier-lendario .conq-fx-particle { background: #fde68a; }
+
+/* Cut crystal: angular facets and a cold rotating reflection. */
+.conq-motion-surface.tier-diamante .conq-fx-facets {
+  display: block;
+  background: conic-gradient(from 30deg at 15% 50%, #a5f3fc18, transparent 16%, #67e8f91c 22%, transparent 32%, #cffafe24 38%, transparent 48%, #22d3ee14 65%, transparent 80%);
+}
+.conq-motion-surface.tier-diamante .conq-fx-orbit {
+  display: block;
+  border-radius: 20%;
+  border: 1px solid #a5f3fc66;
+  width: 130px;
+  height: 130px;
+  left: -25px;
+  top: calc(50% - 65px);
+  box-shadow: inset 0 0 20px #67e8f922;
+}
+.conq-motion-surface.tier-diamante .conq-fx-particle {
+  border-radius: 0;
+  rotate: 45deg;
+  background: #cffafe;
+}
+
+/* A crimson vortex, with embers travelling against its rotation. */
+.conq-motion-surface.tier-mitico .conq-fx-orbit {
+  display: block;
+  background: conic-gradient(transparent 8%, #ef44444d 18%, transparent 30% 50%, #fb71854d 65%, transparent 80%);
+  mask-image: radial-gradient(circle, transparent 30%, #000 40% 47%, transparent 57%);
+}
+.conq-motion-surface.tier-mitico .conq-fx-aura {
+  background: radial-gradient(ellipse, #ef4444, #9f123944 38%, transparent 70%);
+}
+
+/* The supreme medal radiates light from behind its artwork. */
+.conq-motion-surface.tier-suprema .conq-fx-orbit {
+  display: block;
+  width: 300px;
+  height: 300px;
+  left: -110px;
+  top: calc(50% - 150px);
+  background: repeating-conic-gradient(from 0deg, transparent 0deg 16deg, #fbbf245c 19deg, #fffbeb80 20deg, transparent 23deg 40deg);
+  mask-image: radial-gradient(circle, transparent 12%, #000 22%, transparent 69%);
+}
+.conq-motion-surface.tier-suprema .conq-fx-sheen {
+  background: linear-gradient(90deg, transparent, #fbbf2422 25%, #fef3c7aa 48%, #ffffffaa 50%, transparent 75%);
+}
+.conq-motion-surface.tier-suprema .conq-fx-particle { background: #fef3c7; }
+
+/* A prism: the highest rarity combines a spectrum and orbiting halos. */
+.conq-motion-surface.tier-transcendente .conq-fx-aura {
+  width: 300px;
+  left: -80px;
+  background: radial-gradient(ellipse at 30% 35%, #22d3ee88, transparent 55%), radial-gradient(ellipse at 70% 65%, #ec4899cc, transparent 65%);
+}
+.conq-motion-surface.tier-transcendente .conq-fx-orbit {
+  display: block;
+  background: conic-gradient(#f472b6, #c084fc, #60a5fa, #22d3ee, #a7f3d0, #fde68a, #f472b6);
+  mask-image: radial-gradient(circle, transparent 36%, #000 37% 39%, transparent 40% 54%, #000 55% 58%, transparent 59%);
+  opacity: 0.65;
+}
+.conq-motion-surface.tier-transcendente .conq-fx-sheen {
+  width: 38%;
+  background: linear-gradient(110deg, transparent, #f472b633, #c084fc44, #60a5fa44, #22d3ee55, #a7f3d044, #fde68a33, transparent);
+}
+.conq-motion-surface.tier-transcendente .conq-fx-particle:nth-child(3n) { color: #67e8f9; }
+.conq-motion-surface.tier-transcendente .conq-fx-particle:nth-child(3n + 1) { color: #f9a8d4; }
+.conq-motion-surface.tier-transcendente .conq-fx-particle:nth-child(3n + 2) { color: #ddd6fe; }
+
+@media (prefers-reduced-motion: reduce) {
+  .conq-card[role="button"] { transition: none; }
+  .conq-card[role="button"]:hover { transform: none; }
+  .conq-fx-sheen, .conq-fx-particle, .conq-fx-flash { display: none; }
+}
