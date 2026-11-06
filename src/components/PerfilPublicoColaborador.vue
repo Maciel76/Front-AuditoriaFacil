@@ -4,7 +4,7 @@ import AppChart from "@/components/AppChart.vue";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
 import Loader from "@/components/Loader.vue";
 import MascoteGato from "@/components/MascoteGato.vue";
-import { resolverUrlMidia } from "@/utils/media";
+import { resolverUrlMidia, isImagemMidia } from "@/utils/media";
 import { nivelConquistaNoPerfil } from "@/utils/conquistasPerfil";
 import { estiloFundoPerfil } from "@/utils/fundosPerfil";
 import MolduraPerfil from "@/components/MolduraPerfil.vue";
@@ -100,7 +100,8 @@ function apresentarConquista(conquista, nivel = conquista.tierAtual) {
           ? conquista.tiers.find(
               (t) => String(t.nivel).toLowerCase() === tierSlug,
             )?.imagemUrl || ""
-          : ""),
+          : "") ||
+        (isImagemMidia(conquista.icone) ? conquista.icone : ""),
     ),
   };
 }

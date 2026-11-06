@@ -2,6 +2,12 @@ import { getApiOrigin } from "@/utils/apiBase";
 
 const cachePreloadImagens = new Map();
 
+export function isImagemMidia(valor) {
+  if (!valor) return false;
+  return /^(https?:\/\/|\/|data:image\/|blob:)/i.test(valor) ||
+    /\.(png|jpe?g|gif|webp|svg|avif)([?#]|$)/i.test(valor);
+}
+
 function origemApi() {
   return getApiOrigin();
 }
