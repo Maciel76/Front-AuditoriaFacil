@@ -15,6 +15,7 @@ import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth";
 import { useUiStore } from "@/stores/ui";
 import PerfilPublicoColaborador from "@/components/PerfilPublicoColaborador.vue";
+import ConquistaFoto from "@/components/ConquistaFoto.vue";
 
 const auth = useAuthStore();
 const ui = useUiStore();
@@ -520,10 +521,13 @@ const conquistaDetalhe = computed(() => {
               class="conq-selo"
               :style="{ '--tier-cor': conquistaDetalhe.tierColor || '#7c5cff' }"
             >
-              <img
+              <ConquistaFoto
                 v-if="conquistaDetalhe.imagemIcone"
                 :src="conquistaDetalhe.imagemIcone"
                 :alt="conquistaDetalhe.nome"
+                :tier="conquistaDetalhe.tierSlug"
+                :color="conquistaDetalhe.tierColor"
+                unlocked
                 draggable="false"
               />
               <span v-else>{{ conquistaDetalhe.icone || "🏅" }}</span>
@@ -733,10 +737,11 @@ const conquistaDetalhe = computed(() => {
   border-radius: 18px;
   border: 1px solid var(--tier-cor);
   background: color-mix(in srgb, var(--tier-cor) 16%, transparent);
-  overflow: hidden;
+  overflow: visible;
+  padding: 6px;
 }
 
-.conq-selo img {
+.conq-selo :deep(img) {
   width: 100%;
   height: 100%;
   object-fit: contain;
