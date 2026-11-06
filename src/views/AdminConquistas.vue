@@ -10,8 +10,6 @@ import { computed, onMounted, ref } from "vue";
 import api from "@/services/api";
 import { resolverUrlMidia, isImagemMidia as iconeIsImagem } from "@/utils/media";
 import Loader from "@/components/Loader.vue";
-import CompactadorGif from "@/components/CompactadorGif.vue";
-import { compactarGif, formatarTamanho } from "@/utils/compactarGif";
 
 const carregando = ref(false);
 const salvando = ref(false);
@@ -99,7 +97,6 @@ function formularioVazio() {
 const form = ref(formularioVazio());
 
 function abrirNovo() {
-  resumoCompactacao.value = "";
   editando.value = null;
   form.value = formularioVazio();
   erro.value = "";
@@ -108,7 +105,6 @@ function abrirNovo() {
 }
 
 function abrirEdicao(c) {
-  resumoCompactacao.value = "";
   editando.value = c._id;
   form.value = {
     _id: c._id,
@@ -161,31 +157,22 @@ function removerTier(i) {
 
 const uploadingTier = ref({});
 const uploadingIcone = ref(false);
-const statusUpload = ref({});
-const resumoCompactacao = ref("");
 const enviandoImagem = computed(() =>
   uploadingIcone.value || Object.values(uploadingTier.value).some(Boolean),
 );
 const IMAGEM_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/avif,.jpg,.jpeg,.png,.webp,.gif,.avif";
 
-async function enviarImagem(file, nivel, key) {
+async function enviarImagem(file, nivel) {
   if (!/\.(jpe?g|png|webp|gif|avif)$/i.test(file.name)) {
     throw new Error("Selecione uma imagem JPG, PNG, WEBP, GIF ou AVIF.");
   }
-  let preparada = file;
-  if (/\.gif$/i.test(file.name)) {
-    const resultado = await compactarGif(file, (status) => { statusUpload.value[key] = status; });
-    preparada = resultado.file;
-    resumoCompactacao.value = `GIF: ${formatarTamanho(file.size)} → ${formatarTamanho(preparada.size)} (${resultado.reducao}% menor).`;
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error("A imagem ou GIF deve ter no máximo 10 MB.");
   }
-  if (preparada.size > 10 * 1024 * 1024) {
-    throw new Error("O arquivo final deve ter no máximo 10 MB. Este GIF continua muito grande após compactar; use uma animação mais curta.");
-  }
-  statusUpload.value[key] = "Enviando…";
   const fd = new FormData();
   fd.append("codigo", form.value.codigo || "conq");
   fd.append("nivel", nivel);
-  fd.append("imagem", preparada);
+  fd.append("imagem", file);
   const { data } = await api.post("/conquistas/upload-imagem", fd);
   return data.url || "";
 }
@@ -196,7 +183,7 @@ async function uparIcone(event) {
   uploadingIcone.value = true;
   erro.value = "";
   try {
-    form.value.icone = await enviarImagem(file, "icone", "icone");
+    form.value.icone = await enviarImagem(file, "icone");
   } catch (e) {
     erro.value = e?.response?.data?.error || e.message || "Falha no upload do ícone";
   } finally {
@@ -212,7 +199,7 @@ async function uparImagemTier(event, idx, tier) {
   uploadingTier.value = { ...uploadingTier.value, [key]: true };
   erro.value = "";
   try {
-    tier.imagemUrl = await enviarImagem(file, tier.nivel || "tier", idx);
+    tier.imagemUrl = await enviarImagem(file, tier.nivel || "tier");
   } catch (e) {
     erro.value = e?.response?.data?.error || e.message || "Falha no upload da imagem";
   } finally {
@@ -397,8 +384,6 @@ onMounted(carregar);
       </div>
     </div>
 
-    <CompactadorGif />
-
     <div v-if="erro" class="badge bad" style="margin: 12px 0">{{ erro }}</div>
     <div v-if="sucesso" class="badge ok" style="margin: 12px 0">
       {{ sucesso }}
@@ -564,10 +549,10 @@ onMounted(carregar);
               </div>
               <label class="tier-upload" :class="{ uploading: uploadingIcone }">
                 <fa :icon="uploadingIcone ? 'spinner' : 'upload'" :spin="uploadingIcone" />
-                <span>{{ uploadingIcone ? statusUpload.icone || 'Preparando…' : 'Enviar imagem ou GIF' }}</span>
+                <span>{{ uploadingIcone ? 'Enviando…' : 'Enviar imagem ou GIF' }}</span>
                 <input type="file" :accept="IMAGEM_ACCEPT" :disabled="uploadingIcone || salvando" hidden @change="uparIcone" />
               </label>
-              <small class="muted">GIFs de até 50 MB são compactados antes do envio, mantendo a animação. Limite final: 10 MB. Também aceita JPG, PNG, WEBP e AVIF.</small>
+              <small class="muted">JPG, PNG, WEBP, GIF ou AVIF até 10 MB. GIFs mantêm a animação.</small>
             </div>
             <div class="field">
               <label>Ordem</label>
@@ -626,7 +611,7 @@ onMounted(carregar);
             <p class="muted" style="font-size: 12px; margin: 0 0 8px">
               Os tiers são desbloqueados na ordem do menor para o maior valor de
               meta. Use bônus de XP para premiar marcos importantes.
-              Cada tier aceita imagem ou GIF animado. GIFs são compactados automaticamente; limite final de 10 MB.
+              Cada tier aceita imagem ou GIF animado até 10 MB.
             </p>
 
             <!-- Seletor rápido: usar imagem de tier como ícone -->
@@ -696,7 +681,7 @@ onMounted(carregar);
                   :spin="uploadingTier[i]"
                 />
                 <span>{{
-                  uploadingTier[i] ? statusUpload[i] || "Preparando…" : t.imagemUrl ? "Trocar imagem/GIF" : "Selecionar imagem/GIF"
+                  uploadingTier[i] ? "Enviando…" : t.imagemUrl ? "Trocar imagem/GIF" : "Selecionar imagem/GIF"
                 }}</span>
                 <input
                   type="file"
@@ -727,7 +712,6 @@ onMounted(carregar);
             </div>
           </div>
 
-          <p v-if="resumoCompactacao" class="badge ok" aria-live="polite">{{ resumoCompactacao }}</p>
           <div v-if="erro" class="badge bad" style="margin-top: 12px">
             {{ erro }}
           </div>
