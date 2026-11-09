@@ -122,6 +122,8 @@
 
 ## Observacoes criticas
 
+- `GET /api/metricas/ranking/lojas` inclui `items[].metas`; `GET /api/metricas/lojas/:id/perfil` inclui `metas`. O objeto contem `batidas`, `avaliadas`, `semBase`, `limiteRestante`, `limiteConclusao` e `porTipo` (ETIQUETA/PRESENCA/RUPTURA com os tres contadores). A contagem respeita periodo e tipo, inclusive na ruptura continuada, e utiliza apenas auditorias concluidas nao excluidas. Nao exige migracao nem reprocessamento do historico.
+
 - A ancora temporal usa a ultima data existente na base para evitar telas vazias quando nao ha dados do dia atual.
 - GET /api/metricas/ranking/colaboradores retorna `custoRupturaEvitado`, soma de `AuditItem.custoRuptura` dos itens lidos em auditorias RUPTURA por colaborador no periodo.
 - GET /api/metricas/ranking/lojas retorna `custoRupturaEvitado`, soma de `AuditItem.custoRuptura` dos itens lidos em auditorias RUPTURA por loja no periodo.

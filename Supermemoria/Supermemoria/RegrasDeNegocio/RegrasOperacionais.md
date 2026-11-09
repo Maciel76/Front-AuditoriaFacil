@@ -162,6 +162,12 @@
 
 ## Regra de ranking
 
+- O ranking e o perfil da loja mostram `metas`, contadas individualmente por loja + tipo + dia no periodo selecionado, sem usar a media agregada do periodo.
+- A contagem exige auditoria `CONCLUIDA`, nao excluida e metrica global ativa (`colaborador: null`). Reenvios substituem a mesma auditoria; cancelamentos e erros deixam de contar automaticamente.
+- O limite vem de `SystemConfig.metaPercentualRestante` (padrao 2): restante estritamente menor que 2%, equivalente a conclusao maior que 98%. Exatamente 2%/98% nao conta; a comparacao ocorre antes do arredondamento.
+- ETIQUETA compara lidos/auditaveis. PRESENCA compara `Com Presenca e com Estoque` com a soma dessa situacao e `Sem Presenca e Com Estoque`. RUPTURA compara os restantes `Sem Presenca e Com Estoque` com a base de estoque da PRESENCA do dia anterior, na mesma loja e semana operacional; a referencia pode estar fora do filtro de datas.
+- Auditorias sem denominador valido ficam em `metas.semBase`; nao entram em `metas.avaliadas` nem `metas.batidas`. O objeto inclui os mesmos contadores em `porTipo`.
+
 - Ranking de colaboradores agrega MetricaDiaria por colaborador.
 - Ranking de lojas agrega MetricaDiaria consolidada com colaborador null.
 - Ordenacao principal por pontuacao desc.

@@ -104,6 +104,8 @@
 
 ### RankingLojas.vue
 
+- Exibe metas batidas e auditorias avaliadas por loja no podio/lista, com ordenacao `Mais metas batidas` (`metas_batidas_desc`). `RankingMediaCard.vue` soma os contadores historicos retornados em `items[].metas`; rankings sem esse campo preservam o resumo anterior.
+
 - Interface de comparacao exclusiva para lojas.
 - Implementa podium para as tres primeiras posicoes e lista para as demais.
 - Recebe filtro de tipo e periodo, sem filtro de loja.
@@ -120,6 +122,8 @@
 - Os badges de slug/codigo, nivel/status operacional e o botao de cancelar auditoria nao aparecem mais no card do catalogo.
 
 ### LojaPerfil.vue
+
+- Exibe painel de metas batidas no periodo com total, avaliadas, sem base e separacao por tipo. O painel continua visivel com contagem zero mesmo sem outros dados no filtro.
 
 - Drill-down analitico de uma loja especifica.
 - Reaproveita AppChart, KpiCard e PeriodoSelector para unir leitura executiva do dashboard com recortes operacionais de relatorios.

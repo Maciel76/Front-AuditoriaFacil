@@ -29,6 +29,7 @@ const acc = {
   custoRuptura: (i) => Number(i?.custoRuptura || 0),
   custoRupturaEvitado: (item) => Number(item?.custoRupturaEvitado || 0),
   auditoriasCanceladas: (item) => Number(item?.auditoriasCanceladas || 0),
+  metasBatidas: (item) => Number(item?.metas?.batidas || 0),
   totalAuditorias: (i) => Number(i?.totalAuditorias || 0),
   auditoriasEtiqueta: (i) => Number(i?.auditoriasPorTipo?.ETIQUETA || 0),
   auditoriasPresenca: (i) => Number(i?.auditoriasPorTipo?.PRESENCA || 0),
@@ -239,6 +240,16 @@ const MODOS_COLABORADORES_BASE = MODOS_COMUNS.filter(
 ).map(usarCustoRupturaEvitado);
 
 const MODOS_LOJAS_EXTRA = [
+  {
+    id: "metas_batidas_desc",
+    label: "Mais metas batidas",
+    desc: "Auditorias que atingiram a meta no período",
+    grupo: "Desempenho",
+    direction: "desc",
+    accessor: acc.metasBatidas,
+    format: (v) => `${fmtInt(v)} metas batidas`,
+    unidade: "metas",
+  },
   {
     id: "cancelamentos_desc",
     label: "Mais cancelamentos",

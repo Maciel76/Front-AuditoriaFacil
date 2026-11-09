@@ -47,6 +47,7 @@
 2. Frontend consulta /api/metricas/ranking/colaboradores ou /api/metricas/ranking/lojas.
 3. Backend agrega MetricaDiaria e junta dados de Colaborador ou Loja.
 4. Frontend renderiza podium e tabela.
+5. Para lojas, `carregarMetasLojas` complementa a resposta com a contagem individual de metas das auditorias concluidas no mesmo periodo/tipo. O frontend exibe os contadores e permite ordenar por `Mais metas batidas`. O perfil da loja reutiliza essa contagem com detalhamento por tipo; reenvios e cancelamentos sao refletidos na proxima leitura, sem contador persistido separado.
 
 ## Fluxo 6 - Relatorios
 

@@ -513,6 +513,35 @@ const topCorredores = computed(() =>
         </div>
       </section>
 
+      <section v-if="dados.metas" class="card store-panel" aria-label="Metas batidas no período">
+        <div>
+          <h3 class="mt-0 mb-0">
+            <fa icon="bullseye" /> Metas batidas no período:
+            {{ formatarInteiro(dados.metas.batidas) }}
+          </h3>
+          <p class="muted store-panel-copy">
+            {{ formatarInteiro(dados.metas.avaliadas) }} auditoria(s) avaliada(s).
+            Meta por auditoria: menos de {{ formatarPercentual(dados.metas.limiteRestante, 2) }} restante
+            ou mais de {{ formatarPercentual(dados.metas.limiteConclusao, 2) }} concluído.
+          </p>
+          <p v-if="dados.metas.semBase" class="muted store-panel-copy">
+            {{ formatarInteiro(dados.metas.semBase) }} auditoria(s) sem base válida para avaliar a meta.
+          </p>
+        </div>
+        <div class="store-type-grid">
+          <article
+            v-for="(resumo, tipoMeta) in dados.metas.porTipo"
+            v-show="!tipo || tipo === tipoMeta"
+            :key="tipoMeta"
+            class="store-panorama-card"
+          >
+            <span class="muted">{{ labelsTipo[tipoMeta] }}</span>
+            <strong>{{ formatarInteiro(resumo.batidas) }} metas batidas</strong>
+            <span class="muted">{{ formatarInteiro(resumo.avaliadas) }} auditoria(s) avaliada(s)</span>
+          </article>
+        </div>
+      </section>
+
       <div v-if="semDados" class="empty store-empty-state">
         Não há dados suficientes para este filtro. Tente outro período ou remova
         o filtro de tipo.
@@ -871,6 +900,8 @@ const topCorredores = computed(() =>
 <style scoped>
 .store-profile-shell {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 18px;
 }
 
@@ -965,7 +996,7 @@ const topCorredores = computed(() =>
 
 .store-type-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
   gap: 16px;
 }
 

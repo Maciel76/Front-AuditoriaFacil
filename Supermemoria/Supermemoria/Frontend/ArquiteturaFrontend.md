@@ -167,6 +167,8 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 
 ### RankingLojas.vue
 
+- Consome `items[].metas`, mostra a contagem por auditoria no podio/lista e permite ordenar por `Mais metas batidas`. O resumo compartilhado detecta esse campo e soma batidas/avaliadas; colaboradores continuam com o comportamento anterior.
+
 - View dedicada para ranking de lojas.
 - Usa podium para top 3 e lista para as demais posicoes.
 - Aceita filtros de periodo e tipo.
@@ -188,6 +190,8 @@ frontend/src/services/api.js concentra a configuracao HTTP:
 - Permite buscar por nome, codigo, cidade ou slug e abrir o perfil analitico de qualquer loja.
 
 ### LojaPerfil.vue
+
+- Consome `metas` da API para o painel historico de metas por tipo, com o limite aplicado e as auditorias sem base valida, respeitando os mesmos filtros da pagina.
 
 - Consulta GET /metricas/lojas/:id/perfil.
 - Reutiliza a linguagem de Dashboard e Relatorios para mostrar KPIs, serie de conformidade, distribuicao por tipo, situacoes, classes e corredores criticos, metas por tipo e ultimas auditorias.

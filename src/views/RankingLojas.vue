@@ -299,6 +299,10 @@ const visualizacaoKey = computed(() => {
                 />
                 <div class="podium-name">{{ card.item.nome }}</div>
                 <div class="podium-detail">{{ detalhePodio(card.item) }}</div>
+                <div v-if="card.item.metas" class="muted ranking-metas">
+                  <strong>{{ card.item.metas.batidas.toLocaleString("pt-BR") }} metas batidas</strong>
+                  · {{ card.item.metas.avaliadas.toLocaleString("pt-BR") }} auditoria(s) avaliada(s)
+                </div>
                 <MetaBadge
                   v-if="bateuMeta(card.item)"
                   size="md"
@@ -366,6 +370,10 @@ const visualizacaoKey = computed(() => {
                     {{ l.totalLidos.toLocaleString("pt-BR") }} itens ·
                     {{ l.totalAuditorias || 0 }} auditoria(s)
                   </div>
+                  <div v-if="l.metas" class="muted ranking-metas">
+                    <strong>{{ l.metas.batidas.toLocaleString("pt-BR") }} metas batidas</strong>
+                    · {{ l.metas.avaliadas.toLocaleString("pt-BR") }} avaliada(s)
+                  </div>
                   <div v-if="temCancelamento(l)" class="ranking-row-alert">
                     <fa icon="triangle-exclamation" />
                     {{ cancelamentoLabel(l) }}
@@ -399,6 +407,16 @@ const visualizacaoKey = computed(() => {
 </template>
 
 <style scoped>
+.ranking-metas {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ranking-metas strong {
+  color: var(--text);
+}
+
 .toolbar-wrap {
   gap: 10px;
   flex-wrap: wrap;

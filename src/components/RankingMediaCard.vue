@@ -17,17 +17,27 @@ const mediaFormatada = computed(() => {
   return props.modo.format ? props.modo.format(media.value) : String(media.value);
 });
 
-const metasAtingidas = computed(
-  () =>
-    (props.items || []).filter((item) =>
-      metaBatida(item, props.metaPercentualRestante),
-    ).length,
+const temHistoricoMetas = computed(() =>
+  props.items.some((item) => item?.metas != null),
+);
+const metasAtingidas = computed(() =>
+  temHistoricoMetas.value
+    ? props.items.reduce((total, item) => total + Number(item.metas?.batidas || 0), 0)
+    : props.items.filter((item) => metaBatida(item, props.metaPercentualRestante)).length,
+);
+const totalAvaliado = computed(() =>
+  temHistoricoMetas.value
+    ? props.items.reduce((total, item) => total + Number(item.metas?.avaliadas || 0), 0)
+    : props.items.length,
+);
+const limiteHistorico = computed(() =>
+  props.items.find((item) => item?.metas)?.metas.limiteRestante ?? props.metaPercentualRestante,
 );
 
 // Mostra a contagem de meta só quando alguma das ordenações analíticas
 // referentes a conclusão/restante tem dados disponíveis.
 const temDadosMeta = computed(() =>
-  (props.items || []).some((item) => item?.percentualRestante != null),
+  temHistoricoMetas.value || props.items.some((item) => item?.percentualRestante != null),
 );
 </script>
 
@@ -48,12 +58,17 @@ const temDadosMeta = computed(() =>
         <span>
           <strong>{{ metasAtingidas }}</strong>
           /
-          {{ (items || []).length }}
+          {{ totalAvaliado }}
         </span>
-        bateram a meta
+        {{ temHistoricoMetas ? "auditorias com meta batida" : "bateram a meta" }}
       </div>
       <div class="muted meta-helper">
-        Meta: restante ≤ {{ metaPercentualRestante }}% para concluir
+        <template v-if="temHistoricoMetas">
+          Meta por auditoria: restante &lt; {{ limiteHistorico }}% ou conclusão &gt; {{ 100 - limiteHistorico }}%
+        </template>
+        <template v-else>
+          Meta: restante ≤ {{ metaPercentualRestante }}% para concluir
+        </template>
       </div>
     </div>
 

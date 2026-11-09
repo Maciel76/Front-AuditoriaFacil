@@ -150,6 +150,11 @@ Nao existe camada separada de controller. A logica HTTP fica nos proprios arquiv
 - Reconstroi tambem `totalItensParticipacaoLoja` combinando participacao diaria do colaborador com o total lido consolidado da loja em cada auditoria valida.
 - Mantem uma MetricaDiaria consolidada zerada e cancelada para permitir alerta no ranking de lojas.
 
+### services/metasLojas.js
+
+- `carregarMetasLojas` consulta metricas globais ativas das lojas solicitadas, valida a auditoria correspondente como concluida e nao excluida e carrega o limite global de meta. Para Ruptura, inclui tambem a Presenca anterior necessaria como referencia.
+- `resumirMetasLojas` conta metas por loja/tipo/dia, sem duplicar reenvios nem usar a media do periodo. Retorna batidas, avaliadas, sem base, limites e contadores por tipo. E compartilhado pelo ranking de lojas (inclusive ruptura continuada) e pelo perfil de loja.
+
 ### scripts/sync-conquistas-padrao.js
 
 - Conecta no banco e chama a sincronizacao idempotente das conquistas padrao.
