@@ -8,7 +8,7 @@
  */
 import { computed, onMounted, ref } from "vue";
 import api from "@/services/api";
-import { resolverUrlMidia } from "@/utils/media";
+import { resolverUrlMidia, isImagemMidia as iconeIsImagem } from "@/utils/media";
 import Loader from "@/components/Loader.vue";
 
 const carregando = ref(false);
@@ -133,6 +133,7 @@ function abrirEdicao(c) {
 }
 
 function fecharEditor() {
+  if (salvando.value || enviandoImagem.value) return;
   editorAberto.value = false;
   editando.value = null;
 }
@@ -155,22 +156,52 @@ function removerTier(i) {
 }
 
 const uploadingTier = ref({});
+const uploadingIcone = ref(false);
+const enviandoImagem = computed(() =>
+  uploadingIcone.value || Object.values(uploadingTier.value).some(Boolean),
+);
+const IMAGEM_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/avif,.jpg,.jpeg,.png,.webp,.gif,.avif";
+
+async function enviarImagem(file, nivel) {
+  if (!/\.(jpe?g|png|webp|gif|avif)$/i.test(file.name)) {
+    throw new Error("Selecione uma imagem JPG, PNG, WEBP, GIF ou AVIF.");
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error("A imagem ou GIF deve ter no máximo 10 MB.");
+  }
+  const fd = new FormData();
+  fd.append("codigo", form.value.codigo || "conq");
+  fd.append("nivel", nivel);
+  fd.append("imagem", file);
+  const { data } = await api.post("/conquistas/upload-imagem", fd);
+  return data.url || "";
+}
+
+async function uparIcone(event) {
+  const file = event.target?.files?.[0];
+  if (!file || uploadingIcone.value) return;
+  uploadingIcone.value = true;
+  erro.value = "";
+  try {
+    form.value.icone = await enviarImagem(file, "icone");
+  } catch (e) {
+    erro.value = e?.response?.data?.error || e.message || "Falha no upload do ícone";
+  } finally {
+    uploadingIcone.value = false;
+    if (event.target) event.target.value = "";
+  }
+}
+
 async function uparImagemTier(event, idx, tier) {
   const file = event.target?.files?.[0];
-  if (!file) return;
-  const key = `${idx}-${tier.nivel}`;
+  if (!file || uploadingTier.value[idx]) return;
+  const key = idx;
   uploadingTier.value = { ...uploadingTier.value, [key]: true };
+  erro.value = "";
   try {
-    const fd = new FormData();
-    fd.append("imagem", file);
-    fd.append("codigo", form.value.codigo || "conq");
-    fd.append("nivel", tier.nivel || "tier");
-    const { data } = await api.post("/conquistas/upload-imagem", fd, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    tier.imagemUrl = data.url || "";
+    tier.imagemUrl = await enviarImagem(file, tier.nivel || "tier");
   } catch (e) {
-    erro.value = e?.response?.data?.error || "Falha no upload da imagem";
+    erro.value = e?.response?.data?.error || e.message || "Falha no upload da imagem";
   } finally {
     uploadingTier.value = { ...uploadingTier.value, [key]: false };
     if (event.target) event.target.value = "";
@@ -178,12 +209,6 @@ async function uparImagemTier(event, idx, tier) {
 }
 function removerImagemTier(tier) {
   tier.imagemUrl = "";
-}
-
-// Verifica se o ícone atual é uma URL de imagem (não emoji)
-function iconeIsImagem(icone) {
-  if (!icone) return false;
-  return /^(https?:\/\/|\/|data:|blob:)/i.test(icone) || /\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(icone);
 }
 
 function usarImagemComoIcone(url) {
@@ -213,6 +238,7 @@ async function carregar() {
 }
 
 async function salvar() {
+  if (enviandoImagem.value || salvando.value) return;
   if (!form.value.tiers.length) {
     erro.value = "Adicione pelo menos um tier.";
     return;
@@ -491,7 +517,7 @@ onMounted(carregar);
               />
             </div>
             <div class="field">
-              <label>Ícone (emoji ou imagem)</label>
+              <label>Ícone (emoji, imagem ou GIF)</label>
               <div class="icone-picker">
                 <div class="icone-preview">
                   <img
@@ -505,13 +531,15 @@ onMounted(carregar);
                 <div class="icone-input-row">
                   <input
                     v-model="form.icone"
-                    maxlength="200"
-                    placeholder="🏆 ou URL da imagem"
+                    maxlength="500"
+                    placeholder="🏆 ou URL da imagem/GIF"
+                    :disabled="uploadingIcone || salvando"
                     class="icone-input"
                   />
                   <button
                     v-if="iconeIsImagem(form.icone)"
                     class="btn ghost btn-sm"
+                    :disabled="uploadingIcone || salvando"
                     @click="limparIconeImagem"
                     title="Voltar para emoji"
                   >
@@ -519,6 +547,12 @@ onMounted(carregar);
                   </button>
                 </div>
               </div>
+              <label class="tier-upload" :class="{ uploading: uploadingIcone }">
+                <fa :icon="uploadingIcone ? 'spinner' : 'upload'" :spin="uploadingIcone" />
+                <span>{{ uploadingIcone ? 'Enviando…' : 'Enviar imagem ou GIF' }}</span>
+                <input type="file" :accept="IMAGEM_ACCEPT" :disabled="uploadingIcone || salvando" hidden @change="uparIcone" />
+              </label>
+              <small class="muted">JPG, PNG, WEBP, GIF ou AVIF até 10 MB. GIFs mantêm a animação.</small>
             </div>
             <div class="field">
               <label>Ordem</label>
@@ -577,6 +611,7 @@ onMounted(carregar);
             <p class="muted" style="font-size: 12px; margin: 0 0 8px">
               Os tiers são desbloqueados na ordem do menor para o maior valor de
               meta. Use bônus de XP para premiar marcos importantes.
+              Cada tier aceita imagem ou GIF animado até 10 MB.
             </p>
 
             <!-- Seletor rápido: usar imagem de tier como ícone -->
@@ -613,7 +648,7 @@ onMounted(carregar);
               class="tier-edit-row"
               :style="{ borderColor: TIER_LABELS[t.nivel]?.cor }"
             >
-              <select v-model="t.nivel" class="tier-select">
+              <select v-model="t.nivel" class="tier-select" :disabled="uploadingTier[i] || salvando">
                 <option v-for="opt in TIER_ORDER" :key="opt" :value="opt">
                   {{ TIER_LABELS[opt]?.emoji }} {{ TIER_LABELS[opt]?.label }}
                 </option>
@@ -637,20 +672,21 @@ onMounted(carregar);
               />
               <label
                 class="tier-upload"
-                :class="{ uploading: uploadingTier[`${i}-${t.nivel}`] }"
+                :class="{ uploading: uploadingTier[i] }"
               >
                 <fa
                   :icon="
-                    uploadingTier[`${i}-${t.nivel}`] ? 'spinner' : 'upload'
+                    uploadingTier[i] ? 'spinner' : 'upload'
                   "
-                  :spin="uploadingTier[`${i}-${t.nivel}`]"
+                  :spin="uploadingTier[i]"
                 />
                 <span>{{
-                  t.imagemUrl ? "Trocar imagem" : "Selecionar imagem"
+                  uploadingTier[i] ? "Enviando…" : t.imagemUrl ? "Trocar imagem/GIF" : "Selecionar imagem/GIF"
                 }}</span>
                 <input
                   type="file"
-                  accept="image/*"
+                  :accept="IMAGEM_ACCEPT"
+                  :disabled="uploadingTier[i] || salvando"
                   hidden
                   @change="uparImagemTier($event, i, t)"
                 />
@@ -663,13 +699,14 @@ onMounted(carregar);
                 <button
                   type="button"
                   class="tier-img-remove"
+                  :disabled="uploadingTier[i] || salvando"
                   @click="removerImagemTier(t)"
                   title="Remover imagem"
                 >
                   <fa icon="xmark" />
                 </button>
               </div>
-              <button class="btn ghost" @click="removerTier(i)">
+              <button class="btn ghost" :disabled="enviandoImagem || salvando" @click="removerTier(i)">
                 <fa icon="trash" />
               </button>
             </div>
@@ -680,8 +717,8 @@ onMounted(carregar);
           </div>
 
           <div class="row justify-end gap-2 mt-3">
-            <button class="btn ghost" @click="fecharEditor">Cancelar</button>
-            <button class="btn primary" :disabled="salvando" @click="salvar">
+            <button class="btn ghost" :disabled="enviandoImagem || salvando" @click="fecharEditor">Cancelar</button>
+            <button class="btn primary" :disabled="salvando || enviandoImagem" @click="salvar">
               <fa :icon="salvando ? 'spinner' : 'check'" :spin="salvando" />
               Salvar
             </button>

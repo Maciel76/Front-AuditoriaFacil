@@ -32,6 +32,7 @@ import {
   precarregarImagem,
   precarregarImagens,
   resolverUrlMidia,
+  isImagemMidia,
 } from "@/utils/media";
 import AppChart from "@/components/AppChart.vue";
 import AuditoriaDodia from "@/components/AuditoriaDodia.vue";
@@ -208,8 +209,6 @@ function nivelImagemConquista(conquista, nivel = "") {
 
 function imagemConquistaPorTier(conquista, nivel = "") {
   const tierAtual = nivelImagemConquista(conquista, nivel);
-  if (!tierAtual) return "";
-
   if (tierAtual === nivelImagemConquista(conquista) && conquista?.tierAtualImagem) {
     return resolverUrlMidia(conquista.tierAtualImagem);
   }
@@ -222,8 +221,8 @@ function imagemConquistaPorTier(conquista, nivel = "") {
   }
 
   const imagensPorTier = CONQUISTA_TIER_IMAGES[conquista?.codigo];
-  if (!imagensPorTier) return "";
-  return imagensPorTier[tierAtual] || "";
+  return imagensPorTier?.[tierAtual] ||
+    (isImagemMidia(conquista?.icone) ? resolverUrlMidia(conquista.icone) : "");
 }
 
 function iconeConquista(conquista) {

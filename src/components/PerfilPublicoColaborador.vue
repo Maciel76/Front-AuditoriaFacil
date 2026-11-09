@@ -4,11 +4,12 @@ import AppChart from "@/components/AppChart.vue";
 import ColaboradorAvatar from "@/components/ColaboradorAvatar.vue";
 import Loader from "@/components/Loader.vue";
 import MascoteGato from "@/components/MascoteGato.vue";
-import { resolverUrlMidia } from "@/utils/media";
+import { resolverUrlMidia, isImagemMidia } from "@/utils/media";
 import { nivelConquistaNoPerfil } from "@/utils/conquistasPerfil";
 import { estiloFundoPerfil } from "@/utils/fundosPerfil";
 import MolduraPerfil from "@/components/MolduraPerfil.vue";
 import FundoAnimado from "@/components/FundoAnimado.vue";
+import ConquistaFoto from "@/components/ConquistaFoto.vue";
 
 const props = defineProps({
   carregando: { type: Boolean, default: false },
@@ -100,7 +101,8 @@ function apresentarConquista(conquista, nivel = conquista.tierAtual) {
           ? conquista.tiers.find(
               (t) => String(t.nivel).toLowerCase() === tierSlug,
             )?.imagemUrl || ""
-          : ""),
+          : "") ||
+        (isImagemMidia(conquista.icone) ? conquista.icone : ""),
     ),
   };
 }
@@ -301,7 +303,17 @@ function selecionarConquista(conquista) {
               :aria-label="`Ver conquista ${conquista.nome} • ${conquista.tierLabel}`"
               @click="emit('select-conquista', conquista)"
             >
-              <img v-if="conquista.imagemIcone" :src="conquista.imagemIcone" :alt="conquista.nome" width="64" height="64" loading="lazy" />
+              <ConquistaFoto
+                v-if="conquista.imagemIcone"
+                :src="conquista.imagemIcone"
+                :alt="conquista.nome"
+                :tier="conquista.tierSlug"
+                :color="conquista.tierColor"
+                unlocked
+                width="64"
+                height="64"
+                loading="lazy"
+              />
               <span v-else aria-hidden="true">{{ conquista.icone || '🏅' }}</span>
             </button>
           </div>
@@ -442,10 +454,13 @@ function selecionarConquista(conquista) {
               class="perfil-publico-conquista-media"
               :class="{ 'has-image': !!conquista.imagemIcone }"
             >
-              <img
+              <ConquistaFoto
                 v-if="conquista.imagemIcone"
                 :src="conquista.imagemIcone"
                 :alt="conquista.nome"
+                :tier="conquista.tierSlug"
+                :color="conquista.tierColor"
+                unlocked
                 class="perfil-publico-conquista-media-img"
                 draggable="false"
               />
@@ -555,7 +570,7 @@ function selecionarConquista(conquista) {
   cursor: pointer;
   font-size: 28px;
 }
-.perfil-publico-miniatura img {
+.perfil-publico-miniatura :deep(img) {
   display: block;
   width: 100%;
   height: 100%;
@@ -807,7 +822,13 @@ function selecionarConquista(conquista) {
   background: transparent;
   overflow: visible;
 }
-.perfil-publico-conquista-media-img {
+.perfil-publico-conquista-media.has-image :deep(.conq-photo) {
+  position: absolute;
+  inset: 12px;
+  width: auto;
+  height: auto;
+}
+.perfil-publico-conquista-media :deep(.perfil-publico-conquista-media-img) {
   position: absolute;
   inset: 0;
   width: 100%;
