@@ -379,7 +379,7 @@ async function compartilharNoWhatsapp(resultado) {
   cancelarSumicoEnvio();
   envioWhatsapp.value = {
     fase: "gerando",
-    mensagem: "Preparando imagens",
+    mensagem: "Preparando arquivos",
     prontas: 0,
     total: 0,
     grupos: 0,
@@ -404,7 +404,7 @@ async function compartilharNoWhatsapp(resultado) {
           ...envioWhatsapp.value,
           fase: "erro",
           mensagem: "",
-          erro: "não havia dados para gerar as imagens; nada foi enviado",
+          erro: "não havia dados para gerar os arquivos; nada foi enviado",
         };
         agendarSumicoEnvio(MS_ATE_SUMIR.erro);
         return;
@@ -426,7 +426,7 @@ async function compartilharNoWhatsapp(resultado) {
       };
       agendarSumicoEnvio(MS_ATE_SUMIR.concluido);
       ui.sucesso(
-        `WhatsApp: ${retorno.totalEnviados} imagem(ns) enviada(s) ao grupo${
+        `WhatsApp: ${retorno.totalEnviados} arquivo(s) enviado(s) ao grupo${
           falhas ? ` (${falhas} nao entregue(s))` : ""
         }`,
       );
@@ -438,7 +438,7 @@ async function compartilharNoWhatsapp(resultado) {
     const erro =
       retorno?.erro ||
       retorno?.motivo ||
-      "não foi possível compartilhar as imagens";
+      "não foi possível compartilhar os arquivos";
     envioWhatsapp.value = {
       ...envioWhatsapp.value,
       fase: "erro",
@@ -529,10 +529,10 @@ const envioTitulo = computed(() => {
   if (envio.fase === "concluido") {
     return envio.entregues < envio.tentativas
       ? "Enviado com pendências"
-      : "Imagens enviadas ao WhatsApp";
+      : "Arquivos enviados ao WhatsApp";
   }
-  if (envio.fase === "enviando") return "Enviando as imagens ao WhatsApp";
-  return "Gerando as imagens para o WhatsApp";
+  if (envio.fase === "enviando") return "Enviando os arquivos ao WhatsApp";
+  return "Gerando os arquivos para o WhatsApp";
 });
 
 const envioTexto = computed(() => {
@@ -545,11 +545,11 @@ const envioTexto = computed(() => {
   }
   if (envio.fase === "enviando") {
     const onde = envio.grupos ? ` para ${envio.grupos} grupo(s)` : "";
-    return `${envio.total} imagem(ns)${onde} — aguarde a confirmação`;
+    return `${envio.total} arquivo(s)${onde} — aguarde a confirmação`;
   }
   const detalhe = envio.mensagem ? ` · ${envio.mensagem}` : "";
   return envio.total
-    ? `${envio.prontas} de ${envio.total} imagem(ns) prontas${detalhe}`
+    ? `${envio.prontas} de ${envio.total} arquivo(s) pronto(s)${detalhe}`
     : envio.mensagem;
 });
 

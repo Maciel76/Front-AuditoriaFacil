@@ -17,6 +17,7 @@ const navegacao = computed(() => {
     { to: "/lojas", label: "Lojas", ico: "store" },
     { to: "/dispositivos", label: "Dispositivos", ico: "mobile-screen-button" },
     { to: "/auditorias", label: "Auditorias", ico: "clipboard-check" },
+    { to: "/residuais", label: "Residuais", ico: "boxes-stacked" },
     {
       to: "/auditorias/calendario",
       label: "Calendário auditorias",
@@ -74,6 +75,7 @@ const titulo = computed(() => {
     dashboard: "Visão geral",
     lojas: "Lojas",
     dispositivos: "Dispositivos",
+    residuais: "Residuais",
     "loja-perfil": "Perfil da loja",
     auditorias: "Auditorias",
     "auditorias-calendario": "Calendário de auditorias",

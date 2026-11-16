@@ -44,6 +44,7 @@ const form = ref({
   incluirRanking: true,
   incluirRelatorioCorredor: false,
   incluirRelatorioClasse: false,
+  incluirResiduais: false,
   legenda: "",
 });
 
@@ -74,6 +75,11 @@ const PERIODOS = [
 ];
 
 const PAINEIS = [
+  {
+    campo: "incluirResiduais",
+    titulo: "Residuais (PDF)",
+    descricao: "Etiquetas com QR code, código e quantidade dos residuais da auditoria enviada. Usa os mesmos filtros da tela Residuais, independentemente do período das imagens.",
+  },
   {
     campo: "incluirDashboard",
     titulo: "Dashboard",
@@ -148,6 +154,7 @@ function aplicarConexao(data) {
     incluirRanking: config.incluirRanking !== false,
     incluirRelatorioCorredor: !!config.incluirRelatorioCorredor,
     incluirRelatorioClasse: !!config.incluirRelatorioClasse,
+    incluirResiduais: !!config.incluirResiduais,
     legenda: config.legenda || "",
   };
 }
@@ -359,7 +366,7 @@ async function enviarTeste() {
   }
 
   enviandoTeste.value = true;
-  detalheTeste.value = "Preparando imagens";
+  detalheTeste.value = "Preparando arquivos";
   try {
     // O teste usa o dia da última auditoria da loja, não "hoje": num dia sem
     // planilha as telas sairiam vazias e o teste não mostraria nada.
@@ -380,7 +387,7 @@ async function enviarTeste() {
     });
 
     if (retorno?.enviado) {
-      ui.sucesso(`Teste enviado: ${retorno.totalEnviados} imagem(ns)`);
+      ui.sucesso(`Teste enviado: ${retorno.totalEnviados} arquivo(s)`);
       return;
     }
     ui.erro(`Teste não enviado: ${explicarMotivo(retorno)}`);
@@ -428,7 +435,7 @@ async function reenviar() {
   const contexto = ultimoEnvio.value?.contexto || {};
 
   reenviando.value = true;
-  detalheReenvio.value = "Gerando as imagens";
+  detalheReenvio.value = "Gerando os arquivos";
   try {
     const retorno = await compartilhamentoRef.value.dispararParaAuditoria({
       lojaId: auth.isSuperAdmin ? lojaSelecionadaId.value : "",
@@ -437,6 +444,8 @@ async function reenviar() {
         dataAuditoria: contexto.data || null,
         taxaConformidade: contexto.taxaConformidade,
         totalLidos: contexto.totalLidos,
+        auditoriaId: contexto.auditoriaId,
+        residuaisAuditoriaId: contexto.residuaisAuditoriaId,
       },
       teste: true,
       periodoForcado: contexto.periodoCaptura || null,
@@ -446,7 +455,7 @@ async function reenviar() {
       const falhas = retorno.totalFalhas
         ? ` (${retorno.totalFalhas} não entregue(s))`
         : "";
-      ui.sucesso(`Reenviado: ${retorno.totalEnviados} imagem(ns)${falhas}`);
+      ui.sucesso(`Reenviado: ${retorno.totalEnviados} arquivo(s)${falhas}`);
     } else {
       ui.erro(`Não foi possível reenviar: ${explicarMotivo(retorno)}`);
     }
@@ -510,8 +519,8 @@ onBeforeUnmount(pararPolling);
       </h3>
       <p class="muted" style="margin-top: 0">
         Conecte o WhatsApp da loja e escolha os grupos que recebem
-        automaticamente as imagens do dashboard, do ranking e dos relatórios a
-        cada planilha enviada.
+        automaticamente as imagens do dashboard, do ranking e dos relatórios,
+        e o PDF dos residuais a cada planilha enviada.
       </p>
 
       <div v-if="auth.isSuperAdmin" class="field" style="max-width: 420px">
@@ -656,7 +665,7 @@ onBeforeUnmount(pararPolling);
 
         <p class="muted" style="margin-bottom: 6px">
           {{ formatarDataHora(ultimoEnvio.em) }} —
-          {{ ultimoEnvio.totalEnviados }} imagem(ns) para
+          {{ ultimoEnvio.totalEnviados }} arquivo(s) para
           {{ ultimoEnvio.grupos.join(", ") || "—" }}.
         </p>
 
@@ -672,7 +681,7 @@ onBeforeUnmount(pararPolling);
 
         <p class="muted" style="font-size: 13px; margin-bottom: 0">
           <fa icon="lock" />
-          Nenhuma imagem fica guardada no servidor: o reenvio gera tudo de novo
+          Nenhum arquivo fica guardado no servidor: o reenvio gera tudo de novo
           na hora, com o mesmo recorte desta auditoria, e manda para os grupos
           marcados agora.
         </p>
@@ -687,8 +696,8 @@ onBeforeUnmount(pararPolling);
           <span>
             <strong>Enviar automaticamente a cada planilha nova</strong>
             <small class="muted">
-              Ao terminar de processar uma auditoria, as imagens do dia daquela
-              loja vão para os grupos escolhidos.
+              Ao terminar de processar uma auditoria, as imagens e o PDF
+              selecionados vão para os grupos escolhidos.
             </small>
           </span>
         </label>
@@ -703,7 +712,7 @@ onBeforeUnmount(pararPolling);
           <small class="muted">{{ periodoEscolhido.descricao }}</small>
         </div>
 
-        <h4>Painéis enviados</h4>
+        <h4>Conteúdo enviado</h4>
         <label v-for="painel in PAINEIS" :key="painel.campo" class="linha-toggle">
           <input type="checkbox" v-model="form[painel.campo]" />
           <span>
@@ -713,7 +722,7 @@ onBeforeUnmount(pararPolling);
         </label>
 
         <div class="field" style="margin-top: 16px">
-          <label>Legenda da primeira imagem</label>
+          <label>Legenda do primeiro arquivo</label>
           <textarea
             v-model="form.legenda"
             rows="4"

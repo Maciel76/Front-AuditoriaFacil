@@ -1,0 +1,59 @@
+.residuais-page { display: grid; gap: 20px; max-width: 1600px; margin: 0 auto; }
+.residuais-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.residuais-heading h2 { margin: 0; font-size: clamp(20px, 2vw, 28px); letter-spacing: -0.5px; }
+.residuais-heading p { margin: 8px 0 0; }
+.residuais-heading .btn { white-space: nowrap; }
+.residuais-regras { display: flex; flex-wrap: wrap; gap: 10px 24px; padding: 16px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text-dim); }
+.residuais-regras span { display: inline-flex; align-items: center; gap: 8px; }
+.residuais-regras svg { color: var(--accent); }
+.residuais-filtros { display: flex; align-items: end; flex-wrap: wrap; gap: 16px; }
+.residuais-campo { display: grid; gap: 7px; min-width: 0; flex: 1 1 190px; }
+.residuais-campo > span { font-size: 12px; font-weight: 600; color: var(--text-dim); }
+.residuais-campo-auditoria { flex-grow: 2; }
+.residuais-campo input, .residuais-campo select { width: 100%; min-width: 0; min-height: 42px; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-2); color: var(--text); font: inherit; font-size: 14px; }
+.residuais-campo input::placeholder { color: var(--text-mute); }
+.residuais-campo input:focus-visible, .residuais-campo select:focus-visible, .residuais-page button:focus-visible, .residuais-check input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.residuais-atualizar { min-height: 42px; }
+.residuais-origem { display: flex; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; align-items: center; border-left: 3px solid var(--primary); padding-left: 16px; }
+.residuais-origem > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; min-width: 0; }
+.residuais-origem strong { font-size: 15px; }
+.residuais-origem span { font-size: 13px; }
+.residuais-origem small { flex-basis: 100%; overflow-wrap: anywhere; }
+.residuais-origem p { margin: 0; font-size: 12px; max-width: 45ch; }
+.residuais-sem-dados { margin: 0; font-size: 13px; }
+.residuais-busca { display: flex; gap: 16px; flex-wrap: wrap; }
+.residuais-campo-busca { flex-grow: 3; }
+.residuais-lista-cabecalho { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.residuais-totais, .residuais-selecao { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 20px; }
+.residuais-totais strong { font-size: 18px; }
+.residuais-totais span { font-size: 13px; }
+.residuais-check { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; font-size: 13px; }
+.residuais-check input { width: 17px; height: 17px; margin: 0; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+.residuais-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 16px; }
+.residuais-produto { display: grid; align-content: start; gap: 10px; padding: 14px; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.residuais-produto.selecionado { border-color: var(--primary); outline: 1px solid var(--primary); }
+.residuais-produto-topo { display: flex; justify-content: space-between; color: var(--text-dim); }
+.residuais-produto-classe { font-size: 11px; margin: 0; overflow-wrap: anywhere; }
+.residuais-paginacao { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 20px; }
+.residuais-paginacao span { font-size: 13px; }
+.residuais-rodape { font-size: 12px; max-width: 90ch; line-height: 1.7; margin: 0; }
+.residuais-erro { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px; border: 1px solid var(--danger); border-radius: var(--radius-sm); }
+.residuais-print { display: none; }
+@media (max-width: 600px) {
+  .residuais-page { gap: 16px; }
+  .residuais-heading .btn { width: 100%; }
+  .residuais-filtros { padding: 16px; }
+  .residuais-selecao { width: 100%; justify-content: space-between; }
+  .residuais-produto { padding: 10px; }
+  .residuais-regras { gap: 12px; }
+}
+@media print {
+  @page { size: A4 portrait; margin: 10mm; }
+  body.printing-residuais { background: #fff !important; color: #000 !important; margin: 0 !important; padding: 0 !important; }
+  body.printing-residuais > :not(.residuais-print) { display: none !important; }
+  body.printing-residuais > .residuais-print { display: block !important; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .residuais-print-cabecalho { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 2mm; margin-bottom: 4mm; color: #000; }
+  .residuais-print-cabecalho strong { font-size: 12pt; }
+  .residuais-print-cabecalho span { font-size: 9pt; }
+  .residuais-print-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 3mm; }
+}

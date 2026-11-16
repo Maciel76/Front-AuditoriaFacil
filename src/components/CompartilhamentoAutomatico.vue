@@ -204,6 +204,7 @@ async function dispararParaAuditoria({
       config.incluirRanking && "ranking",
       config.incluirRelatorioCorredor && "relatorio-corredor",
       config.incluirRelatorioClasse && "relatorio-classe",
+      config.incluirResiduais && "residuais",
     ].filter(Boolean);
 
     if (!chaves.length) return { ignorado: true, motivo: "sem-painel" };
@@ -242,7 +243,26 @@ async function dispararParaAuditoria({
       chaves,
     );
 
+    const falhasGeracao = [];
+    if (chaves.includes("residuais")) {
+      emit("progresso", "Gerando PDF dos residuais");
+      try {
+        const referenciaId = auditoria?.residuaisAuditoriaId || auditoria?.auditoriaId;
+        const { data: residuais } = await api.get("/residuais", {
+          params: { ...paramsLoja(lojaId), ...(referenciaId ? { auditoriaId: referenciaId } : {}) },
+        });
+        const { gerarPdfResiduais } = await import("@/utils/residuaisPdf");
+        const pdf = await gerarPdfResiduais(residuais);
+        capturas.push({ chave: "residuais", blob: pdf.blob, nomeArquivo: pdf.nomeArquivo });
+        auditoria = { ...auditoria, residuaisAuditoriaId: pdf.auditoriaId };
+      } catch (error) {
+        const erro = error?.response?.data?.error || error?.message || "Não foi possível gerar o PDF de residuais";
+        falhasGeracao.push(...config.grupos.map((grupo) => ({ grupo: grupo.nome || grupo.jid, painel: "residuais", ok: false, erro })));
+      }
+    }
+
     if (!capturas.length) {
+      if (falhasGeracao.length) return { enviado: false, erro: falhasGeracao[0].erro, resultados: falhasGeracao };
       return { ignorado: true, motivo: "sem-imagem" };
     }
 
@@ -256,7 +276,7 @@ async function dispararParaAuditoria({
 
     const fd = new FormData();
     for (const captura of capturas) {
-      fd.append(captura.chave, captura.blob, `${captura.chave}.png`);
+      fd.append(captura.chave, captura.blob, captura.nomeArquivo || `${captura.chave}.png`);
     }
     fd.append(
       "contexto",
@@ -266,6 +286,7 @@ async function dispararParaAuditoria({
         taxaConformidade: auditoria?.taxaConformidade,
         totalLidos: auditoria?.totalLidos,
         auditoriaId: auditoria?.auditoriaId,
+        residuaisAuditoriaId: auditoria?.residuaisAuditoriaId,
         periodoCaptura,
       }),
     );
@@ -277,7 +298,11 @@ async function dispararParaAuditoria({
       timeout: 180_000,
     });
 
-    return data;
+    return {
+      ...data,
+      totalFalhas: (data.totalFalhas || 0) + falhasGeracao.length,
+      resultados: [...(data.resultados || []), ...falhasGeracao],
+    };
   } catch (error) {
     console.error("[whatsapp] compartilhamento automático falhou:", error);
     return {

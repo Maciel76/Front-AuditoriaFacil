@@ -7,6 +7,7 @@ export const TITULOS_PAINEL = {
   ranking: "Ranking de colaboradores",
   "relatorio-corredor": "Relatório por corredor",
   "relatorio-classe": "Relatório por classe",
+  residuais: "Residuais (PDF)",
 };
 
 export function tituloPainel(chave) {
